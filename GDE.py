@@ -127,40 +127,39 @@ def _navigate_to_export_status(iframe_manager):
     sleep(1)
 
 
-def _monitor_status(driver):
+def _monitor_status(driver, timeout_seconds, poll_interval):
     logger.info("🔄 Iniciando monitoreo de estado de exportación...")
+
+    end_states = {"Succeed", "Failed", "Aborted", "Waiting", "Concurrent Waiting"}
+
+    deadline = time.time() + timeout_seconds
     attempt = 0
 
-    while attempt < MAX_STATUS_ATTEMPTS:
+    while time.time() < deadline:
+        attempt += 1
         try:
             driver.find_element(By.CSS_SELECTOR, "span.button_icon.btnIcon[style*='refresh']").click()
-            logger.info("🔄 Refresh %s/%s", attempt + 1, MAX_STATUS_ATTEMPTS)
-            sleep(3)
-
-            status = driver.find_element(
-                By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[3]/div/span'
-            ).text.strip()
-            logger.info("📊 Estado de exportación: %s", status)
-
-            if status in {"Succeed", "Failed", "Aborted", "Waiting", "Concurrent Waiting"}:
-                if status == "Succeed":
-                    logger.info("✅ Exportación completada exitosamente")
-                else:
-                    raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
-                return
-
-            if status == "Running":
-                logger.info("⏳ Exportación en progreso...")
-            else:
-                logger.warning("⚠ Estado desconocido '%s'. Se continuará monitoreando.", status)
-
-            sleep(10)
-            attempt += 1
-
+            logger.info("🔄 Refresh intento %s (restan %.0f s)", attempt, deadline - time.time())
         except Exception as exc:
-            logger.warning("⚠ Error al verificar estado: %s", exc, exc_info=True)
-            sleep(10)
-            attempt += 1
+            logger.warning("⚠ No se pudo presionar Refresh: %s", exc, exc_info=True)
+
+        sleep(2)
+
+        status = driver.find_element(
+            By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[3]/div/span'
+        ).text.strip()
+        logger.info("📊 Estado de exportación: %s", status)
+
+        if status in end_states:
+            if status == "Succeed":
+                logger.info("✅ Exportación completada exitosamente")
+                return
+            raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
+
+        if status != "Running":
+            logger.warning("⚠ Estado desconocido '%s'. Continuando monitoreo...", status)
+
+        sleep(poll_interval)
 
     raise RuntimeError("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
 
@@ -194,6 +193,8 @@ def run_gde(
     download_path=DOWNLOAD_PATH,
     headless=False,
     chrome_extra_args=None,
+    status_timeout=600,
+    status_poll_interval=8,
 ):
     """Ejecuta el flujo completo de exportación para GDE y devuelve el archivo descargado."""
     download_dir = Path(download_path).resolve()
@@ -227,7 +228,7 @@ def run_gde(
         export_started = _trigger_export(driver)
 
         _navigate_to_export_status(iframe_manager)
-        _monitor_status(driver)
+        _monitor_status(driver, status_timeout, status_poll_interval)
         downloaded = _download_export(driver, download_dir, export_started)
 
         logger.info("🎉 Flujo GDE completado")

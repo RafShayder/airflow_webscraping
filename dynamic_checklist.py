@@ -1,8 +1,3 @@
-"""
-Script para navegar a Dynamic checklist > Sub PM Query
-Reutiliza el AuthManager y navega a la sección específica
-"""
-
 import logging
 import time
 from pathlib import Path
@@ -128,7 +123,14 @@ def monitor_export_loader(driver):
 
 
 class DynamicChecklistWorkflow:
-    def __init__(self, driver, wait, download_path=DOWNLOAD_PATH):
+    def __init__(
+        self,
+        driver,
+        wait,
+        download_path=DOWNLOAD_PATH,
+        status_timeout=None,
+        status_poll_interval=30,
+    ):
         self.driver = driver
         self.wait = wait
         self.iframe_manager = IframeManager(driver)
@@ -136,6 +138,10 @@ class DynamicChecklistWorkflow:
         self.download_dir = Path(download_path).resolve()
         self.download_dir.mkdir(parents=True, exist_ok=True)
         self.run_start = time.time()
+        # Mantiene compatibilidad con MAX_STATUS_ATTEMPTS (30 segundos por intento era el valor anterior).
+        default_timeout = MAX_STATUS_ATTEMPTS * 30
+        self.status_timeout = status_timeout if status_timeout is not None else default_timeout
+        self.status_poll_interval = status_poll_interval
 
     def run(self):
         """Ejecuta el flujo principal: navegación, filtros, exportación y verificación."""
@@ -279,37 +285,52 @@ class DynamicChecklistWorkflow:
     def _monitor_log_management(self):
         """Revisa repetidamente el estado de la exportación y dispara la descarga final."""
         logger.info("🔍 Buscando exportación en progreso...")
-        for attempt in range(1, MAX_STATUS_ATTEMPTS + 1):
-            status = None
+        end_states = {"Succeed", "Failed", "Aborted", "Waiting", "Concurrent Waiting"}
+        deadline = time.time() + self.status_timeout
+        attempt = 0
+
+        while time.time() < deadline:
+            attempt += 1
             try:
+                try:
+                    self._click_splitbutton("Refresh", pause=0)
+                except Exception:
+                    logger.warning("⚠ Error al presionar Refresh", exc_info=True)
+                sleep(2)
+
                 target_row = self.driver.find_element(
                     By.XPATH, "//tr[contains(.,'[check_list_mobile/check_list_mobile/custom_excel]')]"
                 )
                 status = target_row.find_element(By.XPATH, ".//td[3]//span").text.strip()
-                logger.info("📊 Status de exportación: %s", status)
-                if status == "Succeed":
-                    logger.info("✅ Exportación completada exitosamente!")
-                    download_button = target_row.find_element(
-                        By.XPATH,
-                        ".//td[11]//div[contains(@class,'export-operation-text') and contains(text(),'Download')]",
-                    )
-                    download_button.click()
-                    logger.info("✓ Click en 'Download' - archivo descargándose...")
-                    sleep(3)
-                    return
+                logger.info(
+                    "📊 Status de exportación: %s (intento %s, quedan %.0f s)",
+                    status,
+                    attempt,
+                    max(0, deadline - time.time()),
+                )
+
+                if status in end_states:
+                    if status == "Succeed":
+                        logger.info("✅ Exportación completada exitosamente!")
+                        download_button = target_row.find_element(
+                            By.XPATH,
+                            ".//td[11]//div[contains(@class,'export-operation-text') and contains(text(),'Download')]",
+                        )
+                        download_button.click()
+                        logger.info("✓ Click en 'Download' - archivo descargándose...")
+                        sleep(3)
+                        return
+                    raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
+
+                if status != "Running":
+                    logger.warning("⚠ Status inesperado: %s", status)
+
+            except RuntimeError:
+                raise
             except Exception:
                 logger.exception("❌ Error al revisar exportación (intento %s)", attempt)
 
-            if status == "Running":
-                logger.info("⏳ Exportación en progreso... (intento %s/%s)", attempt, MAX_STATUS_ATTEMPTS)
-            elif status and status != "Succeed":
-                logger.warning("⚠ Status inesperado: %s", status)
-
-            try:
-                self._click_splitbutton("Refresh", pause=0)
-            except Exception:
-                logger.warning("⚠ Error al presionar Refresh", exc_info=True)
-            sleep(30)
+            sleep(self.status_poll_interval)
 
         message = "Tiempo máximo de espera alcanzado para la exportación"
         logger.error("⏱️ %s", message)
@@ -351,6 +372,8 @@ def run_dynamic_checklist(
     download_path=DOWNLOAD_PATH,
     headless=False,
     chrome_extra_args=None,
+    status_timeout=None,
+    status_poll_interval=30,
 ):
     """Punto de entrada reutilizable para ejecutar el flujo desde Airflow o scripts locales."""
     browser_manager = BrowserManager(
@@ -364,7 +387,13 @@ def run_dynamic_checklist(
         auth_manager = AuthManager(driver)
         require(auth_manager.login(USERNAME, PASSWORD), "No se pudo realizar el login.")
 
-        workflow = DynamicChecklistWorkflow(driver, wait, download_path=download_path)
+        workflow = DynamicChecklistWorkflow(
+            driver,
+            wait,
+            download_path=download_path,
+            status_timeout=status_timeout,
+            status_poll_interval=status_poll_interval,
+        )
         downloaded_file = workflow.run()
     except RuntimeError as exc:
         logger.error("❌ %s", exc)
