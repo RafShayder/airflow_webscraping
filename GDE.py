@@ -106,6 +106,7 @@ def _trigger_export(driver):
     logger.info("📤 Disparando exportación...")
     driver.find_element(By.CSS_SELECTOR, "#test > .sdm_splitbutton_text").click()
     sleep(1)
+    return time.time()
 
 
 def _navigate_to_export_status(iframe_manager):
@@ -164,23 +165,23 @@ def _monitor_status(driver):
     raise RuntimeError("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
 
 
-def _download_export(driver, download_dir):
+def _download_export(driver, download_dir, started_at, timeout=120):
     logger.info("📥 Preparando descarga...")
-    before = set(p for p in download_dir.iterdir() if p.is_file())
-
+    before = {p for p in download_dir.iterdir() if p.is_file()}
     driver.find_element(
         By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[11]/div/div[3]'
     ).click()
     logger.info("✓ Botón de descarga presionado")
 
-    timeout = 60
-    start = time.time()
+    deadline = time.time() + timeout
 
-    while time.time() - start < timeout:
-        current = set(p for p in download_dir.iterdir() if p.is_file())
-        new_files = [p for p in current - before if not p.name.endswith(".crdownload")]
-        if new_files:
-            latest = max(new_files, key=lambda p: p.stat().st_mtime)
+    while time.time() < deadline:
+        current = {p for p in download_dir.iterdir() if p.is_file()}
+        candidates = [
+            p for p in current - before if not p.name.endswith(".crdownload") and p.stat().st_mtime >= started_at
+        ]
+        if candidates:
+            latest = max(candidates, key=lambda p: p.stat().st_mtime)
             logger.info("✅ Descarga detectada: %s", latest.name)
             return latest
         sleep(2)
@@ -223,11 +224,11 @@ def run_gde(
         _apply_task_type_filters(driver, wait, OPTIONS_TO_SELECT)
         _apply_date_filters(driver)
         _apply_filters(driver)
-        _trigger_export(driver)
+        export_started = _trigger_export(driver)
 
         _navigate_to_export_status(iframe_manager)
         _monitor_status(driver)
-        downloaded = _download_export(driver, download_dir)
+        downloaded = _download_export(driver, download_dir, export_started)
 
         logger.info("🎉 Flujo GDE completado")
         return downloaded
