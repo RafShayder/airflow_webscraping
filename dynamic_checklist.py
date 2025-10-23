@@ -20,6 +20,8 @@ from src.filter_manager import FilterManager
 from src.iframe_manager import IframeManager
 
 
+# Flujo automatizado para navegar a Dynamic checklist, aplicar filtros y descargar el reporte.
+# Todas las operaciones están estructuradas en helpers y métodos privados dentro del workflow.
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +33,7 @@ def require(condition, message):
 
 def navigate_to_menu_item(driver, wait, menu_index, item_title, item_name):
     try:
+        # Localizamos todos los items del menú lateral; algunos submenús requieren hover previo.
         menu_items = wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, ".menu-item.sideItem"))
         logger.info("ℹ Encontrados %s elementos del menú", len(menu_items))
 
@@ -44,6 +47,7 @@ def navigate_to_menu_item(driver, wait, menu_index, item_title, item_name):
         logger.info("✓ Hover realizado sobre el elemento del menú (índice %s)", menu_index)
         sleep(1)
 
+        # Tras el hover, el ítem se vuelve clickeable mediante su título visible.
         wait.until(EC.element_to_be_clickable((By.XPATH, f"//span[@title='{item_title}']"))).click()
         logger.info("✓ %s seleccionado", item_name)
         sleep(2)
@@ -57,6 +61,7 @@ def navigate_to_menu_item(driver, wait, menu_index, item_title, item_name):
 
 def navigate_to_submenu_item(wait, submenu_xpath, submenu_name):
     try:
+        # El submenú se muestra después de expandir la opción padre; esperamos hasta poder hacer click.
         wait.until(EC.element_to_be_clickable((By.XPATH, submenu_xpath))).click()
         logger.info("✓ %s seleccionado", submenu_name)
         sleep(3)
@@ -75,12 +80,14 @@ def monitor_export_loader(driver):
     case_detected = None
     start_time = time.time()
 
+    # Existen dos comportamientos: descarga directa o exportación en segundo plano (Log Management).
     while time.time() - start_time < 300:
         try:
             info_message = driver.find_elements(
                 By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
             )
             if info_message:
+                # El mensaje de aviso indica que la exportación continuará en background.
                 case_detected = "log_management"
                 logger.info("✓ Caso 2 detectado: Mensaje de aviso apareció - navegar a Log Management")
                 break
@@ -92,6 +99,7 @@ def monitor_export_loader(driver):
                 logger.info("ℹ Loader desapareció - verificando si aparece mensaje modal...")
                 additional_start = time.time()
 
+                # Incluso sin loader, el mensaje puede aparecer unos segundos más tarde.
                 while time.time() - additional_start < 10:
                     info_message = driver.find_elements(
                         By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
@@ -105,6 +113,7 @@ def monitor_export_loader(driver):
                     sleep(1)
 
                 if not case_detected:
+                    # Si el loader desaparece y no aparece aviso, la descarga inicia de inmediato.
                     case_detected = "direct_download"
                     logger.info("✓ Caso 1 confirmado: Loader desapareció y no apareció mensaje - descarga directa")
 
@@ -133,6 +142,7 @@ class DynamicChecklistWorkflow:
     ):
         self.driver = driver
         self.wait = wait
+        # Gestores utilitarios reutilizados en el flujo para manejar iframes, filtros y navegador.
         self.iframe_manager = IframeManager(driver)
         self.filter_manager = FilterManager(driver, wait)
         self.download_dir = Path(download_path).resolve()
@@ -146,18 +156,22 @@ class DynamicChecklistWorkflow:
     def run(self):
         """Ejecuta el flujo principal: navegación, filtros, exportación y verificación."""
         self.run_start = time.time()
+        # 1) Preparación de contexto: asegurar iframe y navegar hasta Sub PM Query.
         self._ensure_main_iframe()
         self.iframe_manager.switch_to_default_content()
         self._open_dynamic_checklist()
         self._open_sub_pm_query()
+        # 2) Configuración de filtros sobre el iframe recién cargado.
         self._prepare_filters()
         self._select_last_month()
         self._click_splitbutton("Filtrar")
         self._wait_for_list()
+        # 3) Lanzamos la exportación y esperamos que la plataforma indique su estado.
         self._click_splitbutton("Export sub WO detail")
         self._wait_for_loader()
         case_detected = monitor_export_loader(self.driver)
         require(case_detected, "No se detectó resultado de exportación antes del timeout")
+        # 4) Dependiendo del caso, completamos el flujo de exportación.
         self._handle_export_result(case_detected)
         downloaded_file = self._verify_download()
         logger.info("🎉 Script completado exitosamente!")
@@ -193,6 +207,7 @@ class DynamicChecklistWorkflow:
     def _prepare_filters(self):
         """Cambia al iframe nuevo y abre el panel de filtros."""
         logger.info("⏳ Esperando a que cargue la sección Sub PM Query...")
+        # La sección abre un iframe adicional; tomamos el último disponible.
         self._switch_to_last_iframe("Sub PM Query")
         self.filter_manager.wait_for_filters_ready()
         logger.info("✅ Sección Sub PM Query cargada correctamente")
@@ -207,11 +222,13 @@ class DynamicChecklistWorkflow:
         )
         if len(radio_elements) < 8:
             raise RuntimeError(f"No se encontraron suficientes elementos radio. Encontrados: {len(radio_elements)}")
+        # El octavo elemento corresponde al rango 'Último mes' en la sección Complete time.
         radio_elements[7].click()
         logger.info("✓ 'Último mes' seleccionado en Complete time (8vo elemento)")
         sleep(1)
 
     def _click_splitbutton(self, label, pause=2):
+        # Los splitbuttons comparten clase; filtramos con el texto visible para reutilizar el helper.
         button = self.wait.until(
             EC.element_to_be_clickable((By.XPATH, f"//span[@class='sdm_splitbutton_text' and contains(text(),'{label}')]"))
         )
@@ -223,6 +240,7 @@ class DynamicChecklistWorkflow:
     def _wait_for_list(self):
         """Confirma que la tabla principal esté disponible tras aplicar filtros."""
         logger.info("⏳ Esperando a que cargue la lista...")
+        # Aprovechamos el texto "Total" de la paginación para validar que la tabla ya está renderizada.
         total_element = self.wait.until(
             EC.presence_of_element_located((By.XPATH, "//span[@class='el-pagination__total' and contains(text(),'Total')]"))
         )
@@ -231,6 +249,7 @@ class DynamicChecklistWorkflow:
     def _wait_for_loader(self):
         """Espera el loader que aparece cuando inicia la exportación."""
         logger.info("⏳ Esperando loader de exportación...")
+        # Antes de monitorear casos, confirmamos que la plataforma haya lanzado el proceso.
         self.wait.until(
             EC.presence_of_element_located((By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exportando')]"))
         )
@@ -239,6 +258,7 @@ class DynamicChecklistWorkflow:
     def _handle_export_result(self, case_detected):
         """Gestiona las dos variantes de exportación (directa o asincrónica)."""
         logger.info("🔍 Verificando resultado de exportación...")
+        # Según el caso detectado, decidimos permanecer en la página o ir a Log Management.
         if case_detected == "log_management":
             logger.info("ℹ Mensaje de información detectado: Exportación en segundo plano")
             self._process_log_management()
@@ -263,6 +283,7 @@ class DynamicChecklistWorkflow:
         logger.info("⏳ Cambiando al iframe de Data Export Logs...")
         self._switch_to_last_iframe("Data Export Logs")
         self._wait_for_list()
+        # Una vez en la tabla de logs, monitorizamos el estado hasta poder descargar.
         self._monitor_log_management()
 
     def _close_export_prompt(self):
@@ -280,6 +301,7 @@ class DynamicChecklistWorkflow:
             logger.info("✓ Mensaje de información cerrado")
             sleep(2)
         except Exception:
+            # El cierre no es crítico, pero dejamos registro si falla.
             logger.warning("⚠ No se pudo cerrar el mensaje", exc_info=True)
 
     def _monitor_log_management(self):
@@ -289,6 +311,7 @@ class DynamicChecklistWorkflow:
         deadline = time.time() + self.status_timeout
         attempt = 0
 
+        # Consultamos la tabla hasta obtener un estado terminal o agotar el timeout configurado.
         while time.time() < deadline:
             attempt += 1
             try:
@@ -298,6 +321,7 @@ class DynamicChecklistWorkflow:
                     logger.warning("⚠ Error al presionar Refresh", exc_info=True)
                 sleep(2)
 
+                # Filtramos directamente la fila del job relacionado con Dynamic checklist.
                 target_row = self.driver.find_element(
                     By.XPATH, "//tr[contains(.,'[check_list_mobile/check_list_mobile/custom_excel]')]"
                 )
@@ -312,6 +336,7 @@ class DynamicChecklistWorkflow:
                 if status in end_states:
                     if status == "Succeed":
                         logger.info("✅ Exportación completada exitosamente!")
+                        # El enlace de descarga aparece en la misma fila; hacemos click para iniciar el archivo.
                         download_button = target_row.find_element(
                             By.XPATH,
                             ".//td[11]//div[contains(@class,'export-operation-text') and contains(text(),'Download')]",
@@ -341,6 +366,7 @@ class DynamicChecklistWorkflow:
         logger.info("⏳ Verificando que el archivo se haya descargado...")
         deadline = time.time() + timeout
         while time.time() < deadline:
+            # Listamos archivos recientes ignorando descargas en progreso (.crdownload).
             candidates = [
                 path
                 for path in self.download_dir.iterdir()
@@ -361,6 +387,7 @@ class DynamicChecklistWorkflow:
     def _switch_to_last_iframe(self, context_name):
         iframe_count = self.iframe_manager.get_iframe_count()
         require(iframe_count > 0, f"No se encontraron iframes en la sección {context_name}")
+        # Muchas vistas abren iframes incrementales; asumimos que el último es el más reciente.
         require(
             self.iframe_manager.switch_to_iframe(iframe_count - 1),
             f"No se pudo cambiar al iframe de {context_name}",
@@ -376,6 +403,7 @@ def run_dynamic_checklist(
     status_poll_interval=30,
 ):
     """Punto de entrada reutilizable para ejecutar el flujo desde Airflow o scripts locales."""
+    # El gestor de navegador controla la configuración de Chrome (descargas, headless, parámetros extra).
     browser_manager = BrowserManager(
         download_path=download_path,
         headless=headless,
@@ -384,9 +412,11 @@ def run_dynamic_checklist(
     driver, wait = browser_manager.create_driver()
     downloaded_file = None
     try:
+        # 1) Autenticamos con las credenciales configuradas para acceder al módulo.
         auth_manager = AuthManager(driver)
         require(auth_manager.login(USERNAME, PASSWORD), "No se pudo realizar el login.")
 
+        # 2) Construimos el workflow con parámetros personalizados (descargas, timeouts, etc.).
         workflow = DynamicChecklistWorkflow(
             driver,
             wait,
