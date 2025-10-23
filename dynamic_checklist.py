@@ -83,37 +83,38 @@ def monitor_export_loader(driver):
     # Existen dos comportamientos: descarga directa o exportación en segundo plano (Log Management).
     while time.time() - start_time < 300:
         try:
+            # 1. Buscar mensaje de aviso (puede aparecer mientras el loader está visible)
             info_message = driver.find_elements(
                 By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
             )
             if info_message:
-                # El mensaje de aviso indica que la exportación continuará en background.
                 case_detected = "log_management"
                 logger.info("✓ Caso 2 detectado: Mensaje de aviso apareció - navegar a Log Management")
                 break
 
+            # 2. Verificar si el loader desapareció
             loader_present = driver.find_elements(
                 By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exportando')]"
             )
+            
             if not loader_present:
-                logger.info("ℹ Loader desapareció - verificando si aparece mensaje modal...")
+                logger.info("ℹ Loader desapareció - esperando mensaje de aviso (puede aparecer en 2-3 segundos)...")
+                
+                # 3. Esperar un poco más por el mensaje de aviso
+                # (El mensaje puede aparecer DESPUÉS de que el loader desaparece)
                 additional_start = time.time()
-
-                # Incluso sin loader, el mensaje puede aparecer unos segundos más tarde.
                 while time.time() - additional_start < 10:
                     info_message = driver.find_elements(
                         By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
                     )
                     if info_message:
                         case_detected = "log_management"
-                        logger.info(
-                            "✓ Caso 2 detectado: Mensaje de aviso apareció después del loader - navegar a Log Management"
-                        )
+                        logger.info("✓ Caso 2 detectado: Mensaje de aviso apareció después del loader - navegar a Log Management")
                         break
                     sleep(1)
 
+                # 4. Si no apareció el mensaje, es descarga directa
                 if not case_detected:
-                    # Si el loader desaparece y no aparece aviso, la descarga inicia de inmediato.
                     case_detected = "direct_download"
                     logger.info("✓ Caso 1 confirmado: Loader desapareció y no apareció mensaje - descarga directa")
 
@@ -440,5 +441,6 @@ def run_dynamic_checklist(
 if __name__ == "__main__":
     if not logging.getLogger().hasHandlers():
         logging.basicConfig(level=logging.INFO)
+
 
     run_dynamic_checklist()
