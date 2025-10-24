@@ -18,6 +18,10 @@ import sys
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
+
+# Agregar ruta de proyectos al PYTHONPATH para Airflow
+if '/opt/airflow/proyectos' not in sys.path:
+    sys.path.insert(0, '/opt/airflow/proyectos')
 from pathlib import Path
 from typing import Iterable, List, Sequence, Tuple
 

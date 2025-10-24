@@ -1,3 +1,12 @@
+# Core dependencies para scraping
 selenium==4.37.0
 webdriver-manager==4.0.2
 python-dotenv==1.1.1
+
+# Dependencies para ingesta de datos
+pandas==2.2.3
+openpyxl==3.1.5
+psycopg2-binary==2.9.10
+
+# Dependencies para Airflow (opcional, ya incluidas en imagen base)
+# apache-airflow==3.1.0
