@@ -13,6 +13,8 @@ from config import (
     MAX_STATUS_ATTEMPTS,
     PASSWORD,
     USERNAME,
+    DYNAMIC_CHECKLIST_OUTPUT_FILENAME,
+    EXPORT_OVERWRITE_FILES,
 )
 from src.auth_manager import AuthManager
 from src.browser_manager import BrowserManager
@@ -140,6 +142,7 @@ class DynamicChecklistWorkflow:
         download_path=DOWNLOAD_PATH,
         status_timeout=None,
         status_poll_interval=30,
+        output_filename=None,
     ):
         self.driver = driver
         self.wait = wait
@@ -153,6 +156,21 @@ class DynamicChecklistWorkflow:
         default_timeout = MAX_STATUS_ATTEMPTS * 30
         self.status_timeout = status_timeout if status_timeout is not None else default_timeout
         self.status_poll_interval = status_poll_interval
+        self.desired_filename = (output_filename or "").strip() or None
+        self._overwrite_files = EXPORT_OVERWRITE_FILES
+
+    def _resolve_target_filename(self, desired_name):
+        target = self.download_dir / Path(desired_name).name
+        if self._overwrite_files or not target.exists():
+            return target
+        stem = target.stem
+        suffix = target.suffix
+        counter = 1
+        while True:
+            candidate = target.with_name(f"{stem}_{counter}{suffix}")
+            if not candidate.exists():
+                return candidate
+            counter += 1
 
     def run(self):
         """Ejecuta el flujo principal: navegación, filtros, exportación y verificación."""
@@ -378,6 +396,18 @@ class DynamicChecklistWorkflow:
             if candidates:
                 latest = max(candidates, key=lambda p: p.stat().st_mtime)
                 logger.info("✓ Archivo descargado detectado: %s", latest.name)
+                if self.desired_filename:
+                    target_path = self._resolve_target_filename(self.desired_filename)
+                    try:
+                        if self._overwrite_files and target_path.exists():
+                            target_path.unlink()
+                        latest.rename(target_path)
+                        latest = target_path
+                        logger.info("📦 Archivo renombrado a: %s", target_path.name)
+                    except Exception as exc:
+                        message = f"No se pudo renombrar el archivo descargado a {target_path.name}"
+                        logger.error("❌ %s", message, exc_info=True)
+                        raise RuntimeError(message) from exc
                 return latest
             sleep(2)
 
@@ -402,6 +432,7 @@ def run_dynamic_checklist(
     chrome_extra_args=None,
     status_timeout=None,
     status_poll_interval=30,
+    output_filename=None,
 ):
     """Punto de entrada reutilizable para ejecutar el flujo desde Airflow o scripts locales."""
     # El gestor de navegador controla la configuración de Chrome (descargas, headless, parámetros extra).
@@ -424,6 +455,7 @@ def run_dynamic_checklist(
             download_path=download_path,
             status_timeout=status_timeout,
             status_poll_interval=status_poll_interval,
+            output_filename=output_filename if output_filename is not None else DYNAMIC_CHECKLIST_OUTPUT_FILENAME,
         )
         downloaded_file = workflow.run()
     except RuntimeError as exc:

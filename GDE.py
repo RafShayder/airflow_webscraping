@@ -18,6 +18,8 @@ from config import (
     OPTIONS_TO_SELECT,
     PASSWORD,
     USERNAME,
+    GDE_OUTPUT_FILENAME,
+    EXPORT_OVERWRITE_FILES,
 )
 from src.auth_manager import AuthManager
 from src.browser_manager import BrowserManager
@@ -175,7 +177,21 @@ def _monitor_status(driver, timeout_seconds, poll_interval):
     raise RuntimeError("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
 
 
-def _download_export(driver, download_dir, started_at, timeout=120):
+def _resolve_target_filename(directory, desired_name, overwrite):
+    target = directory / Path(desired_name).name
+    if overwrite or not target.exists():
+        return target
+    stem = target.stem
+    suffix = target.suffix
+    counter = 1
+    while True:
+        candidate = target.with_name(f"{stem}_{counter}{suffix}")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def _download_export(driver, download_dir, started_at, timeout=120, output_filename=None):
     logger.info("📥 Preparando descarga...")
     before = {p for p in download_dir.iterdir() if p.is_file()}
     driver.find_element(
@@ -194,6 +210,18 @@ def _download_export(driver, download_dir, started_at, timeout=120):
         if candidates:
             latest = max(candidates, key=lambda p: p.stat().st_mtime)
             logger.info("✅ Descarga detectada: %s", latest.name)
+            if output_filename:
+                target_path = _resolve_target_filename(download_dir, output_filename, EXPORT_OVERWRITE_FILES)
+                try:
+                    if EXPORT_OVERWRITE_FILES and target_path.exists():
+                        target_path.unlink()
+                    latest.rename(target_path)
+                    latest = target_path
+                    logger.info("📦 Archivo renombrado a: %s", target_path.name)
+                except Exception as exc:
+                    message = f"No se pudo renombrar el archivo descargado a {target_path.name}"
+                    logger.error("❌ %s", message, exc_info=True)
+                    raise RuntimeError(message) from exc
             return latest
         sleep(2)
 
@@ -207,6 +235,7 @@ def run_gde(
     chrome_extra_args=None,
     status_timeout=600,
     status_poll_interval=8,
+    output_filename=None,
 ):
     """Ejecuta el flujo completo de exportación para GDE y devuelve el archivo descargado."""
     download_dir = Path(download_path).resolve()
@@ -245,7 +274,8 @@ def run_gde(
         # 3) Seguimiento del job de exportación y descarga del archivo resultante.
         _navigate_to_export_status(iframe_manager)
         _monitor_status(driver, status_timeout, status_poll_interval)
-        downloaded = _download_export(driver, download_dir, export_started)
+        final_name = (output_filename or GDE_OUTPUT_FILENAME or "").strip() or None
+        downloaded = _download_export(driver, download_dir, export_started, output_filename=final_name)
 
         logger.info("🎉 Flujo GDE completado")
         return downloaded

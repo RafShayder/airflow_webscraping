@@ -35,6 +35,9 @@ DATE_MODE=2  # 1: Fechas manuales | 2: Último mes
 DATE_FROM=2025-09-01
 DATE_TO=2025-09-10
 OPTIONS_TO_SELECT=CM,OPM
+GDE_OUTPUT_FILENAME= # opcional
+DYNAMIC_CHECKLIST_OUTPUT_FILENAME= # opcional
+EXPORT_OVERWRITE_FILES=true  # false genera nombres incrementales
 ```
 
 

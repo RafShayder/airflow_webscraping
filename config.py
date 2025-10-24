@@ -33,3 +33,10 @@ OPTIONS_TO_SELECT = [opt.strip() for opt in options_str.split(",")]
 DATE_MODE = int(os.getenv("DATE_MODE", "2"))  # 1: Fechas manuales | 2: Último mes
 DATE_FROM = os.getenv("DATE_FROM", "2025-09-01")
 DATE_TO = os.getenv("DATE_TO", "2025-09-10")
+
+# Nombres personalizados para los archivos exportados
+GDE_OUTPUT_FILENAME = os.getenv("GDE_OUTPUT_FILENAME")
+DYNAMIC_CHECKLIST_OUTPUT_FILENAME = os.getenv("DYNAMIC_CHECKLIST_OUTPUT_FILENAME")
+
+# Política de manejo cuando el archivo destino ya existe (true = reemplazar)
+EXPORT_OVERWRITE_FILES = os.getenv("EXPORT_OVERWRITE_FILES", "true").strip().lower() == "true"
