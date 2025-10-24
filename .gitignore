@@ -168,3 +168,6 @@ downloads/
 # Logs del sistema
 *.log
 logs/
+
+README_Docker.md
+README.md

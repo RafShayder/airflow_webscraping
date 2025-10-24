@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Base de datos PostgreSQL
   postgres:
-    image: postgres:15
+    image: postgres:17
     container_name: scraper_postgres
     environment:
       POSTGRES_DB: scraper_db

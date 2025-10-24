@@ -1,8 +1,3 @@
--- =====================================================
--- Script de inicialización de la base de datos
--- Se ejecuta automáticamente al crear el contenedor
--- =====================================================
-
 -- Crear esquema raw
 CREATE SCHEMA IF NOT EXISTS raw;
 
@@ -21,3 +16,5 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA raw TO scraper_user;
 -- Configurar permisos por defecto
 ALTER DEFAULT PRIVILEGES IN SCHEMA raw GRANT ALL ON TABLES TO scraper_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA raw GRANT ALL ON SEQUENCES TO scraper_user;
+
+-- Solo para el contenedor

@@ -1,51 +1,78 @@
-# =====================================================
-# Dockerfile básico para scraper-integratel
-# =====================================================
+FROM python:3.13-slim
 
-FROM python:3.11-slim
+# Evitar pyc y forzar logs inmediatos
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Instalar dependencias del sistema para Chrome y Selenium
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    unzip \
+# Dependencias de sistema requeridas por Chrome y Selenium
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    shared-mime-info \
+    unzip \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Google Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar Chrome for Testing y Chromedriver emparejados
+RUN set -eux; \
+    CHROME_VERSION="$(curl -sSL https://storage.googleapis.com/chrome-for-testing-public/LATEST_RELEASE_STABLE)"; \
+    wget -q -O /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip"; \
+    wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"; \
+    unzip /tmp/chrome.zip -d /opt; \
+    unzip /tmp/chromedriver.zip -d /opt; \
+    mv /opt/chrome-linux64 /opt/chrome; \
+    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
+    ln -s /opt/chrome/chrome /usr/local/bin/google-chrome; \
+    chmod +x /usr/local/bin/chromedriver /usr/local/bin/google-chrome; \
+    rm -rf /tmp/chrome.zip /tmp/chromedriver.zip /opt/chromedriver-linux64
 
-# Instalar ChromeDriver
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3) \
-    && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}/chromedriver_linux64.zip" \
-    && unzip /tmp/chromedriver.zip -d /tmp/ \
-    && mv /tmp/chromedriver /usr/local/bin/chromedriver \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm /tmp/chromedriver.zip
-
-# Crear directorio de trabajo
+# Directorio de trabajo
 WORKDIR /app
 
-# Copiar archivos de dependencias
-COPY requirements.txt .
-
 # Instalar dependencias de Python
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copiar código fuente
+# Copiar el código
 COPY . .
 
-# Crear directorio para descargas
+# Directorio para descargas
 RUN mkdir -p /app/temp
 
-# Variables de entorno por defecto
-ENV PYTHONPATH=/app
-ENV DOWNLOAD_PATH=/app/temp
-ENV HEADLESS=true
+# Variables por defecto
+ENV PYTHONPATH=/app \
+    DOWNLOAD_PATH=/app/temp \
+    HEADLESS=true
 
-# Comando por defecto - mantener contenedor vivo para ejecución manual
+# Mantener contenedor disponible para ejecuciones manuales
 CMD ["tail", "-f", "/dev/null"]

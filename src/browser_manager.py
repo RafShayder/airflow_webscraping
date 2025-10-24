@@ -5,6 +5,7 @@ Centraliza la configuración de Chrome para reutilización en múltiples scripts
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from pathlib import Path
 
@@ -85,7 +86,7 @@ class BrowserManager:
         options = self.setup_chrome_options()
         
         # Crear driver
-        self.driver = webdriver.Chrome(options=options)
+        self.driver = webdriver.Chrome(options=options, service=Service())
         self.wait = WebDriverWait(self.driver, self.wait_timeout)
         
         return self.driver, self.wait
