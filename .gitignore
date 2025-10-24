@@ -171,3 +171,5 @@ logs/
 
 README_Docker.md
 README.md
+tests/
+requirements-dev.txt

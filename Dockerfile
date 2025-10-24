@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     fonts-liberation \
+    gnupg \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -42,18 +43,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Chrome for Testing y Chromedriver emparejados
-RUN set -eux; \
-    CHROME_VERSION="$(curl -sSL https://storage.googleapis.com/chrome-for-testing-public/LATEST_RELEASE_STABLE)"; \
-    wget -q -O /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip"; \
-    wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"; \
-    unzip /tmp/chrome.zip -d /opt; \
-    unzip /tmp/chromedriver.zip -d /opt; \
-    mv /opt/chrome-linux64 /opt/chrome; \
-    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
-    ln -s /opt/chrome/chrome /usr/local/bin/google-chrome; \
-    chmod +x /usr/local/bin/chromedriver /usr/local/bin/google-chrome; \
-    rm -rf /tmp/chrome.zip /tmp/chromedriver.zip /opt/chromedriver-linux64
+# Instalar Chromium y ChromeDriver (compatible con ARM64)
+RUN apt-get update && apt-get install -y chromium chromium-driver \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/chromium /usr/local/bin/google-chrome \
+    && ln -s /usr/bin/chromedriver /usr/local/bin/chromedriver
 
 # Directorio de trabajo
 WORKDIR /app

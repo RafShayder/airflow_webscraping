@@ -289,5 +289,9 @@ if __name__ == "__main__":
     if not logging.getLogger().hasHandlers():
         logging.basicConfig(level=logging.INFO)
 
-    file_path = run_gde()
+    # Leer modo headless desde variable de entorno
+    import os
+    headless = os.getenv("HEADLESS", "false").strip().lower() == "true"
+    
+    file_path = run_gde(headless=headless)
     logger.info("📂 Archivo final: %s", file_path)

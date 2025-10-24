@@ -33,20 +33,33 @@ class FilterManager:
         try:
             logger.info("⏳ Esperando a que la página esté lista para filtros...")
             
-            self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Opciones de filtrado')]"))
-            )
-            logger.info("✓ 'Opciones de filtrado' está disponible")
-            
+            # Primero esperamos por el ícono de filtro (más confiable que el texto)
             self.wait.until(
                 EC.presence_of_element_located((By.CLASS_NAME, "v-icon-o-filter"))
             )
             logger.info("✓ Botones de filtro están disponibles")
             
+            # Opcional: verificar si el texto también está presente
+            try:
+                self.driver.find_element(By.XPATH, "//*[contains(text(),'Opciones de filtrado')]")
+                logger.info("✓ 'Opciones de filtrado' está disponible")
+            except:
+                logger.warning("⚠ Texto 'Opciones de filtrado' no encontrado, pero el ícono de filtro sí está presente")
+            
             logger.info("✅ Página lista para aplicar filtros")
         except Exception as exc:
             message = f"Error al preparar filtros: {exc}"
             logger.error("❌ %s", message, exc_info=True)
+            
+            # Intentar tomar screenshot para debug
+            try:
+                import time
+                screenshot_path = f"/app/temp/error_screenshot_{int(time.time())}.png"
+                self.driver.save_screenshot(screenshot_path)
+                logger.info(f"📸 Screenshot guardado en: {screenshot_path}")
+            except:
+                pass
+            
             raise RuntimeError(message) from exc
     
     def open_filter_panel(self, method="simple"):

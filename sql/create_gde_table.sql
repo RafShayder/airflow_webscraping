@@ -1,9 +1,8 @@
 CREATE TABLE raw.dynamic_checklist_tasks (
-    -- Identificadores únicos
     task_id VARCHAR(50) PRIMARY KEY,
     remedy_id VARCHAR(50),
     
-    -- Timestamps principales
+    -- Timestamps
     create_time TIMESTAMP,
     dispatch_time TIMESTAMP,
     accept_time TIMESTAMP,
@@ -133,5 +132,5 @@ CREATE TABLE raw.dynamic_checklist_tasks (
     
     -- Metadatos de ingesta
     fecha_ingesta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    archivo_origen VARCHAR(255),
+    archivo_origen VARCHAR(255)
 );
