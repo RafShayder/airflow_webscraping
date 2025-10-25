@@ -21,13 +21,12 @@ logger = logging.getLogger(__name__)
 
 # Argumentos por defecto del DAG
 default_args = {
-    'owner': 'data-team',
+    'owner': 'adragui',
     'depends_on_past': False,
     'start_date': datetime(2024, 10, 1),
-    'email': ['admin@example.com'],
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 2,
+    'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
