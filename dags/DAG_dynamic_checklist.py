@@ -49,6 +49,8 @@ def _hydrate_teleows_env():
             "date_mode": "DATE_MODE",
             "date_from": "DATE_FROM",
             "date_to": "DATE_TO",
+            "dynamic_checklist_output_filename": "DYNAMIC_CHECKLIST_OUTPUT_FILENAME",
+            "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
         }.items():
             value = conn.extra_dejson.get(key)
             if value is not None:

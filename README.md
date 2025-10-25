@@ -1,194 +1,165 @@
-# Teleows Scraper – Despliegue Docker + Airflow
+# Guía de despliegue con Docker y Airflow
 
-Esta guía describe cómo dejar operativa la automatización en un servidor de producción usando contenedores Docker y, opcionalmente, un DAG de Airflow para orquestar los flujos.
+Esta guía explica, paso a paso, cómo preparar el entorno, construir la imagen con Chrome/Chromedriver incluido y dejar los contenedores listos para producción.
 
----
 
-## 1. Requisitos del servidor
+## 1. Chrome y ChromeDriver requeridos
 
-- Docker Engine y Docker Compose v2
-- Git
-- Credenciales del portal Integratel (usuario/clave)
-- Credenciales de la base de datos PostgreSQL donde se almacenarán los datos
-- (Opcional) Airflow 2.x o un servicio de orquestación similar, con capacidad para ejecutar contenedores o tareas Python
+La imagen se construye sobre `apache/airflow:3.1.0-python3.12` y espera encontrar los binarios de Chrome y Chromedriver en la raíz del repositorio (misma carpeta del `Dockerfile`):
 
----
+- `chrome_140_amd64.deb`
+- `chromedriver-linux64.zip`
 
-## 2. Clonar el repositorio
-
-```bash
-git clone https://github.com/adraguidev/scraper-teleows.git
-cd scraper-teleows
-```
+Estos archivos ya están versionados. 
 
 ---
 
-## 3. Configuración de variables (env vars / env.yaml)
+## 2. Configuración de variables (`.env` y `env.yaml`)
 
-El paquete `proyectos/teleows/config.py` carga valores en el siguiente orden de prioridad:
-1. Variables de entorno exportadas en el sistema o definidas en Airflow.
-2. Variables definidas en `.env` (copia de `proyectos/teleows/env.example`).
-3. Valores definidos en `proyectos/teleows/env.yaml` (opcional).
+El módulo `proyectos/teleows/config.py` carga variables en este orden:
+1. Variables de entorno (por ejemplo, definidas en Airflow o exportadas en la shell).
+2. Variables del archivo `.env`.
+3. Valores de `env.yaml`.
+
+Variables clave:
 
 | Variable | Descripción | Default |
 | --- | --- | --- |
-| `USERNAME` / `PASSWORD` | Credenciales del portal Integratel | **Obligatorio** |
-| `DOWNLOAD_PATH` | Carpeta donde Chrome deposita los archivos descargados | `/opt/airflow/proyectos/teleows/temp` en Airflow, `~/Downloads/scraper_downloads` en local |
-| `MAX_IFRAME_ATTEMPTS` / `MAX_STATUS_ATTEMPTS` | Reintentos para localizar iframes y estados de exportación | `60` |
-| `OPTIONS_TO_SELECT` | Lista (separada por comas) para los filtros de Task Type | `CM,OPM` |
+| `USERNAME` / `PASSWORD` | Credenciales teleows | **Obligatorio** |
+| `DOWNLOAD_PATH` | Carpeta donde Chrome guarda las descargas | `./tmp` |
+| `MAX_IFRAME_ATTEMPTS` / `MAX_STATUS_ATTEMPTS` | Reintentos Selenium | `60` |
+| `OPTIONS_TO_SELECT` | Task Types separados por comas | `CM,OPM` |
 | `DATE_MODE` | `1` = fechas manuales, `2` = último mes | `2` |
-| `DATE_FROM` / `DATE_TO` | Rango de fechas manual cuando `DATE_MODE=1` | `2025-09-01` / `2025-09-10` |
-| `GDE_OUTPUT_FILENAME` / `DYNAMIC_CHECKLIST_OUTPUT_FILENAME` | Nombre personalizado para los archivos exportados | vacíos (usa el nombre original) |
-| `EXPORT_OVERWRITE_FILES` | `true` reemplaza archivos existentes, `false` genera un nombre incremental | `true` |
-| `TELEOWS_ENV` | Perfil opcional para seleccionar una sección dentro de `env.yaml` | `default` |
+| `DATE_FROM` / `DATE_TO` | Rango manual (cuando `DATE_MODE=1`) | `2025-09-01` / `2025-09-10` |
+| `GDE_OUTPUT_FILENAME` / `DYNAMIC_CHECKLIST_OUTPUT_FILENAME` | Nombre alternativo de los archivos exportados | vacío |
+| `EXPORT_OVERWRITE_FILES` | Sobrescribir (`true`) o versionar (`false`) | `true` |
+| `TELEOWS_ENV` | Perfil a usar dentro de `env.yaml` | `default` |
 
-> La carpeta indicada en `DOWNLOAD_PATH` se crea automáticamente si no existe (cuando los permisos del sistema lo permiten).
-
-### 3.1 `.env` tradicional
+Pasos recomendados:
 
 ```bash
 cp proyectos/teleows/env.example proyectos/teleows/.env
+cp proyectos/teleows/env.yaml.example proyectos/teleows/env.yaml  # opcional
 ```
 
-Edita los valores según tu entorno. Cuando el contenedor se construye, el archivo `.env` se monta automáticamente y el módulo `config.py` lo carga.
+Completa el `.env` con las credenciales mínimas. El `env.yaml` sirve para sobreescribir valores por entorno; define secciones (`default`, `prod`, etc.) y elige la activa con `TELEOWS_ENV`.
 
-### 3.2 `env.yaml` opcional
-
-Si prefieres manejar configuraciones por entorno (dev/prod), crea `proyectos/teleows/env.yaml` a partir de `env.yaml.example`:
-
-```bash
-cp proyectos/teleows/env.yaml.example proyectos/teleows/env.yaml
-```
-
-Define secciones por perfil (`default`, `prod`, etc.) y selecciona cuál usar con la variable `TELEOWS_ENV`. Los valores del YAML rellenan únicamente las variables que no existan en el entorno o en `.env`.
-Las claves se convierten automáticamente a mayúsculas, por lo que puedes escribirlas en minúsculas dentro del YAML.
+> La ruta del `DOWNLOAD_PATH` se crea automáticamente en ejecución si los permisos lo permiten. Si Airflow corre externo, asegúrate de montar el mismo volumen en cada worker.
 
 ---
 
-## 4. Levantar la infraestructura Docker
+## 3. Credenciales en Airflow Connections
 
-Construir y desplegar los servicios:
+Para producción es preferible no dejar credenciales en texto plano. Configura una **Connection** en la UI de Airflow:
 
-```bash
-docker compose build
-docker compose up -d
-```
+- `Admin ▸ Connections ▸ +`
+- `Conn Id`: `teleows_portal`
+- `Conn Type`: `Generic`
+- `Login`: usuario teleows
+- `Password`: contraseña teleows
+- `Extras` (JSON opcional):
+  ```json
+   {
+   "download_path": "./tmp",
+   "max_iframe_attempts": 60,
+   "max_status_attempts": 60,
+   "date_mode": 2,
+   "date_from": "2025-09-01",
+   "date_to": "2025-09-10",
+   "options_to_select": "CM,OPM",
+   "gde_output_filename": "Console_GDE_export.xlsx",
+   "dynamic_checklist_output_filename": "DynamicChecklist_SubPM.xlsx",
+   "export_overwrite_files": true,
+   "headless": true
+   }
+  ```
 
-Servicios incluidos:
-- `postgres` (imagen oficial `postgres:17`) con inicialización automática ejecutando `sql/init.sql` y `sql/create_gde_table.sql`.
-- `scraper` (imagen `python:3.13-slim`) con Selenium, Chrome for Testing y dependencias listas para ejecutar los scripts.
+Los DAGs consumen primero esta conexión (`login`, `password` y claves de `extras`) y, solo si algún dato falta, consultan Variables o el `.env`.
 
-Verificar estado:
-```bash
-docker compose ps
-```
+Variables de Airflow útiles (opcional):
 
-Detener y limpiar (cuando sea necesario):
+- `TELEOWS_USERNAME`, `TELEOWS_PASSWORD`
+- `TELEOWS_DOWNLOAD_PATH`
+- `TELEOWS_OPTIONS_TO_SELECT`
+- `TELEOWS_DATE_MODE`, `TELEOWS_DATE_FROM`, `TELEOWS_DATE_TO`
+- `TELEOWS_MAX_IFRAME_ATTEMPTS`, `TELEOWS_MAX_STATUS_ATTEMPTS`
+- `TELEOWS_GDE_OUTPUT_FILENAME`, `TELEOWS_DYNAMIC_CHECKLIST_OUTPUT_FILENAME`
+- `TELEOWS_EXPORT_OVERWRITE`
+
+---
+
+## 6. Construir la imagen y levantar Docker Compose
+
+1. Exporta el usuario de Airflow (evita archivos con dueño `root`):
+
+   ```bash
+   export AIRFLOW_UID=$(id -u)
+   ```
+
+2. Construye la imagen personalizada (instala Chrome y dependencias Python):
+
+   ```bash
+   docker compose build
+   ```
+
+   - Si cambiaste el `.deb` o el `requirements.txt`, añade `--no-cache`.
+
+3. Inicia todos los servicios en segundo plano:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Servicios incluidos: `postgres`, `redis`, `airflow-init`, webserver/API (`airflow-apiserver`), `scheduler`, `worker`, `triggerer`, `dag-processor`, y el stack de métricas (`statsd-exporter`, `prometheus`).
+
+4. Verifica que todo esté saludable:
+
+   ```bash
+   docker compose ps
+   docker compose logs -f airflow-apiserver  # opcional
+   ```
+
+5. Accede a la UI de Airflow en `http://<host>:9095`. Usuario y contraseña por defecto: `airflow` / `airflow`.
+
+Para detener el stack:
+
 ```bash
 docker compose down -v
 ```
 
 ---
 
-## 5. Ejecución manual dentro del contenedor
+## 7. Ejecutar los scrapers
 
-Para lanzar los scrapers desde el host:
+Desde la máquina host puedes entrar al contenedor principal (`airflow-worker`) y lanzar los scripts:
 
 ```bash
-# GDE
-docker compose exec scraper python GDE.py
+# Shell dentro del worker
+docker compose exec airflow-worker bash
 
-# Dynamic Checklist
-docker compose exec scraper python dynamic_checklist.py
+# Ejecutar scrapers
+python proyectos/teleows/GDE.py
+python proyectos/teleows/dynamic_checklist.py
 ```
 
-El contenedor `scraper` está configurado para permanecer activo (`tail -f /dev/null`), por lo que se recomienda ejecutar los scripts manualmente o desde Airflow.
-
-Los archivos descargados se guardan en la ruta indicada por `DOWNLOAD_PATH`. En los ejemplos de Docker Compose, esa carpeta corresponde al volumen `./temp` montado en `/app/temp`.
-
----
-
-## 6. Integración con Airflow
-
-### 6.1 Dependencias requeridas en Airflow
-
-Si Airflow se ejecuta en contenedores separados, asegúrate de que el entorno donde corran los tasks tenga:
-
-- Python 3.10+ (Airflow 2.x)
-- Dependencias del scraper (`selenium`, `webdriver-manager`, `python-dotenv`)
-- Acceso a las mismas variables de entorno (usar `Env Vars`, `Airflow Connections/Variables` o archivos `.env` montados)
-- Acceso al directorio de descargas (montar `temp` como volumen compartido)
-
-### 6.2 Configurar credenciales desde la UI de Airflow
-
-Puedes gestionar las credenciales sin entrar al contenedor:
-
-- **Connection recomendada**: crea una conexión `teleows_portal` (`Admin ▸ Connections ▸ +`). Usa `Conn Type = Generic`, coloca el usuario en `Login`, la contraseña en `Password` y en `Extras` (JSON) agrega claves opcionales:
-  ```json
-  {
-    "download_path": "/opt/airflow/tmp/teleows",
-    "options_to_select": "CM,OPM",
-    "gde_output_filename": "gde_report.xlsx",
-    "export_overwrite_files": true
-  }
-  ```
-  Los DAGs leerán `login`, `password` y cualquier clave extra compatible (`download_path`, `max_iframe_attempts`, `date_mode`, etc.).
-- **Variables** (opcional o complementario): añade Variables desde `Admin ▸ Variables ▸ +` con las llaves:
-  - `TELEOWS_USERNAME`
-  - `TELEOWS_PASSWORD`
-  - `TELEOWS_DOWNLOAD_PATH`
-  - `TELEOWS_OPTIONS_TO_SELECT`
-  - `TELEOWS_DATE_MODE`
-  - `TELEOWS_DATE_FROM`
-  - `TELEOWS_DATE_TO`
-  - `TELEOWS_MAX_IFRAME_ATTEMPTS`
-  - `TELEOWS_MAX_STATUS_ATTEMPTS`
-  - `TELEOWS_OUTPUT_FILENAME` (usado por ambos scrapers para renombrar el archivo)
-  - `TELEOWS_EXPORT_OVERWRITE` (`true`/`false`)
-
-Los DAGs cargan primero la conexión, luego las variables y, si no hay valores definidos, mantienen los provenientes de `.env`/`env.yaml`.
-
-### 6.3 Ejemplo de DAG
-
-Los DAGs `DAG_gde.py` y `DAG_dynamic_checklist.py` pueden importar directamente las funciones expuestas por el paquete:
+Si los scrapers se orquestan vía DAGs, revisa `dags/DAG_gde.py` y `dags/DAG_dynamic_checklist.py`, que importan:
 
 ```python
 from teleows import run_gde, run_dynamic_checklist
 ```
 
-### 6.4 Estrategia recomendada
+Ambos DAGs primero intentan leer la conexión `teleows_portal`, luego Variables, y finalmente caen en `.env` / `env.yaml`.
 
-1. **Task 1** – Ejecutar scraper GDE.
-2. **Task 2** – Ejecutar scraper Dynamic Checklist (si aplica).
-3. (Opcional) Procesar o mover los archivos descargados a almacenamiento de largo plazo.
-
-Cada task puede invocar los scripts dentro del contenedor usando un `BashOperator`, `DockerOperator` o llamando a las funciones `run_gde` / `run_dynamic_checklist` desde un `PythonOperator`.
+Los archivos descargados quedan en la ruta definida por `DOWNLOAD_PATH`, montada por defecto en `./temp`.
 
 ---
 
-## 7. Logs y monitoreo
+## 8. Monitoreo, seguridad y mantenimiento
 
-- Para ver logs en vivo: `docker compose logs -f scraper`.
-- Dentro de Airflow, revisa los logs de cada task.
-- En caso de errores Selenium, habilita capturas o aumenta `MAX_IFRAME_ATTEMPTS`.
-- Asegúrate de que Chrome for Testing pueda descargarse (requiere acceso a internet durante `docker compose build`).
+- Logs en vivo: `docker compose logs -f airflow-worker`.
+- Postgres se crea con el volumen `postgres-db-volume`; respáldalo antes de actualizaciones.
+- Mantén el `.env` fuera de repositorios públicos y con permisos restringidos.
+- Si Chrome deja de abrir, reconstruye la imagen (`docker compose build --no-cache`) para descargar versiones recientes.
+- Ajusta `MAX_IFRAME_ATTEMPTS` o los valores de `extras` en la conexión si se detectan timeouts.
 
----
-
-## 8. Seguridad y mantenimiento
-
-- Protege el archivo `.env` (contiene credenciales).
-- Mantén la imagen actualizada reconstruyendo periódicamente (`docker compose build --no-cache`).
-- Respaldar el volumen `postgres_data` antes de upgrades.
-- Documenta cualquier cambio en scripts Selenium para mantener consistencia con Airflow.
-
----
-
-## 9. Soporte
-
-Si aparece un error:
-- **Login falla**: revisar credenciales y posibles captchas.
-- **Tabla inexistente**: verificar que `postgres` se inicializó correctamente (logs `docker compose logs postgres`).
-- **Chrome no inicia**: reconstruir la imagen para obtener versiones actualizadas.
-
-Con estos pasos, el equipo de operaciones puede levantar el entorno, programar ejecuciones en Airflow y mantener los reportes actualizados de forma automatizada.***
+Con estas instrucciones se podrá reproducir el entorno Docker, instalar los binarios requeridos y administrar las credenciales desde Airflow.
