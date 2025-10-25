@@ -136,3 +136,70 @@ R: Sí, usa tags diferentes: `scraper-integratel:v1.0`, `scraper-integratel:v2.0
 ---
 
 **¡Listo para producción offline!** 🎉
+
+---
+
+## 🎯 ¿Qué Incluye la Imagen Docker?
+
+La imagen Docker es **completamente autocontenida**. NO necesitas instalar nada adicional en el servidor:
+
+### ✅ INCLUIDO en la imagen:
+- ✅ **Python 3.12** (ya viene en la imagen base de Airflow)
+- ✅ **Apache Airflow 3.1.0** (sistema de orquestación)
+- ✅ **Google Chrome** (para web scraping)
+- ✅ **ChromeDriver** (controlador de Chrome)
+- ✅ **Todas las librerías Python** (pandas, selenium, etc.)
+- ✅ **Todas las dependencias del sistema** (bibliotecas de Chrome)
+- ✅ **Tu código de la aplicación**
+- ✅ **Configuraciones y variables de entorno**
+
+### ❌ NO necesitas instalar en el servidor:
+- ❌ Python
+- ❌ pip
+- ❌ Librerías Python
+- ❌ Google Chrome
+- ❌ ChromeDriver
+- ❌ Dependencias del sistema
+- ❌ Configuraciones manuales
+
+## 📊 Comparación: Con vs Sin Docker
+
+### Método ANTIGUO (sin Docker):
+```bash
+# Servidor de producción
+sudo apt-get update
+sudo apt-get install python3.12 python3-pip
+pip install pandas selenium numpy ...
+pip install apache-airflow
+# Descargar Chrome
+# Instalar ChromeDriver
+# Configurar variables de entorno
+# Debuggear conflictos de versiones
+# ... horas de configuración ...
+```
+
+### Método MODERNO (con Docker): ✅
+```bash
+# Servidor de producción
+docker load < scraper.tar.gz
+docker-compose up -d
+
+# ¡Listo! Todo funciona en 2 comandos
+```
+
+## 🎁 Ventajas Clave
+
+1. **✅ Cero instalaciones** - La imagen contiene TODO
+2. **✅ Mismo resultado siempre** - Reproducible en cualquier servidor  
+3. **✅ Aislado** - No afecta el sistema del servidor
+4. **✅ Portátil** - Funciona igual en desarrollo, staging y producción
+5. **✅ Fácil actualización** - Solo necesitas una nueva imagen
+
+---
+
+**¿El servidor necesita Python?** NO ❌  
+**¿El servidor necesita Chrome?** NO ❌  
+**¿El servidor necesita librerías?** NO ❌  
+
+**El servidor solo necesita:** Docker Engine ✅
+
