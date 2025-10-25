@@ -1,0 +1,31 @@
+mode: "${ENV_MODE}"
+logging_level: INFO
+
+postgress:
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASS}"
+  host: "${POSTGRES_HOST}"
+  port: "${POSTGRES_PORT}"
+  database: "${POSTGRES_DB}"
+
+sftp_energia:
+  host: "${SFTP_HOST}"
+  port: 22
+  username: "${SFTP_USER}"
+  password: "${SFTP_PASS}"
+  remote_dir: "/REPORTES_CONSUMOS"
+  vault_secret_path: "sftp/source_a"  # Vault para password/pkey
+  vault_user_key: "username"
+  vault_pass_key: "password"
+  specific_filename: "reporte-consumo-energia-202508.xlsx"
+  local_dir: "tmp/sftp_energia"
+  timeout: 30
+  schema: "RAW"
+  table: "SFTP_MM_CONSUMO_SUMINISTRO"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  
+
+
+
+
+
