@@ -5,7 +5,13 @@
 # Archivos de configuración sensibles
 .env
 *.env
+!env.airflow.example
+!env.example
 config_local.py
+
+# Archivos de Chrome para Docker offline
+chrome_*.deb
+chromedriver-*.zip
 
 # Entorno virtual de Python
 venv/
@@ -168,3 +174,9 @@ downloads/
 # Logs del sistema
 *.log
 logs/
+
+README_Docker.md
+README.md
+tests/
+requirements-dev.txt
+backup/

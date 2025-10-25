@@ -5,6 +5,7 @@ Centraliza la configuración de Chrome para reutilización en múltiples scripts
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from pathlib import Path
 
@@ -84,8 +85,41 @@ class BrowserManager:
         # Configurar opciones
         options = self.setup_chrome_options()
         
+        # Agregar configuración especial para Docker/Chromium
+        import os
+        import shutil
+        
+        # Agregar argumentos necesarios para Docker (especialmente para headless)
+        if os.path.exists("/usr/bin/chromium"):  # Detectar si estamos en Docker con Chromium
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--remote-debugging-port=9222")
+            options.add_argument("--disable-setuid-sandbox")
+            options.add_argument("--disable-extensions")
+            options.binary_location = "/usr/bin/chromium"  # Especificar binario de Chromium
+            print("🐳 Configuración Docker/Chromium aplicada")
+        
+        chromedriver_path = None
+        if os.path.exists("/usr/bin/chromedriver"):
+            # En Docker con Chromium instalado
+            chromedriver_path = "/usr/bin/chromedriver"
+            print(f"🐳 Docker detectado - usando ChromeDriver del sistema: {chromedriver_path}")
+        elif shutil.which("chromedriver"):
+            # ChromeDriver en PATH
+            chromedriver_path = shutil.which("chromedriver")
+            print(f"✓ ChromeDriver encontrado en PATH: {chromedriver_path}")
+        
+        # Crear servicio
+        if chromedriver_path:
+            service = Service(chromedriver_path)
+        else:
+            # Dejar que Selenium/webdriver-manager lo maneje
+            print("⚙️ Usando Selenium para gestionar ChromeDriver automáticamente")
+            service = Service()
+        
         # Crear driver
-        self.driver = webdriver.Chrome(options=options)
+        self.driver = webdriver.Chrome(options=options, service=service)
         self.wait = WebDriverWait(self.driver, self.wait_timeout)
         
         return self.driver, self.wait

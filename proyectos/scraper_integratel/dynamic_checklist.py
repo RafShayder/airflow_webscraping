@@ -1,25 +1,38 @@
 import logging
+import sys
 import time
 from pathlib import Path
 from time import sleep
+
+# Agregar ruta de proyectos al PYTHONPATH para Airflow
+if '/opt/airflow/proyectos' not in sys.path:
+    sys.path.insert(0, '/opt/airflow/proyectos')
 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-from config import (
-    DOWNLOAD_PATH,
-    MAX_IFRAME_ATTEMPTS,
-    MAX_STATUS_ATTEMPTS,
-    PASSWORD,
-    USERNAME,
-    DYNAMIC_CHECKLIST_OUTPUT_FILENAME,
-    EXPORT_OVERWRITE_FILES,
-)
-from src.auth_manager import AuthManager
-from src.browser_manager import BrowserManager
-from src.filter_manager import FilterManager
-from src.iframe_manager import IframeManager
+# Imports adaptados para estructura de Airflow
+try:
+    # Intento 1: Import como módulo en Airflow
+    from scraper_integratel.config import (
+        DOWNLOAD_PATH, MAX_IFRAME_ATTEMPTS, MAX_STATUS_ATTEMPTS,
+        PASSWORD, USERNAME, DYNAMIC_CHECKLIST_OUTPUT_FILENAME, EXPORT_OVERWRITE_FILES,
+    )
+    from scraper_integratel.src.auth_manager import AuthManager
+    from scraper_integratel.src.browser_manager import BrowserManager
+    from scraper_integratel.src.filter_manager import FilterManager
+    from scraper_integratel.src.iframe_manager import IframeManager
+except ImportError:
+    # Intento 2: Import relativo para desarrollo local
+    from config import (
+        DOWNLOAD_PATH, MAX_IFRAME_ATTEMPTS, MAX_STATUS_ATTEMPTS,
+        PASSWORD, USERNAME, DYNAMIC_CHECKLIST_OUTPUT_FILENAME, EXPORT_OVERWRITE_FILES,
+    )
+    from src.auth_manager import AuthManager
+    from src.browser_manager import BrowserManager
+    from src.filter_manager import FilterManager
+    from src.iframe_manager import IframeManager
 
 
 # Flujo automatizado para navegar a Dynamic checklist, aplicar filtros y descargar el reporte.
@@ -86,17 +99,18 @@ def monitor_export_loader(driver):
     while time.time() - start_time < 300:
         try:
             # 1. Buscar mensaje de aviso (puede aparecer mientras el loader está visible)
+            # Intentar en ambos idiomas
             info_message = driver.find_elements(
-                By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
+                By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos') or contains(text(),'60 seconds')]"
             )
             if info_message:
                 case_detected = "log_management"
                 logger.info("✓ Caso 2 detectado: Mensaje de aviso apareció - navegar a Log Management")
                 break
 
-            # 2. Verificar si el loader desapareció
+            # 2. Verificar si el loader desapareció (ambos idiomas)
             loader_present = driver.find_elements(
-                By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exportando')]"
+                By.XPATH, "//p[@class='el-loading-text' and (contains(text(),'Exportando') or contains(text(),'Exporting'))]"
             )
             
             if not loader_present:
@@ -107,7 +121,7 @@ def monitor_export_loader(driver):
                 additional_start = time.time()
                 while time.time() - additional_start < 10:
                     info_message = driver.find_elements(
-                        By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos')]"
+                        By.XPATH, "//div[@class='prompt-window']//span[contains(text(),'Se ha tardado 60 segundos') or contains(text(),'60 seconds')]"
                     )
                     if info_message:
                         case_detected = "log_management"
@@ -183,7 +197,7 @@ class DynamicChecklistWorkflow:
         # 2) Configuración de filtros sobre el iframe recién cargado.
         self._prepare_filters()
         self._select_last_month()
-        self._click_splitbutton("Filtrar")
+        self._click_splitbutton("Filter")  # Botón en inglés
         self._wait_for_list()
         # 3) Lanzamos la exportación y esperamos que la plataforma indique su estado.
         self._click_splitbutton("Export sub WO detail")
@@ -248,11 +262,46 @@ class DynamicChecklistWorkflow:
 
     def _click_splitbutton(self, label, pause=2):
         # Los splitbuttons comparten clase; filtramos con el texto visible para reutilizar el helper.
-        button = self.wait.until(
-            EC.element_to_be_clickable((By.XPATH, f"//span[@class='sdm_splitbutton_text' and contains(text(),'{label}')]"))
-        )
-        button.click()
-        logger.info("✓ Botón '%s' presionado", label)
+        try:
+            # Intentar primero con el selector específico
+            button = self.wait.until(
+                EC.element_to_be_clickable((By.XPATH, f"//span[@class='sdm_splitbutton_text' and contains(text(),'{label}')]"))
+            )
+            button.click()
+            logger.info("✓ Botón '%s' presionado", label)
+        except Exception as e:
+            logger.warning(f"⚠ No se encontró el botón con selector específico, intentando alternativas...")
+            
+            # Tomar screenshot para debug
+            try:
+                import time
+                screenshot_path = f"/app/temp/error_button_{label}_{int(time.time())}.png"
+                self.driver.save_screenshot(screenshot_path)
+                logger.info(f"📸 Screenshot guardado en: {screenshot_path}")
+            except:
+                pass
+            
+            # Intentar selector alternativo (cualquier elemento con el texto)
+            try:
+                # Listar todos los botones disponibles para debug
+                try:
+                    all_buttons = self.driver.execute_script('''
+                        const buttons = Array.from(document.querySelectorAll('button, .sdm_splitbutton_text, [role="button"]'));
+                        return buttons.map(b => b.textContent?.trim() || '').filter(t => t);
+                    ''')
+                    logger.info(f"🔍 Botones encontrados en la página: {all_buttons}")
+                except:
+                    pass
+                
+                button = self.wait.until(
+                    EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(),'{label}')]"))
+                )
+                button.click()
+                logger.info("✓ Botón '%s' presionado (selector alternativo)", label)
+            except Exception as e2:
+                logger.error(f"❌ No se pudo encontrar el botón '{label}' con ningún selector: {e2}")
+                raise
+        
         if pause:
             sleep(pause)
 
@@ -269,10 +318,29 @@ class DynamicChecklistWorkflow:
         """Espera el loader que aparece cuando inicia la exportación."""
         logger.info("⏳ Esperando loader de exportación...")
         # Antes de monitorear casos, confirmamos que la plataforma haya lanzado el proceso.
-        self.wait.until(
-            EC.presence_of_element_located((By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exportando')]"))
-        )
-        logger.info("✓ Loader de exportación detectado: Exportando...")
+        # Intentar ambos idiomas: español e inglés
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.common.exceptions import TimeoutException
+        
+        try:
+            # Intentar en español
+            self.wait.until(
+                EC.presence_of_element_located((By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exportando')]"))
+            )
+            logger.info("✓ Loader de exportación detectado: Exportando...")
+        except TimeoutException:
+            try:
+                # Intentar en inglés
+                self.wait.until(
+                    EC.presence_of_element_located((By.XPATH, "//p[@class='el-loading-text' and contains(text(),'Exporting')]"))
+                )
+                logger.info("✓ Loader de exportación detectado: Exporting...")
+            except TimeoutException:
+                # Intentar cualquier loader genérico
+                self.wait.until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "el-loading-text"))
+                )
+                logger.info("✓ Loader de exportación detectado (genérico)")
 
     def _handle_export_result(self, case_detected):
         """Gestiona las dos variantes de exportación (directa o asincrónica)."""
@@ -474,5 +542,8 @@ if __name__ == "__main__":
     if not logging.getLogger().hasHandlers():
         logging.basicConfig(level=logging.INFO)
 
-
-    run_dynamic_checklist()
+    # Leer modo headless desde variable de entorno
+    import os
+    headless = os.getenv("HEADLESS", "false").strip().lower() == "true"
+    
+    run_dynamic_checklist(headless=headless)

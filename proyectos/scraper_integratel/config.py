@@ -17,7 +17,10 @@ if not USERNAME or not PASSWORD:
     )
 
 # Configuración de descarga
-DOWNLOAD_PATH = os.getenv("DOWNLOAD_PATH", str(Path.home() / "Downloads" / "scraper_downloads"))
+# Para Airflow: usa /opt/airflow/proyectos/scraper-integratel/temp por defecto
+# Para desarrollo local: usa Downloads/scraper_downloads
+default_path = "/opt/airflow/proyectos/scraper-integratel/temp" if os.path.exists("/opt/airflow") else str(Path.home() / "Downloads" / "scraper_downloads")
+DOWNLOAD_PATH = os.getenv("DOWNLOAD_PATH", default_path)
 # Convertir a ruta absoluta para Chrome
 DOWNLOAD_PATH = str(Path(DOWNLOAD_PATH).resolve())
 
