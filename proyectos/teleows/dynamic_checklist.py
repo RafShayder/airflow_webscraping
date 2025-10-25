@@ -1,38 +1,26 @@
 import logging
-import sys
+import os
 import time
 from pathlib import Path
 from time import sleep
-
-# Agregar ruta de proyectos al PYTHONPATH para Airflow
-if '/opt/airflow/proyectos' not in sys.path:
-    sys.path.insert(0, '/opt/airflow/proyectos')
 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-# Imports adaptados para estructura de Airflow
-try:
-    # Intento 1: Import como módulo en Airflow
-    from scraper_integratel.config import (
-        DOWNLOAD_PATH, MAX_IFRAME_ATTEMPTS, MAX_STATUS_ATTEMPTS,
-        PASSWORD, USERNAME, DYNAMIC_CHECKLIST_OUTPUT_FILENAME, EXPORT_OVERWRITE_FILES,
-    )
-    from scraper_integratel.src.auth_manager import AuthManager
-    from scraper_integratel.src.browser_manager import BrowserManager
-    from scraper_integratel.src.filter_manager import FilterManager
-    from scraper_integratel.src.iframe_manager import IframeManager
-except ImportError:
-    # Intento 2: Import relativo para desarrollo local
-    from config import (
-        DOWNLOAD_PATH, MAX_IFRAME_ATTEMPTS, MAX_STATUS_ATTEMPTS,
-        PASSWORD, USERNAME, DYNAMIC_CHECKLIST_OUTPUT_FILENAME, EXPORT_OVERWRITE_FILES,
-    )
-    from src.auth_manager import AuthManager
-    from src.browser_manager import BrowserManager
-    from src.filter_manager import FilterManager
-    from src.iframe_manager import IframeManager
+from .config import (
+    DOWNLOAD_PATH,
+    MAX_IFRAME_ATTEMPTS,
+    MAX_STATUS_ATTEMPTS,
+    PASSWORD,
+    USERNAME,
+    DYNAMIC_CHECKLIST_OUTPUT_FILENAME,
+    EXPORT_OVERWRITE_FILES,
+)
+from .core.auth_manager import AuthManager
+from .core.browser_manager import BrowserManager
+from .core.filter_manager import FilterManager
+from .core.iframe_manager import IframeManager
 
 
 # Flujo automatizado para navegar a Dynamic checklist, aplicar filtros y descargar el reporte.
@@ -542,8 +530,6 @@ if __name__ == "__main__":
     if not logging.getLogger().hasHandlers():
         logging.basicConfig(level=logging.INFO)
 
-    # Leer modo headless desde variable de entorno
-    import os
-    headless = os.getenv("HEADLESS", "false").strip().lower() == "true"
-    
-    run_dynamic_checklist(headless=headless)
+    headless_env = os.getenv("HEADLESS", "false").strip().lower() == "true"
+
+    run_dynamic_checklist(headless=headless_env)
