@@ -170,6 +170,7 @@ downloads/
 *.csv
 *.zip
 *.rar
+*tar.gz
 
 # Logs del sistema
 *.log
@@ -179,4 +180,6 @@ README_Docker.md
 README.md
 tests/
 requirements-dev.txt
-backup/
+backup/# Imágenes Docker
+*.tar.gz
+*.tar
