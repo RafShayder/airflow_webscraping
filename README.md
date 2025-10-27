@@ -1,82 +1,46 @@
-# Guía de despliegue con Docker y Airflow
+# Airflow + Selenium Scraper
 
-Esta guía explica, paso a paso, cómo preparar el entorno, construir la imagen con Chrome/Chromedriver incluido y dejar los contenedores listos para producción.
+Stack de Apache Airflow con Selenium/Chrome listo para ejecutarse en servidores Linux `amd64`, incluso sin acceso a Internet. Este documento consolida la información de preparación, empaquetado offline y despliegue en producción.
 
+## Requisitos locales
 
-## 1. Chrome y ChromeDriver requeridos
+- Docker Engine 24+ con soporte `buildx`.
+- Docker Compose v2.
+- Espacio disponible: ~6 GB para la imagen + bundle offline.
+- Archivos binarios presentes en la raíz del repo (ya versionados):
+  - `chrome_140_amd64.deb`
+  - `chromedriver-linux64.zip`
 
-La imagen se construye sobre `apache/airflow:3.1.0-python3.12` y espera encontrar los binarios de Chrome y Chromedriver en la raíz del repositorio (misma carpeta del `Dockerfile`):
+## Configuración de variables
 
-- `chrome_140_amd64.deb`
-- `chromedriver-linux64.zip`
+El módulo `proyectos/teleows/config.py` lee la configuración en este orden:
 
-Estos archivos ya están versionados. 
+1. Variables de entorno del proceso Airflow.
+2. Archivo `.env` dentro de `proyectos/teleows/`.
+3. Archivo `env.yaml` (perfiles por entorno).
 
----
-
-## 2. Configuración de variables (`.env` y `env.yaml`)
-
-El módulo `proyectos/teleows/config.py` carga variables en este orden:
-1. Variables de entorno (por ejemplo, definidas en Airflow o exportadas en la shell).
-2. Variables del archivo `.env`.
-3. Valores de `env.yaml`.
-
-Variables clave:
-
-| Variable | Descripción | Default |
-| --- | --- | --- |
-| `USERNAME` / `PASSWORD` | Credenciales teleows | **Obligatorio** |
-| `DOWNLOAD_PATH` | Carpeta donde Chrome guarda las descargas | `./tmp` |
-| `MAX_IFRAME_ATTEMPTS` / `MAX_STATUS_ATTEMPTS` | Reintentos Selenium | `60` |
-| `OPTIONS_TO_SELECT` | Task Types separados por comas | `CM,OPM` |
-| `DATE_MODE` | `1` = fechas manuales, `2` = último mes | `2` |
-| `DATE_FROM` / `DATE_TO` | Rango manual (cuando `DATE_MODE=1`) | `2025-09-01` / `2025-09-10` |
-| `GDE_OUTPUT_FILENAME` / `DYNAMIC_CHECKLIST_OUTPUT_FILENAME` | Nombre alternativo de los archivos exportados | vacío |
-| `EXPORT_OVERWRITE_FILES` | Sobrescribir (`true`) o versionar (`false`) | `true` |
-| `TELEOWS_ENV` | Perfil a usar dentro de `env.yaml` | `default` |
-
-Pasos recomendados:
+Pasos sugeridos:
 
 ```bash
 cp proyectos/teleows/env.example proyectos/teleows/.env
 cp proyectos/teleows/env.yaml.example proyectos/teleows/env.yaml  # opcional
 ```
 
-Completa el `.env` con las credenciales mínimas. El `env.yaml` sirve para sobreescribir valores por entorno; define secciones (`default`, `prod`, etc.) y elige la activa con `TELEOWS_ENV`.
+Completa al menos las credenciales requeridas (usuario/contraseña, rutas de descarga, etc.). En Airflow puedes definir una Connection `teleows_portal` para centralizar credenciales y overrides:
 
-> La ruta del `DOWNLOAD_PATH` se crea automáticamente en ejecución si los permisos lo permiten. Si Airflow corre externo, asegúrate de montar el mismo volumen en cada worker.
+```json
+{
+  "download_path": "./tmp",
+  "max_iframe_attempts": 60,
+  "max_status_attempts": 60,
+  "date_mode": 2,
+  "options_to_select": "CM,OPM",
+  "export_overwrite_files": true,
+  "headless": true
+}
+```
 
----
-
-## 3. Credenciales en Airflow Connections
-
-Para producción es preferible no dejar credenciales en texto plano. Configura una **Connection** en la UI de Airflow:
-
-- `Admin ▸ Connections ▸ +`
-- `Conn Id`: `teleows_portal`
-- `Conn Type`: `Generic`
-- `Login`: usuario teleows
-- `Password`: contraseña teleows
-- `Extras` (JSON opcional):
-  ```json
-   {
-   "download_path": "./tmp",
-   "max_iframe_attempts": 60,
-   "max_status_attempts": 60,
-   "date_mode": 2,
-   "date_from": "2025-09-01",
-   "date_to": "2025-09-10",
-   "options_to_select": "CM,OPM",
-   "gde_output_filename": "Console_GDE_export.xlsx",
-   "dynamic_checklist_output_filename": "DynamicChecklist_SubPM.xlsx",
-   "export_overwrite_files": true,
-   "headless": true
-   }
-  ```
-
-Los DAGs consumen primero esta conexión (`login`, `password` y claves de `extras`) y, solo si algún dato falta, consultan Variables o el `.env`.
-
-Variables de Airflow útiles (opcional):
+Variables opcionales expuestas como Variables de Airflow:
 
 - `TELEOWS_USERNAME`, `TELEOWS_PASSWORD`
 - `TELEOWS_DOWNLOAD_PATH`
@@ -86,80 +50,96 @@ Variables de Airflow útiles (opcional):
 - `TELEOWS_GDE_OUTPUT_FILENAME`, `TELEOWS_DYNAMIC_CHECKLIST_OUTPUT_FILENAME`
 - `TELEOWS_EXPORT_OVERWRITE`
 
----
+## Generar el paquete offline (un único `.tar.gz`)
 
-## 6. Construir la imagen y levantar Docker Compose
-
-1. Exporta el usuario de Airflow (evita archivos con dueño `root`):
-
-   ```bash
-   export AIRFLOW_UID=$(id -u)
-   ```
-
-2. Construye la imagen personalizada (instala Chrome y dependencias Python):
-
-   ```bash
-   docker compose build
-   ```
-
-   - Si cambiaste el `.deb` o el `requirements.txt`, añade `--no-cache`.
-
-3. Inicia todos los servicios en segundo plano:
-
-   ```bash
-   docker compose up -d
-   ```
-
-   Servicios incluidos: `postgres`, `redis`, `airflow-init`, webserver/API (`airflow-apiserver`), `scheduler`, `worker`, `triggerer`, `dag-processor`, y el stack de métricas (`statsd-exporter`, `prometheus`).
-
-4. Verifica que todo esté saludable:
-
-   ```bash
-   docker compose ps
-   docker compose logs -f airflow-apiserver  # opcional
-   ```
-
-5. Accede a la UI de Airflow en `http://<host>:9095`. Usuario y contraseña por defecto: `airflow` / `airflow`.
-
-Para detener el stack:
+El script `generar_paquete_offline.sh` construye la imagen personalizada `scraper-integratel:latest`, descarga las imágenes oficiales necesarias (`postgres`, `redis`, `prometheus`, `statsd-exporter`) en `linux/amd64` y crea **un solo archivo**: `scraper-integratel-offline.tar.gz`.
 
 ```bash
-docker compose down -v
+./generar_paquete_offline.sh
 ```
 
----
+Variables opcionales:
 
-## 7. Ejecutar los scrapers
+- `TARGET_PLATFORM=linux/arm64` para otro objetivo (por defecto `linux/amd64`).
+- `IMAGE_TAG=v1` para etiquetar la imagen.
+- `ARCHIVE_NAME=mi-bundle.tar.gz` para cambiar el nombre del archivo.
+- `SKIP_BUILD=1` reutiliza la imagen local y evita ejecutar `docker build`.
 
-Desde la máquina host puedes entrar al contenedor principal (`airflow-worker`) y lanzar los scripts:
+Salida típica:
 
-```bash
-# Shell dentro del worker
-docker compose exec airflow-worker bash
+```
+========================================
+  Generador de paquete offline
+========================================
+Plataforma objetivo: linux/amd64
+Imagen de aplicación: scraper-integratel:latest
+Archivo de salida   : scraper-integratel-offline.tar.gz
 
-# Ejecutar scrapers
-python proyectos/teleows/GDE.py
-python proyectos/teleows/dynamic_checklist.py
+[1/5] Construyendo ...
+[2/5] Preparando imágenes oficiales ...
+[3/5] Verificando arquitecturas ...
+[4/5] Generando scraper-integratel-offline.tar.gz ...
+[5/5] Paquete listo
 ```
 
-Si los scrapers se orquestan vía DAGs, revisa `dags/DAG_gde.py` y `dags/DAG_dynamic_checklist.py`, que importan:
+## Despliegue en servidor sin Internet
 
-```python
-from teleows import run_gde, run_dynamic_checklist
-```
+1. **Copiar el bundle**  
+   ```bash
+   scp scraper-integratel-offline.tar.gz usuario@servidor:/home/usuario/
+   ```
 
-Ambos DAGs primero intentan leer la conexión `teleows_portal`, luego Variables, y finalmente caen en `.env` / `env.yaml`.
+2. **Importar imágenes**  
+   ```bash
+   ssh usuario@servidor
+   cd /home/usuario
+   sudo gunzip -c scraper-integratel-offline.tar.gz | sudo docker load
+   ```
 
-Los archivos descargados quedan en la ruta definida por `DOWNLOAD_PATH`, montada por defecto en `./temp`.
+3. **Verificar arquitectura**  
+   ```bash
+   sudo docker image inspect scraper-integratel:latest --format '{{.Architecture}}'
+   # Debe mostrar: amd64
+   ```
 
----
+4. **Configurar proyecto**  
+   - Copia `docker-compose.yml`, `dags/`, `proyectos/`, `config/`, `plugins/`, `.env`.
+   - Ajusta permisos en el host según sea necesario (`sudo chown -R usuario:usuario ...`).
 
-## 8. Monitoreo, seguridad y mantenimiento
+5. **Levantar servicios**  
+   ```bash
+   cd /home/usuario/scraper-integratel
+   sudo docker compose up -d --pull never
+   sudo docker compose ps
+   ```
 
-- Logs en vivo: `docker compose logs -f airflow-worker`.
-- Postgres se crea con el volumen `postgres-db-volume`; respáldalo antes de actualizaciones.
-- Mantén el `.env` fuera de repositorios públicos y con permisos restringidos.
-- Si Chrome deja de abrir, reconstruye la imagen (`docker compose build --no-cache`) para descargar versiones recientes.
-- Ajusta `MAX_IFRAME_ATTEMPTS` o los valores de `extras` en la conexión si se detectan timeouts.
+6. **Acceder a Airflow**  
+   - UI: `http://<host>:9095` (usuario/clave por defecto: `airflow` / `airflow`).
 
-Con estas instrucciones se podrá reproducir el entorno Docker, instalar los binarios requeridos y administrar las credenciales desde Airflow.
+7. **Ejecutar scrapers manualmente (opcional)**  
+   ```bash
+   sudo docker compose exec airflow-worker bash
+   python proyectos/teleows/GDE.py
+   python proyectos/teleows/dynamic_checklist.py
+   ```
+
+8. **Logs y mantenimiento**  
+   ```bash
+   sudo docker compose logs -f
+   sudo docker compose logs airflow-worker
+   sudo docker compose down         # detener
+   sudo docker compose down -v      # detener y borrar volúmenes
+   ```
+
+## Notas de operación
+
+- Establece `AIRFLOW_UID=$(id -u)` antes de ejecutar `docker compose up` para evitar archivos con dueño `root`.
+- Si deseas ejecutar Docker sin `sudo`, añade tu usuario al grupo `docker`:
+  ```bash
+  sudo usermod -aG docker $USER
+  exit  # cierra sesión y vuelve a entrar
+  ```
+- Si necesitas reconstruir con dependencias nuevas (por ejemplo, otro Chrome), vuelve a ejecutar `./generar_paquete_offline.sh`.
+- Ajusta parámetros de Selenium en `.env` o en la Connection `teleows_portal` cuando cambien fechas, descargas o flujos.
+
+Con este flujo se dispone de un único archivo `.tar.gz` para distribuir el stack completo y desplegarlo en entornos desconectados.
