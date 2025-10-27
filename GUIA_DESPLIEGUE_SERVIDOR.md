@@ -348,3 +348,61 @@ docker-compose logs -f
 **¡Tu aplicación está lista para producción!** 🎉
 
 Para más información, consulta `INSTALACION DESDE IMAGEN.md`
+
+## 🔒 Solución Rápida: Error de Permisos Docker
+
+Si recibes este error:
+```
+permission denied while trying to connect to the Docker daemon socket
+```
+
+### Solución 1: Usar sudo (Recomendado para primera importación)
+```bash
+sudo gunzip -c scraper-integratel-docker-image.tar.gz | sudo docker load
+```
+
+### Solución 2: Agregar usuario al grupo docker (Solución permanente)
+```bash
+# Agregar usuario al grupo docker
+sudo usermod -aG docker $USER
+
+# O si estás en el usuario daasusr
+sudo usermod -aG docker daasusr
+
+# Aplicar cambios sin cerrar sesión (alternativa)
+newgrp docker
+
+# Cerrar sesión y volver a entrar
+exit
+ssh daasusr@lnxsrdvmo0011
+```
+
+### Solución 3: Ejecutar como root (No recomendado en producción)
+```bash
+sudo su -
+gunzip -c scraper-integratel-docker-image.tar.gz | docker load
+exit
+```
+
+### Verificar que funcionó:
+```bash
+docker images | grep scraper-integratel
+```
+
+---
+
+## 📝 Nota Importante
+
+Después de agregar el usuario al grupo docker, **debes cerrar la sesión SSH y reconectarte** para que los cambios tengan efecto.
+
+```bash
+# Salir
+exit
+
+# Reconectar
+ssh daasusr@lnxsrdvmo0011
+
+# Ahora probar sin sudo
+docker images
+```
+
