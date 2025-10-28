@@ -89,6 +89,12 @@ class AuthManager:
                 logger.info("✅ Login realizado exitosamente.")
                 time.sleep(5)
                 return True
+
+            # Si no hubo redirección, intentamos extraer el mensaje mostrado por el portal.
+            lock_message = self._extract_portal_message()
+            if lock_message:
+                logger.error("🚫 Login rechazado por el portal: %s", lock_message)
+                raise RuntimeError(lock_message)
             
             message = "Login falló: no se alcanzó la URL de destino."
             logger.error("❌ %s", message)
@@ -108,9 +114,42 @@ class AuthManager:
         """
         try:
             self.wait.until(EC.url_contains(self.SUCCESS_URL))
-            return True
+            current = self.driver.current_url
+            # Aseguramos que ya no seguimos en la pantalla de login.
+            if "dspcas/login" in current:
+                return False
+            return self.SUCCESS_URL in current
         except Exception:
             return False
+
+    def _extract_portal_message(self):
+        """
+        Inspecciona la página actual en busca de mensajes relevantes del portal (ej. bloqueo de usuario).
+        
+        Returns:
+            str | None: Mensaje detectado o None si no se encontró.
+        """
+        try:
+            body_text = self.driver.execute_script("return document.body.innerText || ''")
+        except Exception:
+            body_text = ""
+
+        normalized = body_text.strip()
+        if not normalized:
+            return None
+
+        keywords = [
+            "user",
+            "locked",
+            "Please contact the administrator",
+            "wait for the system to unlock automatically",
+        ]
+        if all(keyword.lower() in normalized.lower() for keyword in ("user", "locked")):
+            # Resumimos el mensaje a la primera línea para logs más limpios.
+            first_line = normalized.splitlines()[0]
+            return first_line
+
+        return None
     
     def is_logged_in(self):
         """

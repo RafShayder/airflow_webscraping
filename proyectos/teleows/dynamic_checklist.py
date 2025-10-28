@@ -524,12 +524,3 @@ def run_dynamic_checklist(
         logger.info("ℹ Cerrando navegador...")
         browser_manager.close_driver()
     return downloaded_file
-
-
-if __name__ == "__main__":
-    if not logging.getLogger().hasHandlers():
-        logging.basicConfig(level=logging.INFO)
-
-    headless_env = os.getenv("HEADLESS", "false").strip().lower() == "true"
-
-    run_dynamic_checklist(headless=headless_env)

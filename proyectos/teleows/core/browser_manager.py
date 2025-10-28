@@ -50,6 +50,13 @@ class BrowserManager:
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--window-size=1920,1080")
 
+        # Aplicar proxy si está definido en entorno (inyectado desde Airflow Connection/Variables)
+        proxy = os.getenv("PROXY")
+        if proxy:
+            # acepta formatos host:port o scheme://host:port
+            proxy_arg = proxy if "://" in proxy else f"http://{proxy}"
+            options.add_argument(f"--proxy-server={proxy_arg}")
+
         for arg in self.extra_args:
             options.add_argument(arg)
 

@@ -50,6 +50,8 @@ def _hydrate_teleows_env():
             "max_status_attempts": "MAX_STATUS_ATTEMPTS",
             "gde_output_filename": "GDE_OUTPUT_FILENAME",
             "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
+            # nuevo: proxy HTTP/HTTPS para Chrome/Requests
+            "proxy": "PROXY",
         }.items():
             value = conn.extra_dejson.get(key)
             if value is not None:
@@ -71,6 +73,8 @@ def _hydrate_teleows_env():
         ("TELEOWS_MAX_STATUS_ATTEMPTS", "MAX_STATUS_ATTEMPTS"),
         ("TELEOWS_OUTPUT_FILENAME", "GDE_OUTPUT_FILENAME"),
         ("TELEOWS_EXPORT_OVERWRITE", "EXPORT_OVERWRITE_FILES"),
+        # opcional: variable para proxy si se define como Variable
+        ("TELEOWS_PROXY", "PROXY"),
     ]:
         value = Variable.get(var_key, default_var=None)
         if value is not None:

@@ -285,11 +285,5 @@ def run_gde(
         browser_manager.close_driver()
 
 
-if __name__ == "__main__":
-    if not logging.getLogger().hasHandlers():
-        logging.basicConfig(level=logging.INFO)
-
-    headless_env = os.getenv("HEADLESS", "false").strip().lower() == "true"
-
-    file_path = run_gde(headless=headless_env)
-    logger.info("📂 Archivo final: %s", file_path)
+def prueba():
+    return run_gde(headless=True)

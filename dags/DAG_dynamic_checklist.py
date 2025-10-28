@@ -51,6 +51,8 @@ def _hydrate_teleows_env():
             "date_to": "DATE_TO",
             "dynamic_checklist_output_filename": "DYNAMIC_CHECKLIST_OUTPUT_FILENAME",
             "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
+            # nuevo: proxy HTTP/HTTPS para Chrome/Requests
+            "proxy": "PROXY",
         }.items():
             value = conn.extra_dejson.get(key)
             if value is not None:
@@ -72,6 +74,8 @@ def _hydrate_teleows_env():
         ("TELEOWS_DATE_TO", "DATE_TO"),
         ("TELEOWS_OUTPUT_FILENAME", "DYNAMIC_CHECKLIST_OUTPUT_FILENAME"),
         ("TELEOWS_EXPORT_OVERWRITE", "EXPORT_OVERWRITE_FILES"),
+        # opcional: variable para proxy si se define como Variable
+        ("TELEOWS_PROXY", "PROXY"),
     ]:
         value = Variable.get(var_key, default_var=None)
         if value is not None:
