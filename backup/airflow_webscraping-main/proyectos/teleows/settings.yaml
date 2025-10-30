@@ -11,4 +11,3 @@ default:
   dynamic_checklist_output_filename: "DynamicChecklist_SubPM.xlsx"
   export_overwrite_files: true
   proxy: "telefonica01.gp.inet:8080"
-  headless: true

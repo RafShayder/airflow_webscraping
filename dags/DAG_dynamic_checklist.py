@@ -1,132 +1,153 @@
 """
-DAG para ejecutar el scraper de Dynamic Checklist.
-Descarga el reporte Dynamic Checklist - Sub PM Query diariamente.
+DAG para ejecutar el scraper de Dynamic Checklist (ejecución manual).
 """
 
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.models import Variable
-from airflow.hooks.base import BaseHook
-from airflow.exceptions import AirflowNotFoundException
-from datetime import datetime, timedelta
-import sys
-import os
 import logging
+import sys
+from datetime import datetime, timedelta
+from typing import Any, Dict
 
-# Agregar proyectos al path
-sys.path.insert(0, '/opt/airflow/proyectos')
+from airflow import DAG
+from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
+from airflow.sdk.bases.hook import BaseHook  # type: ignore
+from airflow.sdk import Variable  # type: ignore
 
-# Configurar logging
+# Asegurar imports de proyecto
+sys.path.insert(0, "/opt/airflow/proyectos")
+
+from teleows import TeleowsSettings, extraer_dynamic_checklist
+
 logger = logging.getLogger(__name__)
 
-# Argumentos por defecto del DAG
 default_args = {
-    'owner': 'adragui',
-    'depends_on_past': False,
-    'start_date': datetime(2024, 10, 1),
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    "owner": "adragui",
+    "depends_on_past": False,
+    "start_date": datetime(2024, 10, 1),
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
 }
 
-def _hydrate_teleows_env():
-    """
-    Prioriza credenciales desde Airflow (Connections o Variables).
-    Si no existen, conserva los valores que ya estén definidos en el entorno.
-    """
+_SETTINGS_FIELDS = {
+    "username",
+    "password",
+    "download_path",
+    "max_iframe_attempts",
+    "max_status_attempts",
+    "options_to_select",
+    "date_mode",
+    "date_from",
+    "date_to",
+    "gde_output_filename",
+    "dynamic_checklist_output_filename",
+    "export_overwrite_files",
+    "proxy",
+    "headless",
+}
+
+
+def load_settings_from_airflow(
+    conn_id: str = "teleows_portal",
+    variable_prefix: str = "TELEOWS_",
+) -> TeleowsSettings:
+    overrides: Dict[str, Any] = {}
+    overrides.update(_load_variable_overrides(variable_prefix))
+    conn_overrides = _load_connection_overrides(conn_id)
+    overrides.update(conn_overrides)
+
+    logger.info(
+        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, overrides=%s)",
+        conn_id,
+        variable_prefix,
+        sorted(overrides.keys()),
+    )
+
+    return TeleowsSettings.load_with_overrides(overrides)
+
+
+def _load_connection_overrides(conn_id: str) -> Dict[str, Any]:
+    if not conn_id:
+        return {}
+
     try:
-        conn = BaseHook.get_connection("teleows_portal")
-        if conn.login:
-            os.environ["USERNAME"] = conn.login
-        if conn.password:
-            os.environ["PASSWORD"] = conn.password
-        for key, env_key in {
-            "download_path": "DOWNLOAD_PATH",
-            "max_iframe_attempts": "MAX_IFRAME_ATTEMPTS",
-            "max_status_attempts": "MAX_STATUS_ATTEMPTS",
-            "options_to_select": "OPTIONS_TO_SELECT",
-            "date_mode": "DATE_MODE",
-            "date_from": "DATE_FROM",
-            "date_to": "DATE_TO",
-            "dynamic_checklist_output_filename": "DYNAMIC_CHECKLIST_OUTPUT_FILENAME",
-            "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
-            # nuevo: proxy HTTP/HTTPS para Chrome/Requests
-            "proxy": "PROXY",
-        }.items():
-            value = conn.extra_dejson.get(key)
+        conn = BaseHook.get_connection(conn_id)
+    except Exception as exc:
+        logger.warning("⚠ No se pudo obtener la conexión '%s': %s", conn_id, exc)
+        return {}
+
+    overrides: Dict[str, Any] = {}
+
+    if conn.login:
+        overrides["username"] = conn.login
+    if conn.password:
+        overrides["password"] = conn.password
+
+    extras = getattr(conn, "extra_dejson", {}) or {}
+    if isinstance(extras, dict):
+        for field in _SETTINGS_FIELDS:
+            value = extras.get(field)
             if value is not None:
-                os.environ[env_key] = str(value)
-    except AirflowNotFoundException:
-        pass
-    except Exception:
-        logger.exception("⚠ No se pudo cargar la conexión 'teleows_portal'")
+                overrides[field] = value
 
-    for var_key, env_key in [
-        ("TELEOWS_USERNAME", "USERNAME"),
-        ("TELEOWS_PASSWORD", "PASSWORD"),
-        ("TELEOWS_DOWNLOAD_PATH", "DOWNLOAD_PATH"),
-        ("TELEOWS_MAX_IFRAME_ATTEMPTS", "MAX_IFRAME_ATTEMPTS"),
-        ("TELEOWS_MAX_STATUS_ATTEMPTS", "MAX_STATUS_ATTEMPTS"),
-        ("TELEOWS_OPTIONS_TO_SELECT", "OPTIONS_TO_SELECT"),
-        ("TELEOWS_DATE_MODE", "DATE_MODE"),
-        ("TELEOWS_DATE_FROM", "DATE_FROM"),
-        ("TELEOWS_DATE_TO", "DATE_TO"),
-        ("TELEOWS_OUTPUT_FILENAME", "DYNAMIC_CHECKLIST_OUTPUT_FILENAME"),
-        ("TELEOWS_EXPORT_OVERWRITE", "EXPORT_OVERWRITE_FILES"),
-        # opcional: variable para proxy si se define como Variable
-        ("TELEOWS_PROXY", "PROXY"),
-    ]:
-        value = Variable.get(var_key, default_var=None)
-        if value is not None:
-            os.environ[env_key] = str(value)
+    return overrides
 
 
-def run_dynamic_checklist_scraper():
+def _load_variable_overrides(prefix: str) -> Dict[str, Any]:
+    if not prefix:
+        return {}
+
+    overrides: Dict[str, Any] = {}
+
+    for field in _SETTINGS_FIELDS:
+        var_name = f"{prefix}{field.upper()}"
+        try:
+            value = Variable.get(var_name)
+        except KeyError:
+            continue
+        except Exception as exc:
+            logger.debug("⚠ No se pudo leer la Variable '%s': %s", var_name, exc)
+            continue
+        overrides[field] = value
+
+    return overrides
+
+
+def run_dynamic_checklist_scraper() -> str:
     """
-    Ejecuta el scraper de Dynamic Checklist.
+    Construye la configuración desde Airflow y ejecuta la extracción Dynamic Checklist.
     """
-    _hydrate_teleows_env()
-    from teleows.dynamic_checklist import run_dynamic_checklist
-    
+    settings = load_settings_from_airflow()
     logger.info("🚀 Iniciando scraper de Dynamic Checklist...")
-    
+
     try:
-        file_path = run_dynamic_checklist(headless=True)
-        logger.info(f"✅ Scraper Dynamic Checklist completado. Archivo: {file_path}")
+        file_path = extraer_dynamic_checklist(settings=settings)
+        logger.info("✅ Scraper Dynamic Checklist completado. Archivo: %s", file_path)
         return str(file_path)
-    except Exception as e:
-        logger.error(f"❌ Error en scraper Dynamic Checklist: {e}")
+    except Exception as exc:
+        logger.error("❌ Error en scraper Dynamic Checklist: %s", exc)
         raise
 
 
-# Definir el DAG
 with DAG(
-    'dynamic_checklist_scraper',
+    "dag_dynamic_checklist_teleows",
     default_args=default_args,
-    description='Scraper para Dynamic Checklist - Ejecución manual',
-    schedule=None,  # Solo ejecución manual
+    description="Scraper para Dynamic Checklist - Ejecución manual",
+    schedule=None,
     catchup=False,
-    tags=['scraper', 'dynamic-checklist', 'integratel'],
+    tags=["scraper", "dynamic-checklist", "integratel"],
 ) as dag:
-    
-    # Tarea principal
     scrape_checklist = PythonOperator(
-        task_id='scrape_dynamic_checklist',
+        task_id="scrape_dynamic_checklist",
         python_callable=run_dynamic_checklist_scraper,
         doc_md="""
         ### Scraper Dynamic Checklist
-        
-        Esta tarea ejecuta el scraper para descargar el reporte Dynamic Checklist.
-        
-        **Proceso:**
-        1. Login a la plataforma Integratel
-        2. Navegación a Dynamic Checklist > Sub PM Query
-        3. Aplicación de filtros (último mes)
-        4. Descarga del archivo Excel (puede tardar hasta 15 minutos)
-        
-        **Nota:** Este proceso puede requerir navegación a Log Management si la exportación es en segundo plano.
+
+        1. Login al portal Integratel.
+        2. Navegación a Dynamic checklist > Sub PM Query.
+        3. Aplicación de filtros y disparo de la exportación.
+        4. Descarga y retorna la ruta del archivo generado (directo o vía Log Management).
         """,
     )
-    
+
     scrape_checklist

@@ -20,7 +20,6 @@ _ENV_FIELD_MAP: Mapping[str, str] = {
     "dynamic_checklist_output_filename": "DYNAMIC_CHECKLIST_OUTPUT_FILENAME",
     "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
     "proxy": "PROXY",
-    "headless": "HEADLESS",
 }
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -104,7 +103,6 @@ def _as_options(value: Any, fallback: List[str]) -> List[str]:
 
 @dataclass(frozen=True)
 class TeleowsSettings:
-    """Objeto de configuración consumido por los workflows (inspirado en settings.yaml)."""
     username: str
     password: str
     download_path: str
@@ -118,83 +116,79 @@ class TeleowsSettings:
     dynamic_checklist_output_filename: Optional[str] = None
     export_overwrite_files: bool = True
     proxy: Optional[str] = None
-    headless: bool = False
 
     @classmethod
     def load(cls) -> "TeleowsSettings":
         raw_settings: Dict[str, Any] = {}
         raw_settings.update(_load_settings_file())
         raw_settings.update(_load_env_overrides())
-        return _build_settings(raw_settings)
 
-    @classmethod
-    def load_with_overrides(cls, overrides: Dict[str, Any]) -> "TeleowsSettings":
-        raw_settings: Dict[str, Any] = {}
-        raw_settings.update(_load_settings_file())
-        raw_settings.update(overrides)
-        return _build_settings(raw_settings)
+        username = _as_optional_str(raw_settings.get("username"))
+        password = _as_optional_str(raw_settings.get("password"))
 
-    @classmethod
-    def from_mapping(cls, mapping: Dict[str, Any]) -> "TeleowsSettings":
-        return _build_settings(dict(mapping))
+        if not username or not password:
+            raise ValueError(
+                "Credenciales no configuradas. Define USERNAME y PASSWORD (ya sea en variables "
+                "de entorno, Airflow o settings.yaml)."
+            )
 
+        download_path_setting = (
+            _as_optional_str(raw_settings.get("download_path")) or _default_download_path()
+        )
+        download_path = Path(download_path_setting).expanduser()
+        try:
+            download_path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # No interrumpir si no es posible crear el directorio
+            pass
+        download_path_str = str(download_path.resolve())
 
-def _build_settings(raw_settings: Dict[str, Any]) -> TeleowsSettings:
-    """Normaliza el diccionario recibido y instancia TeleowsSettings."""
-    username = _as_optional_str(raw_settings.get("username"))
-    password = _as_optional_str(raw_settings.get("password"))
+        max_iframe_attempts = _as_int(raw_settings.get("max_iframe_attempts"), 60)
+        max_status_attempts = _as_int(raw_settings.get("max_status_attempts"), 60)
+        options_to_select = _as_options(raw_settings.get("options_to_select"), ["CM", "OPM"])
+        date_mode = _as_int(raw_settings.get("date_mode"), 2)
+        date_from = _as_optional_str(raw_settings.get("date_from")) or "2025-09-01"
+        date_to = _as_optional_str(raw_settings.get("date_to")) or "2025-09-10"
+        gde_output_filename = _as_optional_str(raw_settings.get("gde_output_filename"))
+        dynamic_output_filename = _as_optional_str(
+            raw_settings.get("dynamic_checklist_output_filename")
+        )
+        export_overwrite_files = _as_bool(raw_settings.get("export_overwrite_files"), True)
+        proxy_value = _as_optional_str(raw_settings.get("proxy"))
 
-    if not username or not password:
-        raise ValueError(
-            "Credenciales no configuradas. Define USERNAME y PASSWORD (ya sea en variables "
-            "de entorno, Airflow o settings.yaml)."
+        return cls(
+            username=username,
+            password=password,
+            download_path=download_path_str,
+            max_iframe_attempts=max_iframe_attempts,
+            max_status_attempts=max_status_attempts,
+            options_to_select=options_to_select,
+            date_mode=date_mode,
+            date_from=date_from,
+            date_to=date_to,
+            gde_output_filename=gde_output_filename,
+            dynamic_checklist_output_filename=dynamic_output_filename,
+            export_overwrite_files=export_overwrite_files,
+            proxy=proxy_value,
         )
 
-    download_path_setting = _as_optional_str(raw_settings.get("download_path")) or _default_download_path()
-    download_path = Path(download_path_setting).expanduser()
-    try:
-        download_path.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
-    download_path_str = str(download_path.resolve())
 
-    max_iframe_attempts = _as_int(raw_settings.get("max_iframe_attempts"), 60)
-    max_status_attempts = _as_int(raw_settings.get("max_status_attempts"), 60)
-    options_to_select = _as_options(raw_settings.get("options_to_select"), ["CM", "OPM"])
-    date_mode = _as_int(raw_settings.get("date_mode"), 2)
-    date_from = _as_optional_str(raw_settings.get("date_from")) or "2025-09-01"
-    date_to = _as_optional_str(raw_settings.get("date_to")) or "2025-09-10"
-    gde_output_filename = _as_optional_str(raw_settings.get("gde_output_filename"))
-    dynamic_output_filename = _as_optional_str(
-        raw_settings.get("dynamic_checklist_output_filename")
-    )
-    export_overwrite_files = _as_bool(raw_settings.get("export_overwrite_files"), True)
-    proxy_value = _as_optional_str(raw_settings.get("proxy"))
-    headless_value = _as_bool(raw_settings.get("headless"), False)
+SETTINGS = TeleowsSettings.load()
 
-    return TeleowsSettings(
-        username=username,
-        password=password,
-        download_path=download_path_str,
-        max_iframe_attempts=max_iframe_attempts,
-        max_status_attempts=max_status_attempts,
-        options_to_select=options_to_select,
-        date_mode=date_mode,
-        date_from=date_from,
-        date_to=date_to,
-        gde_output_filename=gde_output_filename,
-        dynamic_checklist_output_filename=dynamic_output_filename,
-        export_overwrite_files=export_overwrite_files,
-        proxy=proxy_value,
-        headless=headless_value,
-    )
+USERNAME = SETTINGS.username
+PASSWORD = SETTINGS.password
+DOWNLOAD_PATH = SETTINGS.download_path
+MAX_IFRAME_ATTEMPTS = SETTINGS.max_iframe_attempts
+MAX_STATUS_ATTEMPTS = SETTINGS.max_status_attempts
+OPTIONS_TO_SELECT = list(SETTINGS.options_to_select)
+DATE_MODE = SETTINGS.date_mode
+DATE_FROM = SETTINGS.date_from
+DATE_TO = SETTINGS.date_to
+GDE_OUTPUT_FILENAME = SETTINGS.gde_output_filename
+DYNAMIC_CHECKLIST_OUTPUT_FILENAME = SETTINGS.dynamic_checklist_output_filename
+EXPORT_OVERWRITE_FILES = SETTINGS.export_overwrite_files
+PROXY = SETTINGS.proxy
 
-
-def load_default_settings() -> TeleowsSettings:
-    """
-    Helper opcional para scripts locales.
-
-    Equivalente a ``TeleowsSettings.load()`` pero mantiene compatibilidad con código
-    que antes importaba constantes globales.
-    """
-    return TeleowsSettings.load()
+if PROXY and not os.getenv("PROXY"):
+    # Mantener compatibilidad con componentes que leen directamente os.environ.
+    os.environ["PROXY"] = PROXY

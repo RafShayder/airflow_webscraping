@@ -1,0 +1,43 @@
+# ==============================================
+# SCRAPER INTEGRATEL - DEPENDENCIAS CONGELADAS
+# ==============================================
+
+# === PROVEEDORES DE AIRFLOW ===
+apache-airflow-providers-celery==3.12.3
+apache-airflow-providers-redis==4.3.1
+apache-airflow-providers-postgres==6.3.0
+
+# === SCRAPING Y AUTOMATIZACIÓN WEB ===
+selenium==4.25.0
+webdriver-manager==4.0.2
+
+# === PROCESAMIENTO Y ANÁLISIS DE DATOS ===
+pandas==2.3.3
+numpy==2.3.3
+openpyxl==3.1.5
+
+# === CONECTIVIDAD A BASES DE DATOS ===
+psycopg2-binary==2.9.11
+SQLAlchemy==1.4.54
+Flask-SQLAlchemy==2.5.1
+
+# === CONFIGURACIÓN Y ENTORNO ===
+python-dotenv==1.1.1
+PyYAML==6.0.3
+envyaml==1.10.211231
+
+# === UTILIDADES Y AUTOMATIZACIÓN ===
+invoke==2.2.1
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+six==1.17.0
+typing_extensions==4.15.0
+
+# === DEPENDENCIAS DEL SISTEMA ===
+et_xmlfile==2.0.0
+
+# ==============================================
+# REFERENCIA: apache-airflow==3.1.0 proviene
+# de la imagen base personalizada.
+# ==============================================
