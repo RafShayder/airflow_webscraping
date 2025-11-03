@@ -3,9 +3,13 @@
 # ==============================================
 
 # === PROVEEDORES DE AIRFLOW ===
-apache-airflow-providers-celery==3.12.3
-apache-airflow-providers-redis==4.3.1
-apache-airflow-providers-postgres==6.3.0
+apache-airflow-providers-celery==3.13.0
+apache-airflow-providers-redis==4.3.2
+apache-airflow-providers-postgres==6.4.0
+
+# === OBSERVABILIDAD ===
+datadog==0.49.1
+airflow-exporter==1.6.0
 
 # === SCRAPING Y AUTOMATIZACIÓN WEB ===
 selenium==4.25.0
