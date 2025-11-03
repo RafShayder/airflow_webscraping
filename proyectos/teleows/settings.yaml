@@ -12,3 +12,21 @@ default:
   export_overwrite_files: true
   proxy: "telefonica01.gp.inet:8080"
   headless: true
+
+  # Configuración de PostgreSQL (usar variables de entorno)
+  postgres:
+    host: "${POSTGRES_HOST}"
+    port: "${POSTGRES_PORT}"
+    database: "${POSTGRES_DB}"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASS}"
+
+  # Configuración de carga para GDE
+  gde:
+    schema: "raw"
+    table: "gde_tasks"  # Tabla RAW (todos VARCHAR)
+    if_exists: "replace"  # 'append' | 'replace' | 'fail'
+    chunksize: 10000
+    local_dir: "./tmp"
+    specific_filename: "Console_GDE_export.xlsx"
+    sp_carga: "ods.sp_cargar_gde_tasks"  # Stored Procedure para transformar RAW → ODS

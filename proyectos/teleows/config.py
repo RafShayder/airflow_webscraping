@@ -198,3 +198,99 @@ def load_default_settings() -> TeleowsSettings:
     que antes importaba constantes globales.
     """
     return TeleowsSettings.load()
+
+
+# ================================================================================
+# Funciones adicionales para carga de configuraciones (ETL/Loader)
+# ================================================================================
+
+def _replace_env_variables(config: Any) -> Any:
+    """
+    Reemplaza variables de entorno en el formato ${VAR_NAME} recursivamente.
+
+    Args:
+        config: Diccionario, lista o string de configuración
+
+    Returns:
+        Configuración con variables reemplazadas
+    """
+    if isinstance(config, dict):
+        return {k: _replace_env_variables(v) for k, v in config.items()}
+    elif isinstance(config, list):
+        return [_replace_env_variables(item) for item in config]
+    elif isinstance(config, str):
+        # Buscar patrón ${VAR_NAME}
+        if config.startswith("${") and config.endswith("}"):
+            var_name = config[2:-1]
+            value = os.getenv(var_name)
+            if value is None:
+                import logging
+                logging.getLogger(__name__).warning(f"Variable de entorno '{var_name}' no definida")
+                return config
+            return value
+        return config
+    else:
+        return config
+
+
+def load_yaml_config(env: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Carga configuración completa desde settings.yaml con soporte para variables de entorno.
+
+    A diferencia de TeleowsSettings (que solo carga campos específicos del scraper),
+    esta función retorna TODO el contenido del YAML, útil para loaders que necesitan
+    acceder a secciones adicionales como 'postgres', 'gde', etc.
+
+    Args:
+        env: Perfil de entorno a cargar (default, production, etc.)
+             Si no se especifica, usa TELEOWS_ENV o 'default'
+
+    Returns:
+        Diccionario con la configuración completa
+
+    Example:
+        >>> config = load_yaml_config()
+        >>> postgres_config = config.get('postgres', {})
+        >>> gde_config = config.get('gde', {})
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        env = env or os.getenv("TELEOWS_ENV", "default")
+
+        if not SETTINGS_PATH.exists():
+            logger.error(f"No existe el archivo de configuración: {SETTINGS_PATH}")
+            raise FileNotFoundError(f"Archivo no encontrado: {SETTINGS_PATH}")
+
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError("PyYAML es requerido. Instala con: pip install pyyaml")
+
+        with SETTINGS_PATH.open('r', encoding='utf-8') as file:
+            raw_config = yaml.safe_load(file) or {}
+
+        if not isinstance(raw_config, dict):
+            raise RuntimeError("El archivo settings.yaml debe contener un mapeo.")
+
+        # Obtener la sección del perfil
+        config = raw_config.get(env, raw_config)
+
+        if not isinstance(config, dict):
+            raise RuntimeError(
+                f"La sección '{env}' de settings.yaml debe ser un objeto con pares clave/valor."
+            )
+
+        # Reemplazar variables de entorno
+        config = _replace_env_variables(config)
+
+        logger.debug(f"Configuración cargada desde perfil '{env}'")
+        return config
+
+    except FileNotFoundError as e:
+        logger.error(f"No se encontró el archivo: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error al cargar configuración: {e}")
+        raise

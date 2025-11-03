@@ -6,6 +6,7 @@ x-airflow-common:
   platform: ${AIRFLOW_PLATFORM:-linux/amd64}
   environment:
     &airflow-common-env
+    METRICS_EMITTER: "1"
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -25,6 +26,8 @@ x-airflow-common:
     AIRFLOW__METRICS__STATSD_HOST: "statsd-exporter"
     AIRFLOW__METRICS__STATSD_PORT: "9125"
     AIRFLOW__METRICS__STATSD_PREFIX: "airflow"
+    AIRFLOW__METRICS__METRICS_ALLOW_LIST: "scheduler,executor,dagrun,pool,triggerer"
+    PYTHONPATH: "/opt/airflow:/opt/airflow/plugins"
 
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
@@ -88,6 +91,9 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    environment:
+      <<: *airflow-common-env
+      METRICS_EMITTER: "1"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -228,6 +234,10 @@ services:
     command:
       - '--statsd.listen-udp=:9125'
       - '--web.listen-address=:9102'
+      - '--statsd.mapping-config=/tmp/statsd-mapping.yml'
+      - '--log.level=debug'
+    volumes:
+      - ./monitoring/statsd-mapping.yml:/tmp/statsd-mapping.yml:ro
     ports:
       - "9102:9102"   # Prometheus scrape endpoint
       - "9125:9125/udp"

@@ -9,7 +9,25 @@ import json
 def osraiz() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def setup_logging(level: str = "INFO") -> None:
+def setup_logging(level: str = None) -> None:
+    """
+    Configura logging. Si no se pasa level, busca en:
+    1. Airflow Variable LOG_LEVEL
+    2. Variable de entorno LOG_LEVEL
+    3. Por defecto: INFO
+    """
+    if level is None:
+        # Intentar desde Airflow Variable
+        try:
+            from airflow.models import Variable
+            level = Variable.get("LOG_LEVEL", default_var=None)
+        except:
+            pass
+
+        # Si no existe en Airflow, usar variable de entorno
+        if not level:
+            level = os.getenv("LOG_LEVEL", "INFO")
+
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"

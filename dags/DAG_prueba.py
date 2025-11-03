@@ -1,7 +1,7 @@
 from airflow import DAG
 from datetime import datetime, timedelta
 from airflow.operators.python import PythonOperator # type: ignore
-# from proyectos.enervision.test import pruebawebscraping  # Módulo no disponible
+from proyectos.enervision.test import pruebawebscraping
 
 
 
@@ -33,14 +33,14 @@ with DAG('test_prueba', default_args=config, schedule=timedelta(minutes=1), catc
         task_id='print_bye',
         python_callable=print_bye
     )
-    # task3 = PythonOperator(
-    #     task_id='scraping',
-    #     python_callable=pruebawebscraping  # Función no disponible
-    # )
+    task3 = PythonOperator(
+        task_id='scraping',
+        python_callable=pruebawebscraping
+    )
 
 
 
 
 
-    task1 >> task2  # task3 comentado por dependencia no disponible
+    task1 >> [task2, task3]
     

@@ -12,17 +12,21 @@ Stack de Apache Airflow con Selenium/Chrome preparado para ejecutarse en servido
   - `dags/` (DAGs que quieras habilitar; si no hay ninguno, deja la carpeta vacía)
   - `proyectos/` (código de los scrapers; imprescindible para que los DAGs funcionen)
   - `config/` (archivos de configuración adicionales; puede quedar vacía si no se usa)
-  - `plugins/` (plugins personalizados de Airflow; vacía si no utilizas plugins)
+  - `plugins/` (plugins personalizados de Airflow; **debe contener `custom_metrics.py` para usar métricas**)
+  - `monitoring/` (debe contener `statsd-mapping.yml` y `prometheus.yml` para el sistema de métricas)
   - `logs/` (se genera en tiempo de ejecución; puede existir vacía o dejar que la cree Docker)
 - Bundle de imágenes `scraper-integratel-offline.tar.gz`.
 - Archivo `.env` en la raíz del repositorio con al menos:
+
   ```bash
   # Variable mínima para Airflow
   AIRFLOW_UID=50000
+  LOG_LEVEL=INFO
+
   ```
 
 ### Pasos
-1. **Copiar artefactos**
+1. **Copiar imagen tar.gz**
    ```bash
    scp scraper-integratel-offline.tar.gz usuario@servidor:/home/usuario/
    scp -r scraper-integratel usuario@servidor:/home/usuario/
@@ -119,26 +123,14 @@ Define una Connection (Admin ▸ Connections) con las credenciales del portal y 
   "gde_output_filename": "Console_GDE_export.xlsx",
   "dynamic_checklist_output_filename": "DynamicChecklist_SubPM.xlsx",
   "export_overwrite_files": true,
+  "proxy": "telefonica01.gp.inet:8080",
   "headless": true,
 }
 ```
 
 - `date_mode`: `1` aplica el rango manual definido en `date_from`/`date_to`; `2` calcula el rango automático (por ejemplo, último periodo). Deja el valor predeterminado (`2`) salvo que necesites forzar fechas específicas.
 - Las credenciales del portal se cargan desde los campos nativos de la Connection (`Login` y `Password`); no es necesario duplicarlas en `Extras`.
-
-### Variables opcionales de Airflow
-- `TELEOWS_USERNAME`, `TELEOWS_PASSWORD`
-- `TELEOWS_DOWNLOAD_PATH`
-- `TELEOWS_OPTIONS_TO_SELECT`
-- `TELEOWS_DATE_MODE`, `TELEOWS_DATE_FROM`, `TELEOWS_DATE_TO`
-- `TELEOWS_MAX_IFRAME_ATTEMPTS`, `TELEOWS_MAX_STATUS_ATTEMPTS`
-- `TELEOWS_GDE_OUTPUT_FILENAME`, `TELEOWS_DYNAMIC_CHECKLIST_OUTPUT_FILENAME`
-- `TELEOWS_EXPORT_OVERWRITE`, `TELEOWS_HEADLESS`
-- `TELEOWS_ENV`, `TELEOWS_DOWNLOAD_WAIT_SECONDS`, `TELEOWS_POLL_INTERVAL_SECONDS`
-
-### Uso opcional de `.env` y `env.yaml`
-- `proyectos/teleows/.env`: útil para valores locales o credenciales que no quieras exponer en Connections; crea el archivo desde `env.example` y personaliza solo lo necesario.
-- `proyectos/teleows/env.yaml`: permite múltiples perfiles (`default`, `prod`, etc.) y seleccionar uno mediante `teleows_env`.
+- **Alternativa**: También puedes usar Variables de Airflow con el prefijo `TELEOWS_` (ej: `TELEOWS_PROXY`, `TELEOWS_HEADLESS`) en lugar de la Connection. Los DAGs cargan primero las Variables y luego las sobrescriben con la Connection.
 
 Aun cuando se use la Connection, mantén `AIRFLOW_UID=50000` en el `.env` de la raíz del proyecto para evitar problemas de permisos en los volúmenes Docker.
 
