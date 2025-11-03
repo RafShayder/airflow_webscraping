@@ -16,6 +16,18 @@ from sources.clientes_libres.run_sp import correr_sp_clienteslibres
 
 setup_logging("INFO")
 
+def procesar_transform_clientes_libres(**kwargs):
+    ti = kwargs['ti']
+    resultado_extract = ti.xcom_pull(task_ids='extract_clientes_libres')
+    # extraersftp_clienteslibres retorna un dict con clave "ruta"
+    path_extraido = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    return transformer_clienteslibres(filepath=path_extraido)
+
+def procesar_load_clientes_libres(**kwargs):
+    ti = kwargs['ti']
+    path_transformado = ti.xcom_pull(task_ids='transform_clientes_libres')
+    return load_clienteslibres(filepath=path_transformado)
+
 default_args = {
     "owner": "SigmaAnalytics",
     "start_date": datetime(2025, 10, 6),
@@ -37,11 +49,11 @@ with DAG(
     )
     transform = PythonOperator(
         task_id="transform_clientes_libres",
-        python_callable=transformer_clienteslibres,
+        python_callable=procesar_transform_clientes_libres,
     )
     load = PythonOperator(
         task_id="load_clientes_libres",
-        python_callable=load_clienteslibres,
+        python_callable=procesar_load_clientes_libres,
     )
     sp = PythonOperator(
         task_id="sp_transform_clientes_libres",
