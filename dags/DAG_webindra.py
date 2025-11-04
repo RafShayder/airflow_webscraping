@@ -12,11 +12,16 @@ from core.utils import setup_logging
 from sources.webindra.stractor import stractor_indra
 from sources.webindra.loader import load_indra
 from sources.webindra.run_sp import correr_sp_webindra
-from sources.webindra.geterrortable import get_save_errors
+from sources.webindra.geterrortable import get_save_errors_indra
 
 setup_logging("INFO")
 
-default_args = {
+def procesar_load_webindra(**kwargs):
+    ti = kwargs['ti']
+    linkdata = ti.xcom_pull(task_ids='extract_webindra')
+    return load_indra(filepath=linkdata)
+
+config = {
     "owner": "SigmaAnalytics",
     "start_date": datetime(2025, 10, 6),
     "email_on_failure": False,
@@ -27,7 +32,7 @@ default_args = {
 
 with DAG(
     "dag_etl_webindra",
-    default_args=default_args,
+    default_args=config,
     schedule="0 0 1 * *",
     catchup=False,
 ) as dag:
@@ -37,16 +42,15 @@ with DAG(
     )
     load = PythonOperator(
         task_id="load_webindra",
-        python_callable=load_indra,
+        python_callable=procesar_load_webindra,
     )
     sp = PythonOperator(
         task_id="sp_transform_webindra",
         python_callable=correr_sp_webindra,
     )
     errors = PythonOperator(
-        task_id="export_error_table_webindra",
-        python_callable=get_save_errors,
-        op_args=["webindra_energia"],
+        task_id="get_errors_webindra",
+        python_callable=get_save_errors_indra,
     )
 
-    extract >> load >> sp >> errors
+    extract >> load >> [sp, errors]

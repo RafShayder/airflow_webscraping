@@ -15,6 +15,18 @@ from sources.base_sitios.run_sp import correr_sp_basesitios, correr_sp_bitacora
 
 setup_logging("INFO")
 
+def procesar_load_base_sitios(**kwargs):
+    ti = kwargs['ti']
+    resultado_extract = ti.xcom_pull(task_ids='extract_base_sitios')
+    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    return loader_basesitios(filepath=ruta)
+
+def procesar_load_bitacora_sitios(**kwargs):
+    ti = kwargs['ti']
+    resultado_extract = ti.xcom_pull(task_ids='extract_base_sitios')
+    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    return loader_bitacora_basesitios(filepath=ruta)
+
 config = {
     "owner": "SigmaAnalytics",
     "start_date": datetime(2025, 10, 6),
@@ -30,14 +42,17 @@ with DAG(
     schedule="0 0 1 * *",
     catchup=False,
 ) as dag:
-    extract = PythonOperator(task_id="extract_base_sitios", python_callable=extraer_basedesitios)
+    extract = PythonOperator(
+        task_id="extract_base_sitios", 
+        python_callable=extraer_basedesitios
+    )
     load_base = PythonOperator(
         task_id="load_base_sitios",
-        python_callable=loader_basesitios,
+        python_callable=procesar_load_base_sitios,
     )
     load_bitacora = PythonOperator(
         task_id="load_bitacora_sitios",
-        python_callable=loader_bitacora_basesitios,
+        python_callable=procesar_load_bitacora_sitios,
     )
     sp_base = PythonOperator(
         task_id="sp_transform_base_sitios",

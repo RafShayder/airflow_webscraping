@@ -31,7 +31,9 @@ def loaderdatos(**context):
     mensaje = "Función no disponible - módulo enervision no encontrado"
     return mensaje
 
-with DAG('dag_recibos_sftp_energia', default_args=config, schedule=timedelta(minutes=1), catchup=False) as dag:
+# DAG DESACTIVADO - Reemplazado por DAG_sftp_energia.py
+# Para reactivarlo, cambiar schedule de None a timedelta(minutes=1)
+with DAG('dag_recibos_sftp_energia_OLD', default_args=config, schedule=None, catchup=False) as dag:
     task1 = PythonOperator(
         task_id='sftp_recibos_extraer_datos',
         python_callable=extraerdatos
