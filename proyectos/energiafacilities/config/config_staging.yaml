@@ -1,0 +1,24 @@
+logging_level: INFO
+
+postgress:
+  user: "siom_dev"
+  password: "s10m#d3v"
+  host: "10.226.17.162"
+  port: "5425"
+  database: "siom_dev"
+
+sftp_energia:
+  host: "10.252.206.132"
+  port: 22
+  username: "jorgemo"
+  password: "jorgemogrovejo25"
+  remote_dir: "/REPORTES_CONSUMOS"
+  vault_secret_path: "sftp/source_a"  # Vault para password/pkey
+  vault_user_key: "username"
+  vault_pass_key: "password"
+  specific_filename: "reporte-consumo-energia-202508.xlsx"
+  local_dir: "tmp/sftp_energia"
+  timeout: 30
+  schema: "RAW"
+  table: "SFTP_MM_CONSUMO_SUMINISTRO"
+  if_exists: "append"     # 'append' | 'replace' | 'fail'
