@@ -79,11 +79,11 @@ class FileExporter:
             # ===============================
             if not isinstance(df, pd.DataFrame):
                 logger.error("El parámetro 'df' no es un DataFrame.")
-                raise
+                raise TypeError("El parámetro 'df' debe ser un DataFrame")
 
             if not isinstance(destination_path, str):
                 logger.error("El parámetro 'destination_path' no es str.")
-                raise
+                raise TypeError("El parámetro 'destination_path' debe ser un string")
             logger.info("Iniciando el proceso de extracción")
 
             # ===============================
@@ -161,20 +161,20 @@ class FileExporter:
                     src.to_excel(dst, index=index, engine="openpyxl")
                 else:
                     logger.error("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame.")
-                    raise 
+                    raise ValueError("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame") 
                 logger.info(f"DataFrame exportado localmente a {dst}")
 
             # Caso 2: archivo existente
             elif isinstance(src, str):
                 if not os.path.exists(src):
                     logger.error(f"No se encontró el archivo origen: {src}")
-                    raise 
+                    raise FileNotFoundError(f"No se encontró el archivo origen: {src}") 
                 shutil.move(src, dst)
                 logger.info(f"Archivo movido localmente: {src} → {dst}")
 
             else:
                 logger.error("El parámetro data:'src' debe ser un str (ruta) o un pandas.DataFrame.")
-                raise 
+                raise TypeError("El parámetro 'src' debe ser un str (ruta) o un pandas.DataFrame") 
 
         except Exception as e:
             logger.error(f"Error moviendo o exportando localmente: {e}")
@@ -259,10 +259,10 @@ class FileExporter:
         """
         if not isinstance(df, pd.DataFrame):
             logger.error("El parámetro 'df' debe ser un pandas.DataFrame.")
-            raise 
+            raise TypeError("El parámetro 'df' debe ser un pandas.DataFrame")
         if not filename:
             logger.error("Debe proporcionar un nombre de archivo válido para el DataFrame remoto.")
-            raise 
+            raise ValueError("Debe proporcionar un nombre de archivo válido para el DataFrame remoto") 
 
         # Ruta completa final
         if not remote_dir.endswith("/"):

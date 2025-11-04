@@ -26,7 +26,7 @@ class BaseExtractorSFTP:
         """
         if not isinstance(config_connect, dict) or not isinstance(config_paths, dict):
             logger.error("config_connect y config_paths deben ser diccionarios válidos, Parámetros de configuración inválidos")
-            raise
+            raise ValueError("config_connect y config_paths deben ser diccionarios válidos")
 
         # Configuración separada
         self._cfg_connect: Dict[str, Any] = config_connect

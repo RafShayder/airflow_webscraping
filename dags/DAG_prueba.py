@@ -23,7 +23,7 @@ def print_hello():
 def print_bye():
     return 'Bye!'
 
-with DAG('test_prueba', default_args=config, schedule=timedelta(minutes=1), catchup=False) as dag:
+with DAG('test_prueba', default_args=config, schedule=timedelta(minutes=1), catchup=False, tags=["testing"]) as dag:
     task1 = PythonOperator(
         task_id='print_hello',
         python_callable=print_hello

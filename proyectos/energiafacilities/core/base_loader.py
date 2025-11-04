@@ -74,7 +74,7 @@ class BaseLoaderPostgres:
                 origen = f"CSV ({data})"
             else:
                 logger.error("Formato no soportado (DataFrame, Excel o CSV)")
-                raise 
+                raise ValueError("Formato no soportado. Debe ser DataFrame, Excel o CSV") 
 
             logger.debug(f"{origen} leído correctamente con {len(df.columns)} columnas.")
 
@@ -154,7 +154,7 @@ class BaseLoaderPostgres:
                 df = pd.read_csv(data, numerofilasalto)
             else:
                 logger.error("Formato no reconocido: debe ser DataFrame, Excel o CSV")
-                raise 
+                raise ValueError("Formato no reconocido. Debe ser DataFrame, Excel o CSV") 
 
             # --- Mapeo inverso ---
             if column_mapping:
@@ -166,7 +166,7 @@ class BaseLoaderPostgres:
                     logger.debug("Mapeo invertido aplicado (DB ➜ Excel)")
                 else:
                     logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
-                    raise
+                    raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
         
             batch = batch_size or getattr(self._cfgload, "chunksize", 10000)
             logger.info(f"Iniciando carga: {len(df)} filas, {len(df.columns)} columnas")
@@ -209,7 +209,7 @@ class BaseLoaderPostgres:
                         conn.commit()
                     elif modo == "fail" and tabla_existe:
                         logger.error(f"La tabla {full_table} ya existe y if_exists='fail'")
-                        raise
+                        raise ValueError(f"La tabla {full_table} ya existe y if_exists='fail'")
 
 
                     insert_sql = f"INSERT INTO {full_table} ({cols}) VALUES %s"

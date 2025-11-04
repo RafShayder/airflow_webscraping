@@ -42,6 +42,7 @@ with DAG(
     default_args=default_args,
     schedule="0 0 1 * *",
     catchup=False,
+    tags=["energiafacilities"],
 ) as dag:
     extract = PythonOperator(
         task_id="extract_clientes_libres",

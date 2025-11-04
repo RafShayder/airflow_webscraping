@@ -135,7 +135,7 @@ with DAG(
     description="Scraper para Dynamic Checklist - Ejecución manual",
     schedule=None,
     catchup=False,
-    tags=["scraper", "dynamic-checklist", "integratel"],
+    tags=["scraper", "dynamic-checklist", "integratel", "teleows"],
 ) as dag:
     scrape_checklist = PythonOperator(
         task_id="scrape_dynamic_checklist",

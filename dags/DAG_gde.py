@@ -135,7 +135,7 @@ with DAG(
     description="Scraper para reporte GDE - Ejecución manual",
     schedule=None,
     catchup=False,
-    tags=["scraper", "gde", "integratel"],
+    tags=["scraper", "gde", "integratel", "teleows"],
 ) as dag:
     scrape_gde = PythonOperator(
         task_id="scrape_gde_report",

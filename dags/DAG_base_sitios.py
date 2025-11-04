@@ -41,6 +41,7 @@ with DAG(
     default_args=config,
     schedule="0 0 1 * *",
     catchup=False,
+    tags=["energiafacilities"],
 ) as dag:
     extract = PythonOperator(
         task_id="extract_base_sitios", 

@@ -42,7 +42,7 @@ class PostgresConnector:
     def __init__(self, config: dict):
         if not isinstance(config, dict):
             logger.debug("El parámetro 'config' debe ser un dict con las claves esperadas.")
-            raise
+            raise ValueError("El parámetro 'config' debe ser un dict con las claves esperadas")
         self._cfg = SimpleNamespace(**config)
         self._engine: Optional[Engine] = None
 

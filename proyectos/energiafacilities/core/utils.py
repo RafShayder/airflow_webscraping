@@ -45,7 +45,7 @@ def load_config(env: str | None = None) -> dict:
         
         if not os.path.exists(config_path):
             logger.error(f"No existe el archivo de configuración: {config_path}")
-            raise 
+            raise FileNotFoundError(f"No existe el archivo de configuración: {config_path}") 
         # Cargar YAML con envyaml (hace el reemplazo automático)
         cfg = EnvYAML(config_path, strict=False)
         return dict(cfg)
@@ -199,10 +199,10 @@ def archivoespecifico_periodo(
         hoy = date.today()
         ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
         periodo = f"{ultimo_dia_mes_anterior.year}{ultimo_dia_mes_anterior.month:02d}"
-    nombre_archivo=f"{basearchivo}_{periodo}{tipo or ".xlsx"}"
+    nombre_archivo=f"{basearchivo}_{periodo}{tipo or '.xlsx'}"
     if nombre_archivo not in lista_archivos:
         logger.error(f"No hay archivo a extraer: {nombre_archivo}")
-        raise
+        raise FileNotFoundError(f"No hay archivo a extraer: {nombre_archivo}")
     return nombre_archivo
 
 def archivoespecifico_periodo_CL(
@@ -234,7 +234,7 @@ def archivoespecifico_periodo_CL(
     
     if nombre_archivo not in lista_archivos:
         logger.error(f"No hay archivo a extraer: {nombre_archivo}")
-        raise
+        raise FileNotFoundError(f"No hay archivo a extraer: {nombre_archivo}")
     return nombre_archivo
 
 

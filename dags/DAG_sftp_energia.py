@@ -40,6 +40,7 @@ with DAG(
     default_args=config,
     schedule="0 0 1 * *",
     catchup=False,
+    tags=["energiafacilities"],
 ) as dag:
     # PD
     extract_pd = PythonOperator(

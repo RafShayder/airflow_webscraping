@@ -191,20 +191,20 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
         # ===== Validación =====
         if not input_path:
             logger.error("Faltan parámetros de path de archivo en la configuración.")
-            raise
+            raise ValueError("Faltan parámetros de path de archivo en la configuración")
 
         if not mapping or not isinstance(mapping, dict):
             logger.error("El objeto 'mapping' es requerido en mapeo_campos.")
-            raise
+            raise ValueError("El objeto 'mapping' es requerido en mapeo_campos")
 
         if not sheet_names:
             logger.error("Debe especificarse al menos una hoja en 'sheet_names'.")
-            raise
+            raise ValueError("Debe especificarse al menos una hoja en 'sheet_names'")
 
     
         if not input_path.exists():
             logger.error(f"No se encontró el archivo Excel: {input_path}")
-            raise
+            raise FileNotFoundError(f"No se encontró el archivo Excel: {input_path}")
 
         # ===== Transformación =====
         logger.info(f"Iniciando transformación de archivo: {input_path}")
