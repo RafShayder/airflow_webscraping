@@ -41,7 +41,8 @@ class PostgresConnector:
 
     def __init__(self, config: dict):
         if not isinstance(config, dict):
-            raise ValueError("El parámetro 'config' debe ser un dict con las claves esperadas.")
+            logger.debug("El parámetro 'config' debe ser un dict con las claves esperadas.")
+            raise
         self._cfg = SimpleNamespace(**config)
         self._engine: Optional[Engine] = None
 
@@ -59,7 +60,7 @@ class PostgresConnector:
                 f"@{self._cfg.host}:{self._cfg.port}/{self._cfg.database}"
             )
             self._engine = create_engine(conn_str, pool_pre_ping=True)
-            logger.info(f"Conexión establecida con {self._cfg.host}")
+            logger.debug(f"Conexión establecida con {self._cfg.host}")
             return self._engine
         except Exception as e:
             logger.error(f"Error creando engine SQLAlchemy: {e}")

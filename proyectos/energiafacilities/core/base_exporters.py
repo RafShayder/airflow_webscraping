@@ -1,5 +1,4 @@
 from __future__ import annotations
-from math import log
 import os
 import logging
 import tempfile
@@ -33,7 +32,7 @@ class FileExporter:
         try:
             transport.connect(username=cfg.username, password=cfg.password)
             sftp = paramiko.SFTPClient.from_transport(transport)
-            logger.info(f"Conectado a {cfg.host} via SFTP.")
+            logger.debug(f"Conectado a {cfg.host} via SFTP.")
             return sftp
         except Exception as e:
             logger.error(f"Error conectando a {cfg.host}: {e}")
@@ -42,6 +41,7 @@ class FileExporter:
 
     def _ensure_dir(self, path: str):
         """Crea la carpeta local si no existe."""
+        logger.debug("Creando la carpeta local si no existe")
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
     def _mkdirs_remote(self, sftp: paramiko.SFTPClient, remote_dir: str):
@@ -52,6 +52,7 @@ class FileExporter:
             path = f"{path}/{d}"
             try:
                 sftp.stat(path)
+                logger.debug(f"ya existe la carpeta: {path}")
             except FileNotFoundError:
                 sftp.mkdir(path)
                 logger.debug(f"Directorio remoto creado: {path}")
@@ -82,7 +83,8 @@ class FileExporter:
 
             if not isinstance(destination_path, str):
                 logger.error("El parámetro 'destination_path' no es str.")
-    
+                raise
+            logger.info("Iniciando el proceso de extracción")
 
             # ===============================
             # Convertir datetimes tz-aware
@@ -93,7 +95,7 @@ class FileExporter:
             tz_cols = df_export.select_dtypes(include=["datetimetz"]).columns
 
             if len(tz_cols) > 0:
-                logger.info(f"Normalizando columnas datetime con timezone: {list(tz_cols)}")
+                logger.debug(f"Normalizando columnas datetime con timezone: {list(tz_cols)}")
 
             for col in tz_cols:
                 try:
@@ -158,18 +160,21 @@ class FileExporter:
                 elif dst.lower().endswith((".xlsx", ".xls")):
                     src.to_excel(dst, index=index, engine="openpyxl")
                 else:
-                    raise ValueError("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame.")
+                    logger.error("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame.")
+                    raise 
                 logger.info(f"DataFrame exportado localmente a {dst}")
 
             # Caso 2: archivo existente
             elif isinstance(src, str):
                 if not os.path.exists(src):
-                    raise FileNotFoundError(f"No se encontró el archivo origen: {src}")
+                    logger.error(f"No se encontró el archivo origen: {src}")
+                    raise 
                 shutil.move(src, dst)
                 logger.info(f"Archivo movido localmente: {src} → {dst}")
 
             else:
-                raise TypeError("El parámetro 'src' debe ser un str (ruta) o un pandas.DataFrame.")
+                logger.error("El parámetro data:'src' debe ser un str (ruta) o un pandas.DataFrame.")
+                raise 
 
         except Exception as e:
             logger.error(f"Error moviendo o exportando localmente: {e}")
@@ -181,6 +186,7 @@ class FileExporter:
     def upload_to_remote(self, conn: dict, local_path: str, remote_path: str):
         """Sube un archivo local a un servidor remoto, creando directorios si no existen."""
         sftp = self._sftp_connect(conn)
+        logger.info(f"Subiendo archivos a {remote_path}")
         try:
             remote_dir = os.path.dirname(remote_path)
             self._mkdirs_remote(sftp, remote_dir)
@@ -195,6 +201,7 @@ class FileExporter:
     def download_from_remote(self, conn: dict, remote_path: str, local_path: str):
         """Descarga un archivo remoto a local, creando carpetas locales si no existen."""
         sftp = self._sftp_connect(conn)
+        logger.info(f"Inicio de descarga en proceso {local_path}")
         try:
             self._ensure_dir(local_path)
             sftp.get(remote_path, local_path)
@@ -222,7 +229,7 @@ class FileExporter:
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         temp_path = temp_file.name
         temp_file.close()
-
+        logger.info(f"Transfiriendo archivo remoto -> remoto")
         try:
             # 1. Descargar desde origen
             self.download_from_remote(conn_src, src_path, temp_path)

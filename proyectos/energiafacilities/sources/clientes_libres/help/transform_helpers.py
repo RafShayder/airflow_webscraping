@@ -166,7 +166,7 @@ def _procesar_excel(path_xlsx: Path, mapping: dict, sheet_names: list[str]) -> p
 # FUNCIÓN PRINCIPAL (solo transformación)
 # ============================================================
 
-def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath=None, save: bool=False, newdestinationoptional: str =None) -> pd.DataFrame | str:
+def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath:str=None, save: bool=False, newdestinationoptional: str =None) -> pd.DataFrame | str:
     """
     Lee un archivo Excel local y devuelve un DataFrame transformado.
     No guarda archivos, solo transforma datos en memoria.
@@ -180,7 +180,7 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
     """
     try:
         if(filepath):
-            input_path = Path(filepath)
+            input_path =Path(filepath)
         else:
             local_dir = Path(config_transform.get("local_dir", ""))
             filename = config_transform.get("specific_filename")

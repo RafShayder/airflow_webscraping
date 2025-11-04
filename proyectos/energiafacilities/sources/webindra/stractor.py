@@ -6,8 +6,13 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
+import urllib3
 
 from core.utils import  load_config 
+
+# Desactivar warnings de SSL cuando se usa verify=False (necesario para proxies corporativos)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,27 +62,21 @@ def run_scraper(cfg: dict) -> Path:
     session = requests.Session()
     session.headers.update(cfg["HEADERS"])
     
-    # Configurar proxy si está disponible
+    # 🔹 Configurar proxy si está disponible
     proxy = cfg.get("PROXY") or os.getenv("PROXY")
     proxies = None
-    verify_ssl = True  # Por defecto verificar SSL
     if proxy:
-        # Formato para requests: {"http": "http://proxy:puerto", "https": "http://proxy:puerto"}
         proxy_url = proxy if "://" in proxy else f"http://{proxy}"
         proxies = {
             "http": proxy_url,
-            "https": proxy_url
+            "https": proxy_url,
         }
-        # Desactivar verificación SSL cuando se usa proxy (certificados corporativos)
-        verify_ssl = False
-        logger.info(f"Usando proxy: {proxy_url} (SSL verification desactivado)")
-    else:
-        logger.info("No se configuró proxy, usando conexión directa")
+        logger.info(f"Configurando proxy: {proxy_url}")
 
     # 🔹 Verificar conectividad
     try:
         logger.info(f"Verificando conectividad con {cfg['BASE_URL']}")
-        resp = session.head(cfg["BASE_URL"], timeout=10, proxies=proxies, verify=verify_ssl)
+        resp = session.head(cfg["BASE_URL"], timeout=10, proxies=proxies, verify=False)
         if resp.status_code >= 400:
             raise ConnectionError(f"Conectividad fallida (HTTP {resp.status_code})")
         logger.info("Conectividad verificada correctamente")
@@ -89,13 +88,13 @@ def run_scraper(cfg: dict) -> Path:
     try:
         login_url = f"{cfg['BASE_URL'].rstrip('/')}{cfg['LOGIN_PATH']}"
         logger.info(f"Iniciando sesión en {login_url}")
-        r = session.get(login_url, timeout=cfg["TIMEOUT"], proxies=proxies, verify=verify_ssl)
+        r = session.get(login_url, timeout=cfg["TIMEOUT"], proxies=proxies, verify=False)
         r.raise_for_status()
 
         csrf = detect_csrf(r.text)
         payload = {"username": cfg["USER"], "password": cfg["PASS"], **csrf}
 
-        r2 = session.post(login_url, data=payload, allow_redirects=True, timeout=cfg["TIMEOUT"], proxies=proxies, verify=verify_ssl)
+        r2 = session.post(login_url, data=payload, allow_redirects=True, timeout=cfg["TIMEOUT"], proxies=proxies, verify=False)
         r2.raise_for_status()
 
         if not any(c.name == "ci_session" for c in session.cookies):
@@ -115,7 +114,7 @@ def run_scraper(cfg: dict) -> Path:
     for attempt in range(1, cfg.get("MAX_RETRIES", 3) + 1):
         try:
             logger.info(f"Descargando archivo (intento {attempt}) desde {url}")
-            r = session.get(url, timeout=cfg["TIMEOUT"], stream=True, proxies=proxies, verify=verify_ssl)
+            r = session.get(url, timeout=cfg["TIMEOUT"], stream=True, proxies=proxies, verify=False)
             r.raise_for_status()
 
             data = b"".join(r.iter_content(chunk_size=1024 * 512))

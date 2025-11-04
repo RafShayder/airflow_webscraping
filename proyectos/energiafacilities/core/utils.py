@@ -4,15 +4,10 @@ from envyaml import EnvYAML
 from pathlib import Path
 from dotenv import load_dotenv
 import os
-import io
 import shutil
 import json
 from datetime import date, timedelta, datetime
-import re
-from typing import List, Optional, Any, Dict
-from types import SimpleNamespace
-import pandas as pd
-import paramiko
+from typing import List, Optional, Dict
 import sys
 
 logger = logging.getLogger(__name__)
@@ -41,17 +36,10 @@ def load_config(env: str | None = None) -> dict:
     """
     try:
         # Cargar variables del .env si existe (opcional)
-        base_dir = Path(__file__).resolve().parent.parent
-        env_file = base_dir / ".env"
-        
-        # Cargar .env desde el directorio base del proyecto
-        if env_file.exists():
-            load_dotenv(dotenv_path=env_file)
-        else:
-            # Si no existe en el base_dir, intentar desde el directorio actual (fallback)
-            load_dotenv()
-        
+
+        load_dotenv()
         env = env or os.getenv("ENV_MODE", "dev").lower()
+        base_dir = Path(__file__).resolve().parent.parent
         config_path = base_dir / "config" / f"config_{env}.yaml"
         #config_path = f"config/config_{env}.yaml"
         
@@ -79,7 +67,7 @@ def asegurar_directorio_sftp(sftp, ruta_completa):
         try:
             a=sftp.stat(path_actual) 
         except FileNotFoundError:
-            logger.info(f"Creando carpeta: {path_actual}")
+            logger.debug(f"Creando carpeta: {path_actual}")
             sftp.mkdir(path_actual)
 
 
@@ -117,11 +105,11 @@ def borrar_ruta(ruta: str):
     try:
         if os.path.isfile(ruta):
             os.remove(ruta)
-            logger.info(f"Archivo eliminado: {ruta}")
+            logger.debug(f"Archivo eliminado: {ruta}")
 
         elif os.path.isdir(ruta):
             shutil.rmtree(ruta)
-            logger.info(f"Carpeta eliminada con todo su contenido: {ruta}")
+            logger.debug(f"Carpeta eliminada con todo su contenido: {ruta}")
      
 
         else:
@@ -200,14 +188,66 @@ def generar_archivo_especifico(
     return archivo_mas_reciente
 
 
-#Crea carpeta si no existe 
+def archivoespecifico_periodo(
+    lista_archivos: List[str],
+    basearchivo: Optional[str] = None,
+    periodo: Optional[str] = None,
+    tipo: Optional[str] = None
+    ):
+    #si nos pasan un nombre, generamos el perido anterior al actual, y si nos pasan el periodo, sería con este periodo
+    if not periodo:
+        hoy = date.today()
+        ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
+        periodo = f"{ultimo_dia_mes_anterior.year}{ultimo_dia_mes_anterior.month:02d}"
+    nombre_archivo=f"{basearchivo}_{periodo}{tipo or ".xlsx"}"
+    if nombre_archivo not in lista_archivos:
+        logger.error(f"No hay archivo a extraer: {nombre_archivo}")
+        raise
+    return nombre_archivo
+
+def archivoespecifico_periodo_CL(
+    lista_archivos: List[str],
+    basearchivo: Optional[str] = None,
+    periodo: Optional[str] = None,
+    tipo: Optional[str] = None
+    ):
+    """_summary_
+
+    Args:
+        lista_archivos (List[str]): _description_
+        basearchivo (Optional[str], optional): _description_. Defaults to None.
+        periodo (Optional[str], optional): _description_. Defaults to None.
+        tipo (Optional[str], optional): _description_. Defaults to None.
+
+    Returns:
+        foramto_periodo(e).xlsx
+        ejemplo_1225(e).xslx
+    """
+    #si nos pasan un periodo generamos el perido anterior al actual formato messaño(año en dos digitos) ejem: 0225, y si nos pasan el periodo, sería con este periodo
+    if not periodo:
+        hoy = date.today()
+        ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
+        # Formato messaño con año en dos dígitos, p. ej. 0225
+        periodo = f"{ultimo_dia_mes_anterior.month:02d}{ultimo_dia_mes_anterior.year % 100:02d}"
+    # si se pasó periodo, se usa tal cual
+    nombre_archivo = f"{basearchivo}-{periodo}(e){tipo or '.xlsx'}"
+    
+    if nombre_archivo not in lista_archivos:
+        logger.error(f"No hay archivo a extraer: {nombre_archivo}")
+        raise
+    return nombre_archivo
+
+
+
+#Crea carpeta si no existe
 def crearcarpeta(local_dir: str):
     try:
         os.makedirs(local_dir, exist_ok=True)
+        logger.info(f"Carpeta creada exitosamente: {local_dir}")
     except FileExistsError:
         logger.info("La carpeta destino ya existe, no se crea")
-        pass
-    finally:
-        logger.error("No se puede crear la carpeta")
+    except Exception as e:
+        logger.error(f"No se puede crear la carpeta {local_dir}: {e}")
         raise
+
 

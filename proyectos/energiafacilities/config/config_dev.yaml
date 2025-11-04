@@ -48,7 +48,7 @@ sftp_base_sitios:
   schema: "raw"
   table: "FS_MM_BASE_DE_SITIOS"
   if_exists: "replace"         # 'append' | 'replace' | 'fail'
-  specific_filename: "BASE DE SITIOS.xlsx"
+  specific_filename: "BASE_SITIOS"
   sp_carga: "ods.sp_cargar_fs_hm_base_de_sitios"
   
 sftp_base_sitios_bitacora:
@@ -57,7 +57,7 @@ sftp_base_sitios_bitacora:
   schema: "RAW"
   table: "FS_MM_BITACORA_BASE_SITIOS"
   if_exists: "replace"         # 'append' | 'replace' | 'fail'
-  specific_filename: "BASE DE SITIOS.xlsx"
+  specific_filename: "BASE_SITIOS"
   sp_carga: "ods.sp_cargar_fs_hm_bitacora_base_sitios"
 
 
@@ -95,7 +95,7 @@ webindra_energia:
 
 clientes_libres:
   local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
-  specific_filename: "F-TELEFONICA-0825(e).xlsx"
+  specific_filename: "F-TELEFONICA"
   remote_dir: "/daas/dev/energy-facilities/recibos-manuales/input/"
   local_dir: "tmp/sftp_clientes_libres"
   schema: "raw"

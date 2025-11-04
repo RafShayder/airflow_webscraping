@@ -1,5 +1,5 @@
 from core.base_loader import BaseLoaderPostgres
-from core.utils import traerjson,setup_logging,load_config
+from core.utils import load_config
 
 def load_clienteslibres(filepath=None):
     

@@ -61,6 +61,7 @@ class BaseLoaderPostgres:
     def verificar_datos(self, data: Any, column_mapping: Optional[Dict[str, str]] = None, sheet_name: str = 0, strictreview=True, numerofilasalto: int =0, table_name:str =None):
         """Verifica columnas entre origen y tabla destino (mapeo invertido: DB ➜ Excel)."""
         try:
+            logger.info("Verificando data y la db destino")
             # --- Leer DataFrame ---
             if isinstance(data, pd.DataFrame):
                 df = data
@@ -72,16 +73,16 @@ class BaseLoaderPostgres:
                 df = pd.read_csv(data,skiprows=numerofilasalto)
                 origen = f"CSV ({data})"
             else:
-                
-                raise ValueError("Formato no soportado (DataFrame, Excel o CSV)")
+                logger.error("Formato no soportado (DataFrame, Excel o CSV)")
+                raise 
 
-            logger.info(f"{origen} leído correctamente con {len(df.columns)} columnas.")
+            logger.debug(f"{origen} leído correctamente con {len(df.columns)} columnas.")
 
             # --- Mapeo invertido: destino ➜ origen ---
             if column_mapping:
                 inverse_map = {v: k for k, v in column_mapping.items()}
                 df = df.rename(columns=inverse_map)
-                logger.info("Mapeo de columnas aplicado (modo invertido DB ➜ Excel)")
+                logger.debug("Mapeo de columnas aplicado (modo invertido DB ➜ Excel)")
 
             columnas_origen = set(df.columns)
 
@@ -144,7 +145,7 @@ class BaseLoaderPostgres:
         - modo: política de inserción ('replace', 'append', 'fail').
         """
         try:
-
+            logger.info("Iniciando validación de carga")
             if isinstance(data, pd.DataFrame):
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
@@ -152,7 +153,8 @@ class BaseLoaderPostgres:
             elif isinstance(data, str) and data.lower().endswith(".csv"):
                 df = pd.read_csv(data, numerofilasalto)
             else:
-                raise ValueError("Formato no reconocido: debe ser DataFrame, Excel o CSV")
+                logger.error("Formato no reconocido: debe ser DataFrame, Excel o CSV")
+                raise 
 
             # --- Mapeo inverso ---
             if column_mapping:
@@ -161,14 +163,14 @@ class BaseLoaderPostgres:
                 
                 if cols_existentes:
                     df = df[cols_existentes].rename(columns=inverse_map)
-                    logger.info("Mapeo invertido aplicado (DB ➜ Excel)")
+                    logger.debug("Mapeo invertido aplicado (DB ➜ Excel)")
                 else:
-                    logger.error("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
+                    logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
                     raise
         
             batch = batch_size or getattr(self._cfgload, "chunksize", 10000)
             logger.info(f"Iniciando carga: {len(df)} filas, {len(df.columns)} columnas")
-            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=None)
+            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=table_name)
 
         except Exception as e:
             logger.error(f"Error al cargar los datos: {e}")

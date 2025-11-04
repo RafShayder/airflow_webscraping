@@ -1,4 +1,4 @@
-# Todo okey, solo falta confiurar y cambiar el nombre de archivo
+# Todo okey,
 from sources.base_sitios.stractor import extraer_basedesitios
 from core.utils import setup_logging
 from sources.base_sitios.loader import loader_basesitios,loader_bitacora_basesitios
@@ -18,8 +18,8 @@ setup_logging(level="INFO")
 """
 
 rutaextraida=extraer_basedesitios()
-loader_basesitios()
-loader_bitacora_basesitios()
+loader_basesitios(rutaextraida)
+loader_bitacora_basesitios(rutaextraida)
 correr_sp_basesitios()
 correr_sp_bitacora()
 """

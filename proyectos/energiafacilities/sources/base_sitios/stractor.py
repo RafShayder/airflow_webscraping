@@ -1,6 +1,5 @@
-
 from core.base_stractor import BaseExtractorSFTP
-from core.utils import  load_config
+from core.utils import  load_config,archivoespecifico_periodo
 
 
 def extraer_basedesitios():
@@ -13,5 +12,7 @@ def extraer_basedesitios():
     )
     Extractor.validar_conexion()
     Extractor.validate() #validar datos del sftp
-    metastraccion=Extractor.extract()
-    return metastraccion
+    archivos_atributos= Extractor.listar_archivos()
+    nombrearchivoextraer=archivoespecifico_periodo(lista_archivos=archivos_atributos,basearchivo=sftp_config_others["specific_filename"])
+    metastraccion=Extractor.extract(specific_file=nombrearchivoextraer)
+    return metastraccion['ruta']

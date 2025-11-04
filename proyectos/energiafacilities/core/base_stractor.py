@@ -25,8 +25,8 @@ class BaseExtractorSFTP:
         - config_paths: rutas de archivos (remote_dir, local_dir, specific_filename, etc.)
         """
         if not isinstance(config_connect, dict) or not isinstance(config_paths, dict):
-            logger.error("config_connect y config_paths deben ser diccionarios válidos")
-            raise ValueError("Parámetros de configuración inválidos")
+            logger.error("config_connect y config_paths deben ser diccionarios válidos, Parámetros de configuración inválidos")
+            raise
 
         # Configuración separada
         self._cfg_connect: Dict[str, Any] = config_connect
@@ -59,7 +59,7 @@ class BaseExtractorSFTP:
             "code": 200,
             "etl_msg": "Configuraciones de conexión y rutas válidas"
         }
-        logger.info("Validación completa de configuración exitosa")
+        logger.debug("Validación completa de configuración exitosa")
         return retornoinfo
 
     # ----------
@@ -85,7 +85,7 @@ class BaseExtractorSFTP:
             transport = paramiko.Transport((self.conn.host, self.conn.port))
             transport.connect(username=self.conn.username, password=self.conn.password)
             sftp = paramiko.SFTPClient.from_transport(transport)
-            logger.info(f"Conexión SFTP establecida con {self.conn.host}")
+            logger.debug(f"Conexión SFTP establecida con {self.conn.host}")
             return sftp
         except Exception as e:
             logger.error(f"Error al conectar con SFTP: {e}")
@@ -103,7 +103,7 @@ class BaseExtractorSFTP:
                 "code": 200,
                 "etl_msg": f"Conexión exitosa a {self.conn.host}"
             }
-            logger.info(retornoinfo["etl_msg"])
+            logger.debug(retornoinfo["etl_msg"])
             return retornoinfo
         except Exception as e:
             retornoinfo = {
@@ -111,8 +111,8 @@ class BaseExtractorSFTP:
                 "code": 401,
                 "etl_msg": f"Error de conectividad: {e}"
             }
-            logger.error(retornoinfo["etl_msg"])
-            return retornoinfo
+            logger.error(retornoinfo["etl_msg"],extra=retornoinfo)
+            raise
 
     # ----------
     # LISTAR ARCHIVOS EN DIRECTORIO REMOTO
@@ -123,7 +123,7 @@ class BaseExtractorSFTP:
             sftp = self.conectar_sftp()
             archivos = sftp.listdir(ruta)
             sftp.close()
-            logger.info(f"Archivos encontrados en {ruta}: {archivos}")
+            logger.debug(f"Archivos encontrados en {ruta}: {archivos}")
             return archivos
         except Exception as e:
             logger.error(f"Error al listar archivos en {ruta}: {e}")
@@ -143,7 +143,7 @@ class BaseExtractorSFTP:
                     "tipo": attr.filename.split(".")[-1].lower() if "." in attr.filename else ""
                 })
             sftp.close()
-            logger.info(f"Atributos de archivos encontrados en {ruta}")
+            logger.debug(f"Atributos de archivos encontrados en {ruta}")
             return archivos
         except Exception as e:
             logger.error(f"Error al listar atributos de archivos en {ruta}: {e}")
@@ -159,12 +159,13 @@ class BaseExtractorSFTP:
             remote_dir = self.paths.remote_dir
             local_dir = self.paths.local_dir
             archivo = specific_file or getattr(self.paths, "specific_filename", None)
-
+    
             if not archivo:
                 raise ValueError("Debe especificarse un archivo para la extracción.")
 
             if remotetransfere:
                 asegurar_directorio_sftp(sftp, local_dir)
+               
                 sftp.rename(f"{remote_dir}/{archivo}", f"{local_dir}/{archivo}")
                 msg = f"Archivo movido con éxito de {remote_dir}/{archivo} a {local_dir}"
                 logger.info(msg)

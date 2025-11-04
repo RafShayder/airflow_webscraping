@@ -7,10 +7,6 @@ def extraersftp_energia(specific_file_config: str ,periodo: str=None):
     config = load_config()
     sftp_config_connect = config.get("sftp_energia_c", {})
     sftp_config_others =  config.get("sftp_energia", {})
-    
-    # Log para debugging de conexión
-    print(f"🔍 Configuración SFTP: host={sftp_config_connect.get('host')}, port={sftp_config_connect.get('port')}, user={sftp_config_connect.get('username')}")
-    
     Extractor = BaseExtractorSFTP(
         config_connect=sftp_config_connect,
         config_paths=sftp_config_others
