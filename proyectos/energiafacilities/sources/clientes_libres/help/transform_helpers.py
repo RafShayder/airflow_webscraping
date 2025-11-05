@@ -219,13 +219,17 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
             df = df.drop(columns=['periodo'])
 
         if(save):
-            filename = config_transform.get("local_destination_dir", newdestinationoptional)
+            filename = config_transform.get("local_destination_dir") or newdestinationoptional
+            if not filename:
+                logger.error("No se especificó un directorio de destino para guardar")
+                raise ValueError("No se especificó un directorio de destino para guardar")
             try:
                 pathcrear=filename.rsplit('/',1)[0]
                 os.makedirs(pathcrear, exist_ok=True)
                 logger.debug(f"Directorio {pathcrear} creado/existente.")
             except Exception as e:
-                logger.debug(f"No se pudo crear el directorio {pathcrear}: {e}")
+                logger.error(f"No se pudo crear el directorio {pathcrear}: {e}")
+                raise
             df.to_excel(filename, index=False)
             logger.info(f"Archivo transformado guardado en: {filename}")
             return filename

@@ -174,8 +174,16 @@ class BaseExtractorSFTP:
 
             if remotetransfere:
                 asegurar_directorio_sftp(sftp, local_dir)
+                destino = f"{local_dir}/{archivo}"
 
-                sftp.rename(f"{remote_dir}/{archivo}", f"{local_dir}/{archivo}")
+                # Validar si el archivo destino ya existe
+                try:
+                    sftp.stat(destino)
+                    logger.warning(f"El archivo {destino} ya existe y será sobrescrito")
+                except FileNotFoundError:
+                    pass  # Archivo no existe, OK para mover
+
+                sftp.rename(f"{remote_dir}/{archivo}", destino)
                 msg = f"Archivo movido con éxito de {remote_dir}/{archivo} a {local_dir}"
                 logger.info(msg)
             else:

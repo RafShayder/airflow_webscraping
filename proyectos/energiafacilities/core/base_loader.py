@@ -5,8 +5,33 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
+    """
+    Valida que un identificador SQL (schema, table, column) sea seguro.
+    Solo permite letras, números, guiones bajos y punto (para schema.table).
+    Previene SQL injection.
+    """
+    if not identifier:
+        raise ValueError(f"{name} no puede estar vacío")
+
+    # Permitir schema.table con punto, pero validar cada parte
+    if '.' in identifier:
+        parts = identifier.split('.')
+        if len(parts) > 2:
+            raise ValueError(f"{name} inválido: demasiados puntos en '{identifier}'")
+        for part in parts:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', part):
+                raise ValueError(f"{name} inválido: '{part}' contiene caracteres no permitidos")
+    else:
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+            raise ValueError(f"{name} inválido: '{identifier}' contiene caracteres no permitidos")
+
+    return identifier
 
 class BaseLoaderPostgres:
     """
@@ -187,8 +212,15 @@ class BaseLoaderPostgres:
             raise ValueError(msg)
 
         try:
-            cols = ', '.join(df.columns)
-            full_table = f"{schema or self._cfgload.schema}.{table_name or self._cfgload.table}"
+            # Validar identificadores SQL para prevenir SQL injection
+            validated_schema = _validate_sql_identifier(schema or self._cfgload.schema, "schema")
+            validated_table = _validate_sql_identifier(table_name or self._cfgload.table, "table")
+
+            # Validar nombres de columnas
+            validated_cols = [_validate_sql_identifier(col, f"columna '{col}'") for col in df.columns]
+            cols = ', '.join(validated_cols)
+
+            full_table = f"{validated_schema}.{validated_table}"
             total_rows = len(df)
             modo =modo or getattr(self._cfgload, "if_exists", "replace").lower()
 
@@ -201,7 +233,7 @@ class BaseLoaderPostgres:
                             WHERE table_schema = LOWER(%s)
                               AND table_name = LOWER(%s)
                         );
-                    """, (schema or self._cfgload.schema, table_name or self._cfgload.table))
+                    """, (validated_schema, validated_table))
                     tabla_existe = cur.fetchone()[0]
 
                     # Política de inserción
