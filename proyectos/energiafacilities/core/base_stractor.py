@@ -80,14 +80,16 @@ class BaseExtractorSFTP:
     # ----------
     def conectar_sftp(self) -> paramiko.SFTPClient:
         """Devuelve un cliente SFTP activo listo para usar."""
+        transport = None
         try:
- 
             transport = paramiko.Transport((self.conn.host, self.conn.port))
             transport.connect(username=self.conn.username, password=self.conn.password)
             sftp = paramiko.SFTPClient.from_transport(transport)
             logger.debug(f"Conexión SFTP establecida con {self.conn.host}")
             return sftp
         except Exception as e:
+            if transport:
+                transport.close()
             logger.error(f"Error al conectar con SFTP: {e}")
             raise ConnectionError(f"No se pudo conectar al SFTP: {e}")
 
@@ -119,18 +121,22 @@ class BaseExtractorSFTP:
     # ----------
     def listar_archivos(self, ruta_remota: str | None = None) -> List[str]:
         ruta = ruta_remota or self.paths.remote_dir
+        sftp = None
         try:
             sftp = self.conectar_sftp()
             archivos = sftp.listdir(ruta)
-            sftp.close()
             logger.debug(f"Archivos encontrados en {ruta}: {archivos}")
             return archivos
         except Exception as e:
             logger.error(f"Error al listar archivos en {ruta}: {e}")
             raise
+        finally:
+            if sftp:
+                sftp.close()
     # Funcion que trae el nombre de archivo(como hace list_dir) pero tambien la fecha de modificacion y otros atributos en una lista de objetos json
     def listar_archivos_atributos(self, ruta_remota: str | None = None) -> List[paramiko.SFTPAttributes]:
         ruta = ruta_remota or self.paths.remote_dir
+        sftp = None
         try:
             sftp = self.conectar_sftp()
             archivos_atributos = sftp.listdir_attr(ruta)
@@ -142,30 +148,33 @@ class BaseExtractorSFTP:
                     "fecha_modificacion": fecha,
                     "tipo": attr.filename.split(".")[-1].lower() if "." in attr.filename else ""
                 })
-            sftp.close()
             logger.debug(f"Atributos de archivos encontrados en {ruta}")
             return archivos
         except Exception as e:
             logger.error(f"Error al listar atributos de archivos en {ruta}: {e}")
             raise
+        finally:
+            if sftp:
+                sftp.close()
         
        
     # ----------
     # EXTRAER / MOVER ARCHIVO
     # ----------
     def extract(self, remotetransfere: bool = False, specific_file: str | None = None) -> Dict[str, Any]:
+        sftp = None
         try:
             sftp = self.conectar_sftp()
             remote_dir = self.paths.remote_dir
             local_dir = self.paths.local_dir
             archivo = specific_file or getattr(self.paths, "specific_filename", None)
-    
+
             if not archivo:
                 raise ValueError("Debe especificarse un archivo para la extracción.")
 
             if remotetransfere:
                 asegurar_directorio_sftp(sftp, local_dir)
-               
+
                 sftp.rename(f"{remote_dir}/{archivo}", f"{local_dir}/{archivo}")
                 msg = f"Archivo movido con éxito de {remote_dir}/{archivo} a {local_dir}"
                 logger.info(msg)
@@ -175,7 +184,6 @@ class BaseExtractorSFTP:
                 msg = f"Archivo descargado correctamente a {local_dir}/{archivo}"
                 logger.info(msg)
 
-            sftp.close()
             retornoinfo = {
                 "status": "success",
                 "code": 200,
@@ -191,3 +199,6 @@ class BaseExtractorSFTP:
             }
             logger.error(retornoinfo["etl_msg"])
             raise
+        finally:
+            if sftp:
+                sftp.close()

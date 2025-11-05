@@ -141,26 +141,29 @@ def _leer_registro(ws, mapping: dict) -> dict:
 def _procesar_excel(path_xlsx: Path, mapping: dict, sheet_names: list[str]) -> pd.DataFrame:
     """Procesa las hojas indicadas del archivo Excel según el mapping."""
     wb = load_workbook(filename=path_xlsx, data_only=True, read_only=True)
-    logger.info(f"Hojas disponibles en {path_xlsx.name}")
-    disponibles = set(wb.sheetnames)
-    registros = []
+    try:
+        logger.info(f"Hojas disponibles en {path_xlsx.name}")
+        disponibles = set(wb.sheetnames)
+        registros = []
 
-    for nombre in sheet_names:
-        if nombre not in disponibles:
-            logger.warning(f"La hoja '{nombre}' no existe en {path_xlsx.name}.")
-            continue
-        ws = wb[nombre]
-        registro = _leer_registro(ws, mapping)
-        registro["hoja"] = nombre
-        registros.append(registro)
-    logger.info(f"Hojas procesadas: {len(registros)} de {len(sheet_names)} solicitadas.")
-    if not registros:
-        logger.warning("No se generaron registros: todas las hojas fueron omitidas o vacías.")
-        return pd.DataFrame(columns=list(mapping.keys()) + ["hoja", "num_recibo"])
+        for nombre in sheet_names:
+            if nombre not in disponibles:
+                logger.warning(f"La hoja '{nombre}' no existe en {path_xlsx.name}.")
+                continue
+            ws = wb[nombre]
+            registro = _leer_registro(ws, mapping)
+            registro["hoja"] = nombre
+            registros.append(registro)
+        logger.info(f"Hojas procesadas: {len(registros)} de {len(sheet_names)} solicitadas.")
+        if not registros:
+            logger.warning("No se generaron registros: todas las hojas fueron omitidas o vacías.")
+            return pd.DataFrame(columns=list(mapping.keys()) + ["hoja", "num_recibo"])
 
-    df = pd.DataFrame(registros)
-    logger.info(f"Procesamiento completado: {len(df)} registros generados.")
-    return df
+        df = pd.DataFrame(registros)
+        logger.info(f"Procesamiento completado: {len(df)} registros generados.")
+        return df
+    finally:
+        wb.close()
 
 # ============================================================
 # FUNCIÓN PRINCIPAL (solo transformación)
