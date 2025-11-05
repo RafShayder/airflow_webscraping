@@ -152,7 +152,7 @@ class BaseLoaderPostgres:
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
                 df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
             elif isinstance(data, str) and data.lower().endswith(".csv"):
-                df = pd.read_csv(data, numerofilasalto)
+                df = pd.read_csv(data, skiprows=numerofilasalto)
             else:
                 logger.error("Formato no reconocido: debe ser DataFrame, Excel o CSV")
                 raise ValueError("Formato no reconocido. Debe ser DataFrame, Excel o CSV") 

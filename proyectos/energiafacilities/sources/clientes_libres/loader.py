@@ -12,10 +12,10 @@ def load_clienteslibres(filepath=None):
         )
 
     Loader.validar_conexion()
-    Loader.verificar_datos(data=general_config['local_destination_dir'])
+    Loader.verificar_datos(data=general_config['local_destination_dir'], table_name=general_config.get('table'))
 
     if not (filepath):
         filepath=general_config['local_destination_dir']
-    carga=Loader.load_data(data=filepath )
+    carga=Loader.load_data(data=filepath, table_name=general_config.get('table'))
     return carga
 

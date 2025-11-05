@@ -133,7 +133,6 @@ class PostgresConnector:
                 rows = cur.fetchall()
                 cols = [desc[0] for desc in cur.description]
                 df = pd.DataFrame(rows, columns=cols)
-               
             else:
                 df = pd.DataFrame()
 
