@@ -65,7 +65,7 @@ def asegurar_directorio_sftp(sftp, ruta_completa):
     for parte in partes:
         path_actual += '/' + parte
         try:
-            a=sftp.stat(path_actual) 
+            sftp.stat(path_actual)
         except FileNotFoundError:
             logger.debug(f"Creando carpeta: {path_actual}")
             sftp.mkdir(path_actual)

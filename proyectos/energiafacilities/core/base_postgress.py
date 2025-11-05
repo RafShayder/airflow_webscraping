@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import warnings
+import re
 from typing import Optional, Dict, Any
 from types import SimpleNamespace
 import pandas as pd
@@ -11,6 +12,30 @@ from sqlalchemy.engine import Engine
 warnings.filterwarnings("ignore", category=UserWarning)
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
+    """
+    Valida que un identificador SQL (schema, table, column) sea seguro.
+    Solo permite letras, números, guiones bajos y punto (para schema.table).
+    Previene SQL injection.
+    """
+    if not identifier:
+        raise ValueError(f"{name} no puede estar vacío")
+
+    # Permitir schema.table con punto, pero validar cada parte
+    if '.' in identifier:
+        parts = identifier.split('.')
+        if len(parts) > 2:
+            raise ValueError(f"{name} inválido: demasiados puntos en '{identifier}'")
+        for part in parts:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', part):
+                raise ValueError(f"{name} inválido: '{part}' contiene caracteres no permitidos")
+    else:
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+            raise ValueError(f"{name} inválido: '{identifier}' contiene caracteres no permitidos")
+
+    return identifier
 
 
 class PostgresConnector:
@@ -167,15 +192,25 @@ class PostgresConnector:
                 "limit": 1000 -> opcional,
                 "batch_size": 5000 -> opcional
             }
-            
+
         """
         if not isinstance(config, dict):
             raise ValueError("config debe ser un dict con los parámetros de extracción.")
 
         cfg = SimpleNamespace(**config)
-        cols = ", ".join(cfg.columns) if getattr(cfg, "columns", None) else "*"
 
-        sql = f"SELECT {cols} FROM {cfg.schema}.{cfg.table}"
+        # Validar identificadores SQL para prevenir SQL injection
+        schema = _validate_sql_identifier(cfg.schema, "schema")
+        table = _validate_sql_identifier(cfg.table, "table")
+
+        # Validar columnas si se proporcionan
+        if getattr(cfg, "columns", None):
+            validated_cols = [_validate_sql_identifier(col, f"columna '{col}'") for col in cfg.columns]
+            cols = ", ".join(validated_cols)
+        else:
+            cols = "*"
+
+        sql = f"SELECT {cols} FROM {schema}.{table}"
         if getattr(cfg, "where", None):
             sql += f" WHERE {cfg.where}"
         if getattr(cfg, "limit", None):

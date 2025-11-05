@@ -1,0 +1,26 @@
+# ==================================================
+# DEPENDENCIAS PARA TESTING
+# ==================================================
+
+# Framework de testing
+pytest==8.3.3
+pytest-cov==5.0.0
+pytest-mock==3.14.0
+
+# Dependencias del proyecto (requeridas para tests)
+pandas==2.3.3
+numpy==2.3.3
+openpyxl==3.1.5
+psycopg2-binary==2.9.11
+SQLAlchemy>=1.4.0,<2.0.0
+paramiko==3.5.0
+python-dotenv==1.1.1
+PyYAML==6.0.3
+envyaml==1.10.211231
+
+# Para crear reportes de coverage
+coverage==7.6.9
+
+# Para mejor output de tests
+pytest-html==4.1.1
+pytest-xdist==3.6.1  # Para ejecutar tests en paralelo
