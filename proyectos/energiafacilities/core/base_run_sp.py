@@ -5,12 +5,13 @@ from core.utils import load_config
 
 logger = logging.getLogger(__name__)
 
-def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga'): #sftp_base_sitios
+def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga', sp_value:str=None): #sftp_base_sitios
     """ 
         Ejecuta un SP y funct de errores en la base de datos Postgres.
         configyaml: Nombre de la sección en el archivo de configuración YAML que contiene los parámetros generales.
         configpostgress: Nombre de la sección en el archivo de configuración YAML que contiene los parámetros de conexión a Postgres.
 
+        sp_value: cuando no quieres usar la config, sino directgamente el nombre del sp, no es necesario el configyaml, pasar vacio
     """
     try:
         config = load_config()
@@ -20,7 +21,7 @@ def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga
         # Crear instancia de conexión
         postgress = PostgresConnector(postgres_config)
         
-        sp_ejecutar=general_config[sp_name]
+        sp_ejecutar=sp_value or general_config[sp_name]
         logger.info(f"Ejecutando SP {sp_ejecutar}")
         postgress.ejecutar(sp_ejecutar, tipo='sp')
         data=postgress.ejecutar("public.log_sp_ultimo_fn",parametros=(f'{sp_ejecutar}()',),tipo='fn')

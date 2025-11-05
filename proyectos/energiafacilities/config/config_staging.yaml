@@ -6,7 +6,7 @@ postgress:
   password: "${POSTGRES_PASS_STAGING}"
   host: "${POSTGRES_HOST_STAGING}"
   port: "${POSTGRES_PORT_STAGING}"
-  database: "${POSTGRES_STAGING}"
+  database: "${POSTGRES_DB_STAGING}"
 #---------------DAAS SFTP---------------------------------------
 sftp_daas_c:
   host: "${SFTP_HOST_DAAS}"
@@ -39,13 +39,13 @@ sftp_energia:
     schema: "PUBLIC",
     table : "error_energia_ultimo_lote",
     limmit: 100,
-    remote_dir: "/daas/dev/energy-facilities/"
+    remote_dir: "/daas/qa/energy-facilities/"
   }
 
 #------------Base de sitios-------------------------------------
 
 sftp_base_sitios:
-  remote_dir: "/daas/dev/energy-facilities/base-sitios/input"
+  remote_dir: "/daas/qa/energy-facilities/base-sitios/input"
   local_dir: "tmp/sftp_base_sitios"
   schema: "raw"
   table: "FS_MM_BASE_DE_SITIOS"
@@ -54,7 +54,7 @@ sftp_base_sitios:
   sp_carga: "ods.sp_cargar_fs_hm_base_de_sitios"
   
 sftp_base_sitios_bitacora:
-  remote_dir: "/daas/dev/energy-facilities/base-sitios/input"
+  remote_dir: "/daas/qa/energy-facilities/base-sitios/input"
   local_dir: "tmp/sftp_base_sitios"
   schema: "RAW"
   table: "FS_MM_BITACORA_BASE_SITIOS"
@@ -75,7 +75,7 @@ webindra_energia:
     schema: "PUBLIC",
     table : "error_energia_ultimo_lote",
     limmit: 100,
-    remote_dir: "/daas/dev/energy-facilities/errors"
+    remote_dir: "/daas/qa/energy-facilities/errors"
   }
   BASE_URL: "https://recibosttr.com/sistema"
   LOGIN_PATH: "/"
@@ -98,7 +98,7 @@ webindra_energia:
 clientes_libres:
   local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
   specific_filename: "F-TELEFONICA"
-  remote_dir: "/daas/dev/energy-facilities/recibos-manuales/input/"
+  remote_dir: "/daas/qa/energy-facilities/recibos-manuales/input/"
   local_dir: "tmp/sftp_clientes_libres"
   schema: "raw"
   table: "sftp_mm_clientes_libres"

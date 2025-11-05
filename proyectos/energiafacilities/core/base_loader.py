@@ -133,7 +133,8 @@ class BaseLoaderPostgres:
         column_mapping: Optional[Dict[str, str]] = None,
         numerofilasalto:int =0,
         modo=None,
-        table_name:str =None
+        table_name:str =None,
+        schema: str = None
     ):
         """Carga datos a PostgreSQL (usa mapeo invertido DB ➜ Excel).
         Parámetros:
@@ -170,7 +171,7 @@ class BaseLoaderPostgres:
         
             batch = batch_size or getattr(self._cfgload, "chunksize", 10000)
             logger.info(f"Iniciando carga: {len(df)} filas, {len(df.columns)} columnas")
-            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=table_name)
+            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=table_name, schema=schema)
 
         except Exception as e:
             logger.error(f"Error al cargar los datos: {e}")
@@ -179,7 +180,7 @@ class BaseLoaderPostgres:
     # ----------
     # INSERCIÓN POR LOTES
     # ----------
-    def insert_dataframe(self, df: pd.DataFrame, batch_size: int = 10000, modo: str = None, table_name: str =None):
+    def insert_dataframe(self, df: pd.DataFrame, batch_size: int = 10000, modo: str = None, table_name: str =None, schema: str=None):
         if df.empty:
             msg = "DataFrame vacío, no hay datos para insertar"
             logger.error(msg)
@@ -187,7 +188,7 @@ class BaseLoaderPostgres:
 
         try:
             cols = ', '.join(df.columns)
-            full_table = f"{self._cfgload.schema}.{self._cfgload.table}"
+            full_table = f"{schema or self._cfgload.schema}.{table_name or self._cfgload.table}"
             total_rows = len(df)
             modo =modo or getattr(self._cfgload, "if_exists", "replace").lower()
 
@@ -200,7 +201,7 @@ class BaseLoaderPostgres:
                             WHERE table_schema = LOWER(%s)
                               AND table_name = LOWER(%s)
                         );
-                    """, (self._cfgload.schema, table_name or self._cfgload.table))
+                    """, (schema or self._cfgload.schema, table_name or self._cfgload.table))
                     tabla_existe = cur.fetchone()[0]
 
                     # Política de inserción
