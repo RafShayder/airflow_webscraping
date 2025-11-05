@@ -3,7 +3,11 @@ x-airflow-common:
   &airflow-common
   image: ${AIRFLOW_IMAGE_NAME:-scraper-integratel:latest}
   # build: .
-  platform: ${AIRFLOW_PLATFORM:-linux/amd64}
+  # platform: ${AIRFLOW_PLATFORM:-linux/amd64}
+  # Para correr en Mac normal (comentar la línea anterior y usar una de estas opciones):
+  platform: linux/arm64  # Para Mac con Apple Silicon (M1/M2/M3)
+  # platform: linux/amd64  # Para Mac Intel
+  # (o simplemente comentar la línea platform para usar la plataforma nativa)
   environment:
     &airflow-common-env
     METRICS_EMITTER: "1"

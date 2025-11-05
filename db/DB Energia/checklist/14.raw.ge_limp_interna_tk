@@ -1,0 +1,33 @@
+
+CREATE TABLE IF NOT EXISTS raw.ge_limp_interna_tk (
+    task_id                          VARCHAR(255) NOT NULL,
+    site_id                          VARCHAR(255) NOT NULL,
+    sub_wo_id                        VARCHAR(255) NOT NULL,
+
+    tipo_de_tanque                   VARCHAR(255),
+    tipo_de_combustible              VARCHAR(255),
+    capacidad_tanque_gal             VARCHAR(255),
+    nivel_actual_tanque_gal          VARCHAR(255),
+    consum_grupo_electr_gal_hora     VARCHAR(255),
+    codigo_unico_tanque              VARCHAR(255),
+    estado_del_tanque                VARCHAR(255),
+    forma_de_tanque                  VARCHAR(255),
+    ancho_tanque_rectangular_cm      VARCHAR(255),
+    largo_tanque_rectangular_cm      VARCHAR(255),
+    altura_tanque_rectan_refere_es   VARCHAR(255),
+    diametro_tanque_cilindrico_cm    VARCHAR(255),
+    largo_tanque_cilindrico_cm       VARCHAR(255),
+    estado_de_las_tuberias           VARCHAR(255),
+    tiene_prefil_combus_tanque       VARCHAR(255),
+    fecha_ultimo_cambio_prefil       VARCHAR(255),
+    tipo_de_bomba                    VARCHAR(255),
+    tiene_poza_antiderrame           VARCHAR(255),
+    tiene_sensor_de_nivel_o_boya     VARCHAR(255),
+    nivel_inicia_combus_gal          VARCHAR(255),
+    consum_grupo_electr_gal_hora_1   VARCHAR(255),
+    autono_nivel_inicia_hrs          VARCHAR(255),
+    nivel_final_de_combustible_gal   VARCHAR(255),
+    autonomia_con_nivel_final_hrs    VARCHAR(255),
+    prueba_alarma_bajo_nivel         VARCHAR(255),
+    observaciones                    VARCHAR(255)
+);

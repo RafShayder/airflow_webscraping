@@ -1,0 +1,85 @@
+
+CREATE SCHEMA IF NOT EXISTS raw;
+
+
+CREATE TABLE raw.clima_condensador (
+  task_id                              VARCHAR(255) NOT NULL,
+  site_id                              VARCHAR(255) NOT NULL,
+  sub_wo_id                            VARCHAR(255) NOT NULL,
+
+  marca_compresor_1                    VARCHAR(255),
+  marca_compresor_2                    VARCHAR(255),
+  cod_unico_aire_interv                VARCHAR(255),
+  identi_nom_aa_sala_eq_ejempl         VARCHAR(255),
+  cantid_conden_total_ese_aa           VARCHAR(255),
+
+  nro_unidad_conden_interv             VARCHAR(255),
+  tipo_de_aa                           VARCHAR(255),
+  marca                                VARCHAR(255),
+  modelo                               VARCHAR(255),
+  serie                                VARCHAR(255),
+  estado                               VARCHAR(255),
+  voltaje_de_aa                        VARCHAR(255),
+
+  -- segundo campo repetido en la fuente
+  nro_unidad_conden_interv_2           VARCHAR(255),
+
+  refrigerante                         VARCHAR(255),
+  capacidad_tr                         VARCHAR(255),
+  ubicacion_de_uc_sala_piso            VARCHAR(255),
+  consum_uc_fase_r_amperi              VARCHAR(255),
+  consum_uc_fase_s_amperi              VARCHAR(255),
+  consum_uc_fase_t_amperi              VARCHAR(255),
+  observacion                          VARCHAR(255),
+
+  compre_estan_unidad_conden           VARCHAR(255),
+  numero_de_compresores                VARCHAR(255),
+  rev_tensio_correa_vent_rodami        VARCHAR(255),
+  cantid_motor_ventil_uc               VARCHAR(255),
+  tiene_algun_motove_averia            VARCHAR(255),
+  alimen_motor_ventil                  VARCHAR(255),
+  consumo_motor_ventilador_ir          VARCHAR(255),
+  consumo_motor_ventilador_is          VARCHAR(255),
+  consumo_motor_ventilador_it          VARCHAR(255),
+  medir_temper_que_espuls_unidad       VARCHAR(255),
+  tiene_visor_de_humedad               VARCHAR(255),
+  visor_refleja_gotas_de_humedad       VARCHAR(255),
+  tiene_presostato_de_baja             VARCHAR(255),
+  tiene_presostato_de_alta             VARCHAR(255),
+  rev_perdidas_de_aceite               VARCHAR(255),
+  rev_estado_operat_valvul             VARCHAR(255),
+  observacion_de_condensador           VARCHAR(255),
+
+  recarg_gas_caso_estar_baja           VARCHAR(255),
+  cantid_refrig_recarg_kg              VARCHAR(255),
+  peso_balon_antes_recarg_kg           VARCHAR(255),
+  peso_balon_despue_recarg_kg          VARCHAR(255),
+
+  cantid_compre_totale_aa              VARCHAR(255),
+  capacidad_compresor_1_tr             VARCHAR(255),
+  ubicacion_de_compresor               VARCHAR(255),
+  tipo_de_compresor                    VARCHAR(255),
+  tipo_de_alimentacion                 VARCHAR(255),
+  voltaje                              VARCHAR(255),
+  estado_de_compresor                  VARCHAR(255),
+  presion_de_baja_circuito_nnum1       VARCHAR(255),
+  presion_de_alta_circuito_nnum1       VARCHAR(255),
+  consumo_compresor_ir                 VARCHAR(255),
+  consumo_compresor_is                 VARCHAR(255),
+  consumo_compresor_it                 VARCHAR(255),
+  observacion_de_compresor1            VARCHAR(255),
+
+  capacidad_compresor_2_tr             VARCHAR(255),
+  ubicacion_de_compresor2              VARCHAR(255),
+  tipo_de_compresor1                   VARCHAR(255),
+  tipo_de_alimentacion1                VARCHAR(255),
+  voltaje1                             VARCHAR(255),
+  estado_de_compresor1                 VARCHAR(255),
+  presion_de_baja_circuito_nnum2       VARCHAR(255),
+  presion_de_alta_circuito_nnum2       VARCHAR(255),
+  consumo_compresor_ir1                VARCHAR(255),
+  consumo_compresor_is1                VARCHAR(255),
+  consumo_compresor_it1                VARCHAR(255),
+  observacion_de_compresor2            VARCHAR(255)
+);
+
