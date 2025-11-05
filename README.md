@@ -1,58 +1,140 @@
-# Airflow DAGs 
+# Airflow DAG
 
-Stack de Apache Airflow con Selenium/Chrome preparado para ejecutarse en servidores Linux `amd64` sin acceso a Internet.
+Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a Internet.
+
+---
+
+## 📑 Índice
+
+1. [Instalación de Docker CE (Requisito previo)](#instalación-de-docker-ce-requisito-previo)
+2. [Despliegue offline en el servidor](#despliegue-offline-en-el-servidor-linux-amd64)
+3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
+4. [Configuración y credenciales](#configuración-y-credenciales)
+5. [Notas de operación](#notas-de-operación)
+
+---
+
+## Instalación de Docker CE (Requisito previo)
+
+Si el servidor no tiene Docker instalado, sigue estos pasos para instalarlo sin conexión a Internet.
+
+### Requisitos previos
+- Servidor con **RHEL 9.x (x86_64)** sin conexión a Internet.
+- Una máquina con Internet para descargar los paquetes.
+- Acceso al servidor mediante SFTP.
+
+### 1. Descargar los paquetes RPM en una máquina con Internet
+
+```bash
+mkdir -p ~/docker_rpms_x86_64
+cd ~/docker_rpms_x86_64
+
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/containerd.io-1.7.28-2.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-28.0.0-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-cli-28.0.0-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-buildx-plugin-0.29.1-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-compose-plugin-2.29.7-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-rootless-extras-28.0.0-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/container-selinux-2.237.0-2.el9_6.noarch.rpm
+```
+
+### 2. Crear un paquete comprimido
+
+```bash
+cd ..
+tar czf docker_rpms_x86_64.tar.gz docker_rpms_x86_64
+```
+
+Transferir el archivo al servidor:
+
+```bash
+scp docker_rpms_x86_64.tar.gz usuario@ip_servidor:/home/usuario/
+```
+
+### 3. Extraer los RPM en el servidor
+
+```bash
+cd ~
+tar xzf docker_rpms_x86_64.tar.gz
+cd docker_rpms_x86_64
+ls -1
+```
+
+### 4. Instalar Docker CE desde los paquetes locales
+
+```bash
+sudo dnf install -y --disablerepo='*' --skip-broken ./*.rpm
+```
+
+### 5. Habilitar y arrancar Docker
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now docker
+sudo systemctl status docker
+```
+
+### 6. Verificar la instalación
+
+```bash
+docker --version
+sudo docker info
+```
+
+### 7. Limpieza opcional
+
+```bash
+sudo dnf clean all
+rm -rf ~/docker_rpms_x86_64
+```
 
 ---
 
 ## Despliegue offline en el servidor (Linux `amd64`)
 
-### Archivos que deben estar en el servidor
-- Este repositorio completo, con las siguientes carpetas preparadas:
-  - `docker-compose.yml`
-  - `dags/` (DAGs que quieras habilitar; si no hay ninguno, deja la carpeta vacía)
-  - `proyectos/` (código de los scrapers; imprescindible para que los DAGs funcionen)
-  - `config/` (archivos de configuración adicionales; puede quedar vacía si no se usa)
-  - `plugins/` (plugins personalizados de Airflow; **debe contener `custom_metrics.py` para usar métricas**)
-  - `monitoring/` (debe contener `statsd-mapping.yml` y `prometheus.yml` para el sistema de métricas)
-  - `logs/` (se genera en tiempo de ejecución; puede existir vacía o dejar que la cree Docker)
-- Bundle de imágenes `scraper-integratel-offline.tar.gz`.
-- Archivo `.env` en la raíz del repositorio con al menos:
-
-  ```bash
-  # Variable mínima para Airflow
-  AIRFLOW_UID=50000
-  LOG_LEVEL=INFO
-
-  ```
-
-### Pasos
-1. **Copiar imagen tar.gz**
-   ```bash
-   scp scraper-integratel-offline.tar.gz usuario@servidor:/home/usuario/
-   scp -r scraper-integratel usuario@servidor:/home/usuario/
+1. **Copiar imagen tar.gz via sftp a la raiz del directorio**
    ```
-2. **Importar imágenes sin Internet**
+   scraper-integratel-offline.tar.gz
+   ```
+
+2. **Copiar repositorio completo al servidor**
+   Asegúrate de tener el repositorio completo en el servidor con todas las carpetas necesarias.
+
+3. **Importar imágenes sin Internet**
    ```bash
-   ssh usuario@servidor
-   cd /home/usuario
-   sudo gunzip -c scraper-integratel-offline.tar.gz | sudo docker load
+   cd /daas1/analytics
+   sudo sh -c "gunzip -c $(pwd)/scraper-integratel-offline.tar.gz | docker load"
    sudo docker images | grep -E 'scraper-integratel|postgres|redis|prom'
    ```
-3. **Revisar configuración del proyecto**
-   - Confirma que `/home/usuario/scraper-integratel/.env` contiene `AIRFLOW_UID=50000`.
-   - Ajusta propietarios si es necesario (`sudo chown -R usuario:usuario scraper-integratel`).
-4. **Levantar la plataforma**
+4. **Revisar configuración del proyecto**
+   - Crear directorios necesarios:
+     ```bash
+     mkdir -p ./dags ./logs ./plugins ./config ./monitoring ./proyectos
+     ```
+   - Crear archivo `.env` con la configuración básica:
+     ```bash
+     echo -e "AIRFLOW_UID=$(id -u)" > .env
+     echo -e "LOG_LEVEL=INFO" >> .env
+     ```
+5. **Llenar cada carpeta con los contenidos necesarios**
+   - `docker-compose.yml`: Debe estar en la raíz del repositorio.
+   - `dags/`: Coloca los DAGs que quieras habilitar (si no hay ninguno, deja la carpeta vacía).
+   - `proyectos/`: Debe contener todo el codigo base necesario para correr los DAGs (imprescindible para que los DAGs funcionen).
+   - `plugins/`: Debe contener plugins personalizados de Airflow (**debe contener `custom_metrics.py` para usar métricas**).
+   - `monitoring/`: Debe contener `statsd-mapping.yml` y `prometheus.yml` para el sistema de métricas.
+
+6. **Levantar la plataforma**
    ```bash
-   cd /home/usuario/scraper-integratel
+   cd /daas1/analytics
    sudo docker compose up -d --pull never
-   sudo docker compose ps
    ```
-5. **Verificar servicios**
+7. **Verificar servicios**
    ```bash
-   curl http://localhost:9095/api/v2/version
+   curl http://IP_DE_SERVIDOR:9095/api/v2/version
    ```
    Si la red corporativa bloquea el puerto 9095, crea un túnel: `ssh -L 9095:localhost:9095 usuario@servidor`.
-6. **Acceso y operaciones**
+
+8. **Acceso y operaciones**
    - UI de Airflow: `http://<host>:9095` (usuario/clave por defecto: `airflow` / `airflow`).
    - Logs: `sudo docker compose logs -f airflow-worker`.
    - Detener servicios: `sudo docker compose down` (usa `-v` si deseas borrar volúmenes).
@@ -72,11 +154,28 @@ Stack de Apache Airflow con Selenium/Chrome preparado para ejecutarse en servido
 ./generar_paquete_offline.sh
 ```
 
-Variables útiles:
-- `TARGET_PLATFORM=linux/arm64` (default `linux/amd64`).
-- `IMAGE_TAG=v1` cambia la etiqueta de la imagen `scraper-integratel`.
-- `ARCHIVE_NAME=mi-bundle.tar.gz` cambia el nombre del archivo final.
-- `SKIP_BUILD=1` reutiliza una imagen local existente y evita ejecutar `docker build`.
+### Variables de entorno opcionales
+Puedes definir estas variables antes de ejecutar el script para personalizar el comportamiento:
+
+```bash
+# Ejemplo: Generar para arquitectura ARM64
+TARGET_PLATFORM=linux/arm64 ./generar_paquete_offline.sh
+
+# Ejemplo: Cambiar la etiqueta de la imagen
+IMAGE_TAG=v1 ./generar_paquete_offline.sh
+
+# Ejemplo: Cambiar el nombre del archivo de salida
+ARCHIVE_NAME=mi-bundle.tar.gz ./generar_paquete_offline.sh
+
+# Ejemplo: Reutilizar imagen existente (no reconstruir)
+SKIP_BUILD=1 ./generar_paquete_offline.sh
+```
+
+**Variables disponibles:**
+- `TARGET_PLATFORM`: Plataforma objetivo (por defecto: `linux/amd64`, opciones: `linux/arm64`, etc.)
+- `IMAGE_TAG`: Etiqueta de la imagen Docker (por defecto: `latest`)
+- `ARCHIVE_NAME`: Nombre del archivo tar.gz generado (por defecto: `scraper-integratel-offline.tar.gz`)
+- `SKIP_BUILD`: Si es `1`, no ejecuta `docker build` y reutiliza una imagen local existente
 
 Salida típica:
 ```
