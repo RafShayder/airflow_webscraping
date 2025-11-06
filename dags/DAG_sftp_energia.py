@@ -46,7 +46,6 @@ with DAG(
     extract_pd = PythonOperator(
         task_id="extract_sftp_energia_PD",
         python_callable=extraersftp_energia_PD,
-        op_kwargs={"periodo": "202509"},
     )
     load_pd = PythonOperator(
         task_id="load_sftp_energia_PD",
@@ -65,7 +64,6 @@ with DAG(
     extract_da = PythonOperator(
         task_id="extract_sftp_energia_DA",
         python_callable=extraersftp_energia_DA,
-        op_kwargs={"periodo": "202509"},
     )
     load_da = PythonOperator(
         task_id="load_sftp_energia_DA",
