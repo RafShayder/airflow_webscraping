@@ -184,3 +184,6 @@ requirements-dev.txt
 backup/# Imágenes Docker
 *.tar.gz
 *.tar
+
+# Documentación de bugs críticos
+BUGS_CRITICOS_IDENTIFICADOS.md
