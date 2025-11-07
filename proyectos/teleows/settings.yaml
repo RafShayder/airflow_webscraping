@@ -1,0 +1,32 @@
+default:
+  # Valores que se pueden sobreescribir con variables de entorno o conexiones de Airflow.
+  download_path: "./tmp"
+  max_iframe_attempts: 60
+  max_status_attempts: 60
+  options_to_select: "CM,OPM"
+  date_mode: 2
+  date_from: "2025-09-01"
+  date_to: "2025-09-10"
+  gde_output_filename: "Console_GDE_export.xlsx"
+  dynamic_checklist_output_filename: "DynamicChecklist_SubPM.xlsx"
+  export_overwrite_files: true
+  proxy: "telefonica01.gp.inet:8080"
+  headless: true
+
+  # Configuración de PostgreSQL (usar variables de entorno)
+  postgres:
+    host: "${POSTGRES_HOST}"
+    port: "${POSTGRES_PORT}"
+    database: "${POSTGRES_DB}"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASS}"
+
+  # Configuración de carga para GDE
+  gde:
+    schema: "raw"
+    table: "gde_tasks"  # Tabla RAW (todos VARCHAR)
+    if_exists: "replace"  # 'append' | 'replace' | 'fail'
+    chunksize: 10000
+    local_dir: "./tmp"
+    specific_filename: "Console_GDE_export.xlsx"
+    sp_carga: "ods.sp_cargar_gde_tasks"  # Stored Procedure para transformar RAW → ODS

@@ -1,0 +1,21 @@
+
+CREATE TABLE raw.sol_informacion_general_sist (
+  task_id                         VARCHAR(255) NOT NULL,
+  site_id                         VARCHAR(255) NOT NULL,
+  sub_wo_id                       VARCHAR(255) NOT NULL,
+  tipo_de_sistema_solar           VARCHAR(255),
+  sistem_solar_operat_averia      VARCHAR(255),
+  cantid_arregl_panele_solare     VARCHAR(255),
+  cantid_total_panele_solare      VARCHAR(255),
+  capaci_total_panele_solare_wp   VARCHAR(255),
+  cantid_total_banco_bat          VARCHAR(255),
+  capaci_total_banco_bat_ah       VARCHAR(255),
+  cantid_contro_solar             VARCHAR(255),
+  verificar_tablero_principal     VARCHAR(255),
+  verifi_cablea_unidad_contro     VARCHAR(255),
+  verificar_conexion_a_tierra     VARCHAR(255),
+  verif_manual_ajuste_cables_bat  VARCHAR(255),
+  verifi_correc_bajada_cables     VARCHAR(255),
+  observacion                     VARCHAR(255)
+);
+

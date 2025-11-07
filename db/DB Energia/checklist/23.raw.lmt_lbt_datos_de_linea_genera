@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS raw.lmt_lbt_datos_de_linea_genera (
+  task_id                       VARCHAR(255) NOT NULL,
+  site_id                       VARCHAR(255) NOT NULL,
+  sub_wo_id                     VARCHAR(255) NOT NULL,
+
+  tipo_de_linea                 VARCHAR(255),
+  ubicacion_geografica          VARCHAR(255),
+  tipo_de_conexion              VARCHAR(255),
+  nivel_de_tension              VARCHAR(255),
+  cantid_postes_toda_linea      VARCHAR(255),
+  tipo_de_poste                 VARCHAR(255),
+  longit_toda_linea_metros      VARCHAR(255),
+  ubicacion_de_punto_de_entrega VARCHAR(255)
+);

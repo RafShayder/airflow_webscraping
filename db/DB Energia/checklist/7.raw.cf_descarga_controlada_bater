@@ -1,0 +1,88 @@
+
+CREATE TABLE IF NOT EXISTS raw.cf_descarga_controlada_bater (
+    task_id                          VARCHAR(255) NOT NULL,
+    site_id                          VARCHAR(255) NOT NULL,
+    sub_wo_id                        VARCHAR(255) NOT NULL,
+
+    equipo_conectado_a_baterias      VARCHAR(255),
+    cod_unico_cuadro_fza_ups_asoc    VARCHAR(255),
+    nom_cuadro_fza_ups_asoc          VARCHAR(255),
+    carga_cuadro_fuerza_adc          VARCHAR(255),
+    marca_de_cuadro_de_fuerza        VARCHAR(255),
+    porcen_corrie_carga_bat          VARCHAR(255),
+    capacidad_total_bb_teorica_ah    VARCHAR(255),
+    cantidad_bancos_bat_asociados    VARCHAR(255),
+
+    codigo_de_bat1                   VARCHAR(255),
+    capacidad_bb1_ah                 VARCHAR(255),
+    marca_bb1                        VARCHAR(255),
+    anio_instalacion_bb1             VARCHAR(255),
+
+    codigo_de_bat2                   VARCHAR(255),
+    capacidad_bb2_ah                 VARCHAR(255),
+    marca_bb2                        VARCHAR(255),
+    anio_instalacion_bb2             VARCHAR(255),
+
+    codigo_de_bat3                   VARCHAR(255),
+    capacidad_bb3_ah                 VARCHAR(255),
+    marca_bb3                        VARCHAR(255),
+    anio_instalacion_bb3             VARCHAR(255),
+
+    codigo_de_bat4                   VARCHAR(255),
+    capacidad_bb4_ah                 VARCHAR(255),
+    marca_bb4                        VARCHAR(255),
+    anio_instalacion_bb4             VARCHAR(255),
+
+    codigo_de_bat5                   VARCHAR(255),
+    capacidad_bb5_ah                 VARCHAR(255),
+    marca_bb5                        VARCHAR(255),
+    anio_instalacion_bb5             VARCHAR(255),
+
+    codigo_de_bat6                   VARCHAR(255),
+    capacidad_bb6_ah                 VARCHAR(255),
+    marca_bb6                        VARCHAR(255),
+    anio_instalacion_bb6             VARCHAR(255),
+
+    codigo_de_bat7                   VARCHAR(255),
+    capacidad_bb7_ah                 VARCHAR(255),
+    marca_bb7                        VARCHAR(255),
+    anio_instalacion_bb7             VARCHAR(255),
+
+    volt_rectif_a_los_15_min_vdc     VARCHAR(255),
+    carga_asume_rectif_15_min_adc    VARCHAR(255),
+    carga_asume_bb1_15_min_adc       VARCHAR(255),
+    carga_asume_bb2_15_min_adc       VARCHAR(255),
+    carga_asume_bb3_15_min_adc       VARCHAR(255),
+    carga_asume_bb4_15_min_adc       VARCHAR(255),
+    carga_asume_bb5_15_min_adc       VARCHAR(255),
+    carga_asume_bb6_15_min_adc       VARCHAR(255),
+    carga_asume_bb7_15_min_adc       VARCHAR(255),
+
+    volt_rectif_a_los_30_min_vdc     VARCHAR(255),
+    carga_asume_rectif_30_min_adc    VARCHAR(255),
+    carga_asume_bb1_30_min_adc       VARCHAR(255),
+    carga_asume_bb2_30_min_adc       VARCHAR(255),
+    carga_asume_bb3_30_min_adc       VARCHAR(255),
+    carga_asume_bb4_30_min_adc       VARCHAR(255),
+    carga_asume_bb5_30_min_adc       VARCHAR(255),
+    carga_asume_bb6_30_min_adc       VARCHAR(255),
+    carga_asume_bb7_30_min_adc       VARCHAR(255),
+
+    volt_rectif_a_los_45_min_vdc     VARCHAR(255),
+    carga_asume_rectif_45_min_adc    VARCHAR(255),
+    carga_asume_bb1_45_min_adc       VARCHAR(255),
+    carga_asume_bb2_45_min_adc       VARCHAR(255),
+    carga_asume_bb3_45_min_adc       VARCHAR(255),
+    carga_asume_bb4_45_min_adc       VARCHAR(255),
+    carga_asume_bb5_45_min_adc       VARCHAR(255),
+    carga_asume_bb6_45_min_adc       VARCHAR(255),
+    carga_asume_bb7_45_min_adc       VARCHAR(255),
+
+    "45_min_medir_voltaj_bb_que"     VARCHAR(255),
+    cuadro_fza_tiene_autono          VARCHAR(255),
+    hay_algun_bb_malas_condic_que    VARCHAR(255),
+    bb_en_malas_condiciones          VARCHAR(255),
+    hay_alguna_celda_cuyo_v_debajo   VARCHAR(255),
+    indica_numero_celdas_malas       VARCHAR(255),
+    observacion_general              VARCHAR(255)
+);

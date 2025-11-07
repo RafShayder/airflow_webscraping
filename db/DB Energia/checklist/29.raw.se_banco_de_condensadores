@@ -1,0 +1,14 @@
+
+CREATE TABLE raw.se_banco_de_condensadores (
+  task_id                      VARCHAR(255) NOT NULL,
+  site_id                      VARCHAR(255) NOT NULL,
+  sub_wo_id                    VARCHAR(255) NOT NULL,
+  existe_banco_de_condensadores VARCHAR(255),
+  operan_banco_conden          VARCHAR(255),
+  capacidad                    VARCHAR(255),
+  cantidad_de_pasos            VARCHAR(255),
+  operatividad_de_pasos        VARCHAR(255),
+  limpieza_con_aspiradora      VARCHAR(255),
+  rev_fusibl_bobina_termos     VARCHAR(255),
+  observacion                  VARCHAR(255)
+);

@@ -1,0 +1,31 @@
+
+CREATE TABLE raw.se_transformador_de_potencia (
+  task_id                           VARCHAR(255) NOT NULL,
+  site_id                           VARCHAR(255) NOT NULL,
+  sub_wo_id                         VARCHAR(255) NOT NULL,
+  sistema_al_que_alimenta           VARCHAR(255),
+  existe_lmt_aerea                  VARCHAR(255),
+  nivel_de_tension                  VARCHAR(255),
+  marca                             VARCHAR(255),
+  codigo_de_equipo                  VARCHAR(255),
+  modelo                            VARCHAR(255),
+  capacidad_kva                     VARCHAR(255),
+  anio                              VARCHAR(255),
+  estado                            VARCHAR(255),
+  tipo_de_ventilacion               VARCHAR(255),
+  tipo_de_conexion                  VARCHAR(255),
+  voltaj_alta_transf_kv             VARCHAR(255),
+  voltaj_baja_transf_kv             VARCHAR(255),
+  relaci_transf_voltaj              VARCHAR(255),
+  medici_resist_aislam_alta_baja    VARCHAR(255),
+  medici_resist_aislam_alta         VARCHAR(255),
+  medici_resist_aislam_baja         VARCHAR(255),
+  analis_rigide_dielec              VARCHAR(255),
+  limp_ajuste_verif_operat          VARCHAR(255),
+  transf_conect_un_pozo             VARCHAR(255),
+  marca_contin_entre_pozo_subest    VARCHAR(255),
+  medici_resist_pozo_media          VARCHAR(255),
+  verifi_que_no_este_resumi         VARCHAR(255),
+  observacion                       VARCHAR(255)
+);
+

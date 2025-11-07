@@ -1,0 +1,87 @@
+
+CREATE TABLE IF NOT EXISTS raw.ge_grupo_electrogeno (
+    task_id                                         VARCHAR(255) NOT NULL,
+    site_id                                         VARCHAR(255) NOT NULL,
+    sub_wo_id                                       VARCHAR(255) NOT NULL,
+
+    codigo_unico_de_ge                              VARCHAR(255),
+    marca_de_grupo_electrogeno                      VARCHAR(255),
+    modelo_de_grupo_electrogeno                     VARCHAR(255),
+    serie_de_grupo_electrogeno                      VARCHAR(255),
+    potenc_grupo_electr_kva                         VARCHAR(255),
+    fases                                           VARCHAR(255),
+    voltaje_de_grupo_electrogeno_v                  VARCHAR(255),
+    ge_rotula_cod_unico_caso_que                    VARCHAR(255),
+
+    -- Motor
+    marca_motor                                     VARCHAR(255),
+    modelo_motor                                    VARCHAR(255),
+    serie_motor                                     VARCHAR(255),
+    capacidad_hp_motor                              VARCHAR(255),
+
+    -- Mantenimientos de filtros / refrigerante
+    fecha_ultimo_cambio_filtro_aire                 VARCHAR(255),
+    fecha_ultimo_cambio_filtro_aceite_diesel_refrig VARCHAR(255),
+    fecha_ultimo_cambio_refrig                      VARCHAR(255),
+    ultimo_cambio_filtro_aceite_ha                  VARCHAR(255),
+    ultimo_cambio_filtro_petrol_ha                  VARCHAR(255),
+    ultimo_cambio_filtro_refrig_ha                  VARCHAR(255),
+    ultimo_cambio_filtro_aire_ha                    VARCHAR(255),
+
+    -- Otros chequeos
+    horometro                                       VARCHAR(255),
+    limpieza_externa                                VARCHAR(255),
+    verifi_operat_sujeta_restri                     VARCHAR(255),
+    verifi_nivel_refrig_radiad                      VARCHAR(255),
+    fecha_de_cambio_de_faja                         VARCHAR(255),
+    limp_pintad_ventil                              VARCHAR(255),
+    verifi_estado_tinas_aletas                      VARCHAR(255),
+    limpia_obstru_sondeo_radiad                     VARCHAR(255),
+    verifi_estado_termos                            VARCHAR(255),
+    verif_correc_fugas_combus                       VARCHAR(255),
+    medir_nivel_aceite_carter                       VARCHAR(255),
+    presion_aceite_motor                            VARCHAR(255),
+    verifi_func_arranc_ajuste                       VARCHAR(255),
+    verifi_func_actuad_bomba                        VARCHAR(255),
+    verifi_func_gobern_otros                        VARCHAR(255),
+    verifi_func_altern_carga                        VARCHAR(255),
+    temperatura_del_motor                           VARCHAR(255),
+    resumi_aceite_alguna_parte                      VARCHAR(255),
+    observacion                                     VARCHAR(255),
+
+    -- Generador
+    marca_de_generador                              VARCHAR(255),
+    modelo_de_generador                             VARCHAR(255),
+    potencia_kw_de_generador                        VARCHAR(255),
+    limpieza_general                                VARCHAR(255),
+    verifi_circul_aire_fresco                       VARCHAR(255),
+    verif_ruidos_anorma_vibrac                      VARCHAR(255),
+    verifi_operat_resist_deshum                     VARCHAR(255),
+    verificar_rejillas_protectoras                  VARCHAR(255),
+    verifi_que_radiad_no_tenga                      VARCHAR(255),
+    ge_tiene_partes_corroidas                       VARCHAR(255),
+    tiene_tanque_externo                            VARCHAR(255),
+    observacion_del_ge                              VARCHAR(255),
+
+    -- Baterías de arranque (BB)
+    cod_grupo_electr_asoc_bat                       VARCHAR(255),
+    cantid_bat_arranq_conect_ge                     VARCHAR(255),
+    marca                                           VARCHAR(255),      -- marca de batería
+    capacidad_ah                                    VARCHAR(255),
+    cantidad_de_placas                              VARCHAR(255),
+    fecha_ultimo_cambio_anotad_bat1                 VARCHAR(255),
+    fecha_ultimo_cambio_anotad_bat2                 VARCHAR(255),
+    fecha_ultimo_cambio_anotad_bat3                 VARCHAR(255),
+    fecha_ultimo_cambio_anotad_bat4                 VARCHAR(255),
+    voltaje_bat1_vdc                                VARCHAR(255),
+    voltaje_bat2_vdc                                VARCHAR(255),
+    voltaj_bat3_vdc_caso_si_existi                  VARCHAR(255),
+    voltaj_bat4_vdc_caso_si_existi                  VARCHAR(255),
+    verifi_valore_carga_bat                         VARCHAR(255),
+    limp_ajuste_cables_bornes_bat                   VARCHAR(255),
+    carga_de_bat_arranqueamp                        VARCHAR(255),
+
+    -- Etiquetado y observaciones
+    ge_etiquetado_cod_unico                         VARCHAR(255),
+    observacion1                                    VARCHAR(255)
+);
