@@ -82,7 +82,7 @@ webindra_energia:
   EXPORT_TMPL: "/sisReportes/exportarRecibosSpoutConsumo/{start}/{end}"
   USER: "usuario.tdp"
   PASS: "usuario.tdp2021"
-  PERIOD_MONTHS: 4
+  PERIOD_MONTHS: 2
   TIMEOUT: 120
   MAX_RETRIES: 3
   PROXY: "${PROXY}"  # Proxy desde variable de entorno (ej: telefonica01.gp.inet:8080)
@@ -93,7 +93,7 @@ webindra_energia:
         }
   sp_carga: "ods.sp_cargar_web_hm_indra_energia"
 
-#------Clientes libres-------------------------------------------
+#------Clientes libres-------------------------- -----------------
 
 clientes_libres:
   local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"

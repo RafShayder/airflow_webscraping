@@ -80,7 +80,7 @@ webindra_energia:
   EXPORT_TMPL: "/sisReportes/exportarRecibosSpoutConsumo/{start}/{end}"
   USER: "usuario.tdp"
   PASS: "usuario.tdp2021"
-  PERIOD_MONTHS: 4
+  PERIOD_MONTHS: 2
   TIMEOUT: 120
   MAX_RETRIES: 3
   PROXY: "${PROXY}"  # Proxy desde variable de entorno (ej: telefonica01.gp.inet:8080)
