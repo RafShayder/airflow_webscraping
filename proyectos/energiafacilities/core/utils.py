@@ -7,7 +7,7 @@ import os
 import shutil
 import json
 from datetime import date, timedelta, datetime
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import sys
 
 logger = logging.getLogger(__name__)
@@ -35,18 +35,27 @@ def load_config(env: str | None = None) -> dict:
 
     """
     try:
-        # Cargar variables del .env si existe (opcional)
-
-        load_dotenv()
-        env = env or os.getenv("ENV_MODE", "dev").lower()
+        # Determinar directorio base de energiafacilities
         base_dir = Path(__file__).resolve().parent.parent
+
+        # Cargar variables del .env de energiafacilities si existe
+        dotenv_path = base_dir / ".env"
+        if dotenv_path.exists():
+            logger.debug(f"Cargando variables de entorno desde: {dotenv_path}")
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+        else:
+            logger.debug("No se encontró archivo .env en energiafacilities, usando variables del sistema")
+            load_dotenv()  # Buscar en directorio actual o padres
+
+        env = env or os.getenv("ENV_MODE", "dev").lower()
         config_path = base_dir / "config" / f"config_{env}.yaml"
-        #config_path = f"config/config_{env}.yaml"
-        
+
         if not os.path.exists(config_path):
             logger.error(f"No existe el archivo de configuración: {config_path}")
-            raise FileNotFoundError(f"No existe el archivo de configuración: {config_path}") 
+            raise FileNotFoundError(f"No existe el archivo de configuración: {config_path}")
+
         # Cargar YAML con envyaml (hace el reemplazo automático)
+        logger.debug(f"Cargando configuración desde: {config_path}")
         cfg = EnvYAML(config_path, strict=False)
         return dict(cfg)
 
@@ -249,5 +258,17 @@ def crearcarpeta(local_dir: str):
     except Exception as e:
         logger.error(f"No se puede crear la carpeta {local_dir}: {e}")
         raise
+
+
+def load_settings(overrides: Optional[Dict[str, Any]] = None):
+    """
+    Genera un TeleowsSettings aplicando overrides opcionales.
+    Compatible con módulos migrados desde teleows.
+    """
+    from energiafacilities.teleows_config import TeleowsSettings
+    overrides = overrides or {}
+    settings = TeleowsSettings.load_with_overrides(overrides)
+    logger.debug("TeleowsSettings generado con overrides: %s", sorted(overrides.keys()))
+    return settings
 
 

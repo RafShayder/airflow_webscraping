@@ -15,7 +15,8 @@ from airflow.sdk import Variable  # type: ignore
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from teleows import TeleowsSettings, extraer_dynamic_checklist
+from energiafacilities import TeleowsSettings, extraer_dynamic_checklist
+from energiafacilities.sources.dynamic_checklist.loader import load_dynamic_checklist
 
 logger = logging.getLogger(__name__)
 
@@ -129,13 +130,35 @@ def run_dynamic_checklist_scraper() -> str:
         raise
 
 
+def run_dynamic_checklist_loader(**kwargs) -> dict:
+    """
+    Ejecuta la carga de datos de Dynamic Checklist hacia PostgreSQL.
+    Obtiene el filepath del stractor mediante XCom.
+    """
+    ti = kwargs.get('ti')
+    file_path = ti.xcom_pull(task_ids='scrape_dynamic_checklist')
+    
+    if not file_path:
+        raise ValueError("No se recibió filepath del stractor. Verifica que el stractor se ejecutó correctamente.")
+    
+    logger.info("📥 Iniciando carga de Dynamic Checklist desde: %s", file_path)
+    
+    try:
+        resultado = load_dynamic_checklist(filepath=file_path)
+        logger.info("✅ Loader Dynamic Checklist completado: %s", resultado.get('etl_msg', 'OK'))
+        return resultado
+    except Exception as exc:
+        logger.error("❌ Error en loader Dynamic Checklist: %s", exc)
+        raise
+
+
 with DAG(
     "dag_dynamic_checklist_teleows",
     default_args=default_args,
-    description="Scraper para Dynamic Checklist - Ejecución manual",
+    description="ETL completo para Dynamic Checklist - Ejecución manual",
     schedule=None,
     catchup=False,
-    tags=["scraper", "dynamic-checklist", "integratel", "teleows"],
+    tags=["scraper", "dynamic-checklist", "integratel", "teleows", "etl"],
 ) as dag:
     scrape_checklist = PythonOperator(
         task_id="scrape_dynamic_checklist",
@@ -150,4 +173,19 @@ with DAG(
         """,
     )
 
-    scrape_checklist
+    load_checklist = PythonOperator(
+        task_id="load_dynamic_checklist",
+        python_callable=run_dynamic_checklist_loader,
+        doc_md="""
+        ### Loader Dynamic Checklist
+
+        1. Obtiene el archivo Excel del stractor.
+        2. Procesa las 11 pestañas del Excel.
+        3. Mapea columnas usando columns_map.json.
+        4. Carga datos en las tablas correspondientes en schema 'raw'.
+        5. Retorna resumen de la carga (tablas exitosas/fallidas).
+        """,
+    )
+
+    # Dependencias: scrape -> load
+    scrape_checklist >> load_checklist

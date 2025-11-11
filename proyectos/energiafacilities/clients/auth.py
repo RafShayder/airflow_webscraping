@@ -33,7 +33,7 @@ class AuthManager:
     )
     SUCCESS_URL = "homepage.html"
 
-    def __init__(self, driver, wait_timeout: int = 20) -> None:
+    def __init__(self, driver, wait_timeout: int = 60) -> None:
         self.driver = driver
         self.wait = WebDriverWait(driver, wait_timeout)
 
@@ -84,15 +84,35 @@ class AuthManager:
             logger.error("❌ %s", message, exc_info=True)
             raise RuntimeError(message) from exc
 
-    def verify_login_success(self) -> bool:
+    def verify_login_success(self, max_wait_seconds: int = 60) -> bool:
         """Comprueba que la URL actual corresponde al homepage esperado."""
         try:
-            self.wait.until(EC.url_contains(self.SUCCESS_URL))
+            # Usar un WebDriverWait con timeout específico para la verificación
+            verification_wait = WebDriverWait(self.driver, max_wait_seconds)
+            verification_wait.until(EC.url_contains(self.SUCCESS_URL))
+            
+            # Dar un momento adicional para asegurar que la página está completamente cargada
+            time.sleep(2)
+            
             current = self.driver.current_url
+            logger.info("🔍 URL actual después del login: %s", current)
+            
             if "dspcas/login" in current:
+                logger.warning("⚠️ Aún en página de login, el login puede haber fallado")
                 return False
-            return self.SUCCESS_URL in current
-        except Exception:
+            
+            if self.SUCCESS_URL in current:
+                logger.info("✅ URL de éxito confirmada: %s", current)
+                return True
+            
+            logger.warning("⚠️ URL no coincide con el patrón esperado")
+            return False
+        except TimeoutException:
+            current_url = self.driver.current_url
+            logger.error("❌ Timeout esperando redirección. URL actual: %s", current_url)
+            return False
+        except Exception as exc:
+            logger.error("❌ Error verificando login: %s", exc, exc_info=True)
             return False
 
     def _extract_portal_message(self) -> str | None:

@@ -79,7 +79,7 @@ with DAG(
     )
 
     # Dependencias PD
-    extract_pd >> load_pd >> [sp_pd, errors_pd]
+    extract_pd >> load_pd >> sp_pd >> errors_pd
 
     # Dependencias DA
-    extract_da >> load_da >> [sp_da, errors_da]
+    extract_da >> load_da >> sp_da >> errors_da
