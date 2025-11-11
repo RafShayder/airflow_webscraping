@@ -43,7 +43,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from ...clients import AuthManager, BrowserManager, FilterManager, IframeManager
 from ...common import require, wait_for_download
-from ...config import TeleowsSettings
+from ...teleows_config import TeleowsSettings
 from ...core.utils import load_settings
 
 logger = logging.getLogger(__name__)

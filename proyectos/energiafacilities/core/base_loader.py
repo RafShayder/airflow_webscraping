@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional
 from types import SimpleNamespace
+from datetime import datetime
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
@@ -15,23 +16,46 @@ def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
     Valida que un identificador SQL (schema, table, column) sea seguro.
     Solo permite letras, números, guiones bajos y punto (para schema.table).
     Previene SQL injection.
+    
+    Si el identificador empieza con número, lo escapa con comillas dobles
+    para que PostgreSQL lo acepte (ej: "45_min_medir_voltaj_bb_que").
     """
     if not identifier:
         raise ValueError(f"{name} no puede estar vacío")
+
+    # Si ya está escapado con comillas dobles, removerlas para validar
+    is_quoted = identifier.startswith('"') and identifier.endswith('"')
+    if is_quoted:
+        identifier = identifier[1:-1]
+    
+    # Validar que no tenga comillas dobles dentro (previene SQL injection)
+    if '"' in identifier:
+        raise ValueError(f"{name} inválido: '{identifier}' contiene comillas dobles no permitidas")
 
     # Permitir schema.table con punto, pero validar cada parte
     if '.' in identifier:
         parts = identifier.split('.')
         if len(parts) > 2:
             raise ValueError(f"{name} inválido: demasiados puntos en '{identifier}'")
+        validated_parts = []
         for part in parts:
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', part):
+            # Validar caracteres permitidos: letras, números, guiones bajos
+            if not re.match(r'^[a-zA-Z0-9_]+$', part):
                 raise ValueError(f"{name} inválido: '{part}' contiene caracteres no permitidos")
+            # Si empieza con número, escapar con comillas
+            if re.match(r'^[0-9]', part):
+                validated_parts.append(f'"{part}"')
+            else:
+                validated_parts.append(part)
+        return '.'.join(validated_parts)
     else:
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+        # Validar caracteres permitidos: letras, números, guiones bajos
+        if not re.match(r'^[a-zA-Z0-9_]+$', identifier):
             raise ValueError(f"{name} inválido: '{identifier}' contiene caracteres no permitidos")
-
-    return identifier
+        # Si empieza con número, escapar con comillas dobles para PostgreSQL
+        if re.match(r'^[0-9]', identifier):
+            return f'"{identifier}"'
+        return identifier
 
 class BaseLoaderPostgres:
     """
@@ -109,18 +133,28 @@ class BaseLoaderPostgres:
                 df = df.rename(columns=inverse_map)
                 logger.debug("Mapeo de columnas aplicado (modo invertido DB ➜ Excel)")
 
-            columnas_origen = set(df.columns)
+            # Obtener nombres de columnas sin comillas para comparación
+            # (las columnas del DataFrame pueden tener comillas si empiezan con números)
+            columnas_origen = {col.strip('"') for col in df.columns}
 
             # --- Obtener columnas de la tabla destino ---
+            # Usar pg_catalog para obtener nombres exactos (incluyendo columnas con comillas)
+            # information_schema retorna nombres en minúsculas y sin comillas, pero pg_catalog
+            # retorna el nombre exacto como está almacenado
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT column_name 
-                        FROM information_schema.columns
-                        WHERE table_schema = LOWER(%s)
-                          AND table_name = LOWER(%s)
-                        ORDER BY ordinal_position;
+                        SELECT a.attname 
+                        FROM pg_catalog.pg_attribute a
+                        JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+                        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+                        WHERE n.nspname = %s
+                          AND c.relname = %s
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                        ORDER BY a.attnum;
                     """, (self._cfgload.schema, table_name or self._cfgload.table))
+                    # pg_catalog retorna el nombre exacto como está almacenado (puede tener comillas si se creó así)
                     columnas_tabla = {r[0] for r in cur.fetchall()}
 
             sobrantes = columnas_origen - columnas_tabla
@@ -159,7 +193,8 @@ class BaseLoaderPostgres:
         numerofilasalto:int =0,
         modo=None,
         table_name:str =None,
-        schema: str = None
+        schema: str = None,
+        fecha_carga: Optional[datetime] = None
     ):
         """Carga datos a PostgreSQL (usa mapeo invertido DB ➜ Excel).
         Parámetros:
@@ -169,6 +204,7 @@ class BaseLoaderPostgres:
         - column_mapping: mapeo de columnas (DB ➜ Excel).
         - numerofilasalto: número de filas a saltar al leer el archivo.
         - modo: política de inserción ('replace', 'append', 'fail').
+        - fecha_carga: fecha y hora de inicio del proceso de carga (opcional).
         """
         try:
             logger.info("Iniciando validación de carga")
@@ -196,7 +232,7 @@ class BaseLoaderPostgres:
         
             batch = batch_size or getattr(self._cfgload, "chunksize", 10000)
             logger.info(f"Iniciando carga: {len(df)} filas, {len(df.columns)} columnas")
-            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=table_name, schema=schema)
+            return self.insert_dataframe(df, batch_size=batch, modo=modo, table_name=table_name, schema=schema, fecha_carga=fecha_carga)
 
         except Exception as e:
             logger.error(f"Error al cargar los datos: {e}")
@@ -205,7 +241,7 @@ class BaseLoaderPostgres:
     # ----------
     # INSERCIÓN POR LOTES
     # ----------
-    def insert_dataframe(self, df: pd.DataFrame, batch_size: int = 10000, modo: str = None, table_name: str =None, schema: str=None):
+    def insert_dataframe(self, df: pd.DataFrame, batch_size: int = 10000, modo: str = None, table_name: str =None, schema: str=None, fecha_carga: Optional[datetime] = None):
         if df.empty:
             msg = "DataFrame vacío, no hay datos para insertar"
             logger.error(msg)
@@ -216,9 +252,83 @@ class BaseLoaderPostgres:
             validated_schema = _validate_sql_identifier(schema or self._cfgload.schema, "schema")
             validated_table = _validate_sql_identifier(table_name or self._cfgload.table, "table")
 
-            # Validar nombres de columnas
-            validated_cols = [_validate_sql_identifier(col, f"columna '{col}'") for col in df.columns]
-            cols = ', '.join(validated_cols)
+            # Obtener nombres exactos de columnas de la tabla (como están almacenados en PostgreSQL)
+            # Esto es necesario para columnas que empiezan con números y están definidas con comillas
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT a.attname 
+                        FROM pg_catalog.pg_attribute a
+                        JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+                        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+                        WHERE n.nspname = %s
+                          AND c.relname = %s
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                        ORDER BY a.attnum;
+                    """, (validated_schema, validated_table))
+                    columnas_tabla_exactas_raw = [r[0] for r in cur.fetchall()]
+                    # Crear diccionario: nombre sin comillas -> nombre exacto
+                    columnas_tabla_exactas = {}
+                    for col_exacta in columnas_tabla_exactas_raw:
+                        col_sin_comillas = col_exacta.strip('"')
+                        columnas_tabla_exactas[col_sin_comillas.lower()] = col_exacta
+            
+            logger.info(f"📊 Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
+            
+            # Crear mapeo: nombre del DataFrame (sin comillas) -> nombre exacto en tabla
+            # Solo incluir columnas que existan en la tabla
+            mapeo_cols_df_a_tabla = {}
+            cols_para_insert = []
+            columnas_df_filtradas = []
+            
+            for col_df in df.columns:
+                col_df_sin_comillas = col_df.strip('"')
+                col_df_lower = col_df_sin_comillas.lower()
+                
+                # Buscar la columna en la tabla que coincida
+                if col_df_lower in columnas_tabla_exactas:
+                    col_tabla_exacta = columnas_tabla_exactas[col_df_lower]
+                    mapeo_cols_df_a_tabla[col_df] = col_tabla_exacta
+                    columnas_df_filtradas.append(col_df)
+                    
+                    # Construir nombre para INSERT: si empieza con número, escapar con comillas
+                    col_tabla_sin_comillas = col_tabla_exacta.strip('"')
+                    if re.match(r'^[0-9]', col_tabla_sin_comillas):
+                        cols_para_insert.append(f'"{col_tabla_sin_comillas}"')
+                    else:
+                        cols_para_insert.append(col_tabla_sin_comillas)
+                else:
+                    # Columna no encontrada en tabla - omitirla (no intentar insertarla)
+                    logger.warning(f"⚠️  Columna '{col_df_sin_comillas}' del DataFrame no existe en tabla '{validated_table}', será omitida")
+            
+            # Filtrar DataFrame para incluir solo columnas que existen en la tabla
+            if len(columnas_df_filtradas) < len(df.columns):
+                columnas_omitidas = set(df.columns) - set(columnas_df_filtradas)
+                logger.warning(f"📋 Se omitirán {len(columnas_omitidas)} columnas que no existen en la tabla: {list(columnas_omitidas)[:5]}{'...' if len(columnas_omitidas) > 5 else ''}")
+                df = df[columnas_df_filtradas]
+            
+            # Agregar columna fechacarga si se proporciona fecha_carga y la columna existe en la tabla
+            if fecha_carga is not None:
+                if 'fechacarga' in columnas_tabla_exactas:
+                    # La columna fechacarga existe en la tabla
+                    col_fechacarga_exacta = columnas_tabla_exactas['fechacarga']
+                    df['fechacarga'] = fecha_carga
+                    columnas_df_filtradas.append('fechacarga')
+                    # Agregar fechacarga a las columnas para INSERT usando el nombre exacto
+                    col_fechacarga_sin_comillas = col_fechacarga_exacta.strip('"')
+                    if re.match(r'^[0-9]', col_fechacarga_sin_comillas):
+                        cols_para_insert.append(f'"{col_fechacarga_sin_comillas}"')
+                    else:
+                        cols_para_insert.append(col_fechacarga_sin_comillas)
+                    logger.info(f"📅 Columna 'fechacarga' agregada con valor: {fecha_carga}")
+                else:
+                    logger.warning(f"⚠️  Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
+            
+            if not cols_para_insert:
+                raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'")
+            
+            cols = ', '.join(cols_para_insert)
 
             full_table = f"{validated_schema}.{validated_table}"
             total_rows = len(df)

@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
 BASE_DIR = Path(__file__).resolve().parent
-SETTINGS_PATH = BASE_DIR / "settings.yaml"
+# Usar config/config_*.yaml en lugar de settings.yaml para consolidar configuración
+CONFIG_DIR = BASE_DIR / "config"
 
 _ENV_FIELD_MAP: Mapping[str, str] = {
     "username": "USERNAME",
@@ -28,41 +29,127 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 
 def _default_download_path() -> str:
     if Path("/opt/airflow").exists():
-        return "/opt/airflow/proyectos/teleows/temp"
+        return "/opt/airflow/proyectos/energiafacilities/temp"
     return str(Path.home() / "Downloads" / "scraper_downloads")
 
 
 def _load_settings_file() -> Dict[str, Any]:
-    if not SETTINGS_PATH.exists():
-        return {}
-
+    """
+    Carga configuración desde config/config_*.yaml (mismo sistema que otros módulos).
+    Extrae las secciones 'teleows', 'gde' y 'dynamic_checklist' y las combina.
+    """
     try:
-        import yaml  # type: ignore
-    except ImportError:  # pragma: no cover
-        # Si PyYAML no está disponible simplemente ignoramos el archivo y
-        # continuamos con los valores de entorno.
+        from envyaml import EnvYAML
+    except ImportError:
+        # Si EnvYAML no está disponible, intentar con PyYAML básico
+        try:
+            import yaml
+        except ImportError:
+            return {}
+        
+        # Fallback a PyYAML básico
+        env = os.getenv("ENV_MODE", "dev").lower()
+        config_path = CONFIG_DIR / f"config_{env}.yaml"
+        
+        if not config_path.exists():
+            return {}
+        
+        with config_path.open("r", encoding="utf-8") as handle:
+            raw = yaml.safe_load(handle) or {}
+        
+        if not isinstance(raw, dict):
+            return {}
+        
+        # Combinar secciones teleows, gde y dynamic_checklist
+        result = {}
+        if "teleows" in raw:
+            result.update(raw["teleows"])
+        
+        # Mapear campos específicos de gde y dynamic_checklist
+        if "gde" in raw:
+            gde_config = raw["gde"]
+            result.update(gde_config)
+            # Mapear specific_filename a gde_output_filename si existe
+            if "specific_filename" in gde_config and "gde_output_filename" not in result:
+                result["gde_output_filename"] = gde_config["specific_filename"]
+        
+        if "dynamic_checklist" in raw:
+            dc_config = raw["dynamic_checklist"]
+            result.update(dc_config)
+            # Mapear specific_filename a dynamic_checklist_output_filename si existe
+            if "specific_filename" in dc_config and "dynamic_checklist_output_filename" not in result:
+                result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+        
+        return result
+    
+    # Usar EnvYAML (mismo sistema que core/utils.py)
+    # Cargar variables del .env de energiafacilities si existe (antes de EnvYAML)
+    try:
+        from dotenv import load_dotenv
+        dotenv_path = BASE_DIR / ".env"
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+        else:
+            load_dotenv()  # Buscar en directorio actual o padres
+    except ImportError:
+        pass  # python-dotenv no está instalado, continuar sin cargar .env
+    except Exception:
+        pass  # Si hay error al cargar .env, continuar sin él
+    
+    env = os.getenv("ENV_MODE", "dev").lower()
+    config_path = CONFIG_DIR / f"config_{env}.yaml"
+    
+    if not config_path.exists():
         return {}
-
-    with SETTINGS_PATH.open("r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle) or {}
-
-    if not isinstance(raw, dict):
-        raise RuntimeError("El archivo settings.yaml debe contener un mapeo.")
-
-    profile = os.getenv("TELEOWS_ENV", "default")
-    section = raw.get(profile, raw)
-    if not isinstance(section, dict):
-        raise RuntimeError(
-            f"La sección '{profile}' de settings.yaml debe ser un objeto con pares clave/valor."
-        )
-
-    return dict(section)
+    
+    try:
+        cfg = EnvYAML(config_path, strict=False)
+        config_dict = dict(cfg)
+        
+        # Combinar secciones teleows, gde y dynamic_checklist
+        result = {}
+        if "teleows" in config_dict:
+            result.update(config_dict["teleows"])
+        
+        # Mapear campos específicos de gde y dynamic_checklist
+        if "gde" in config_dict:
+            gde_config = config_dict["gde"]
+            result.update(gde_config)
+            # Mapear specific_filename a gde_output_filename si existe
+            if "specific_filename" in gde_config and "gde_output_filename" not in result:
+                result["gde_output_filename"] = gde_config["specific_filename"]
+        
+        if "dynamic_checklist" in config_dict:
+            dc_config = config_dict["dynamic_checklist"]
+            result.update(dc_config)
+            # Mapear specific_filename a dynamic_checklist_output_filename si existe
+            if "specific_filename" in dc_config and "dynamic_checklist_output_filename" not in result:
+                result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+        
+        return result
+    except Exception:
+        return {}
 
 
 def _load_env_overrides() -> Dict[str, Any]:
+    # Intentar cargar el .env desde energiafacilities
+    try:
+        from dotenv import load_dotenv
+        dotenv_path = BASE_DIR / ".env"
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+    except ImportError:
+        pass  # python-dotenv no está instalado, continuar sin cargar .env
+    except Exception:
+        pass  # Si hay error al cargar .env, continuar sin él
+
     overrides: Dict[str, Any] = {}
     for field, env_var in _ENV_FIELD_MAP.items():
-        value = os.getenv(env_var)
+        # Primero intentar con prefijo TELEOWS_
+        value = os.getenv(f"TELEOWS_{env_var}")
+        # Si no existe, intentar sin prefijo
+        if value is None:
+            value = os.getenv(env_var)
         if value is not None:
             overrides[field] = value
     return overrides
@@ -104,7 +191,7 @@ def _as_options(value: Any, fallback: List[str]) -> List[str]:
 
 @dataclass(frozen=True)
 class TeleowsSettings:
-    """Objeto de configuración consumido por los workflows (inspirado en settings.yaml)."""
+    """Objeto de configuración consumido por los workflows (carga desde config/config_*.yaml)."""
     username: str
     password: str
     download_path: str
@@ -131,7 +218,8 @@ class TeleowsSettings:
     def load_with_overrides(cls, overrides: Dict[str, Any]) -> "TeleowsSettings":
         raw_settings: Dict[str, Any] = {}
         raw_settings.update(_load_settings_file())
-        raw_settings.update(overrides)
+        raw_settings.update(_load_env_overrides())  # Cargar variables de entorno antes de overrides
+        raw_settings.update(overrides)  # Los overrides de Airflow tienen prioridad final
         return _build_settings(raw_settings)
 
     @classmethod
@@ -147,7 +235,7 @@ def _build_settings(raw_settings: Dict[str, Any]) -> TeleowsSettings:
     if not username or not password:
         raise ValueError(
             "Credenciales no configuradas. Define USERNAME y PASSWORD (ya sea en variables "
-            "de entorno, Airflow o settings.yaml)."
+            "de entorno, Airflow o config/config_*.yaml)."
         )
 
     download_path_setting = _as_optional_str(raw_settings.get("download_path")) or _default_download_path()
@@ -235,55 +323,46 @@ def _replace_env_variables(config: Any) -> Any:
 
 def load_yaml_config(env: Optional[str] = None) -> Dict[str, Any]:
     """
-    Carga configuración completa desde settings.yaml con soporte para variables de entorno.
+    Carga configuración completa desde config/config_*.yaml con soporte para variables de entorno.
+    
+    Usa el mismo sistema que otros módulos de energiafacilities (core/utils.py).
 
     A diferencia de TeleowsSettings (que solo carga campos específicos del scraper),
     esta función retorna TODO el contenido del YAML, útil para loaders que necesitan
     acceder a secciones adicionales como 'postgres', 'gde', etc.
 
     Args:
-        env: Perfil de entorno a cargar (default, production, etc.)
-             Si no se especifica, usa TELEOWS_ENV o 'default'
+        env: Perfil de entorno a cargar (dev, staging, prod)
+             Si no se especifica, usa ENV_MODE o 'dev'
 
     Returns:
         Diccionario con la configuración completa
 
     Example:
         >>> config = load_yaml_config()
-        >>> postgres_config = config.get('postgres', {})
+        >>> postgres_config = config.get('postgress', {})
         >>> gde_config = config.get('gde', {})
-    """
+"""
     import logging
     logger = logging.getLogger(__name__)
 
     try:
-        env = env or os.getenv("TELEOWS_ENV", "default")
+        from envyaml import EnvYAML
+    except ImportError:
+        raise ImportError("EnvYAML es requerido. Instala con: pip install envyaml")
 
-        if not SETTINGS_PATH.exists():
-            logger.error(f"No existe el archivo de configuración: {SETTINGS_PATH}")
-            raise FileNotFoundError(f"Archivo no encontrado: {SETTINGS_PATH}")
+    try:
+        env = env or os.getenv("ENV_MODE", "dev").lower()
+        config_path = CONFIG_DIR / f"config_{env}.yaml"
 
-        try:
-            import yaml
-        except ImportError:
-            raise ImportError("PyYAML es requerido. Instala con: pip install pyyaml")
+        if not config_path.exists():
+            logger.error(f"No existe el archivo de configuración: {config_path}")
+            raise FileNotFoundError(f"Archivo no encontrado: {config_path}")
 
-        with SETTINGS_PATH.open('r', encoding='utf-8') as file:
-            raw_config = yaml.safe_load(file) or {}
-
-        if not isinstance(raw_config, dict):
-            raise RuntimeError("El archivo settings.yaml debe contener un mapeo.")
-
-        # Obtener la sección del perfil
-        config = raw_config.get(env, raw_config)
-
-        if not isinstance(config, dict):
-            raise RuntimeError(
-                f"La sección '{env}' de settings.yaml debe ser un objeto con pares clave/valor."
-            )
-
-        # Reemplazar variables de entorno
-        config = _replace_env_variables(config)
+        # Cargar YAML con EnvYAML (hace el reemplazo automático de variables de entorno)
+        logger.debug(f"Cargando configuración desde: {config_path}")
+        cfg = EnvYAML(config_path, strict=False)
+        config = dict(cfg)
 
         logger.debug(f"Configuración cargada desde perfil '{env}'")
         return config

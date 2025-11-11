@@ -4,22 +4,23 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-from teleows.config import load_yaml_config
-from teleows.core.base_loader import BaseLoaderPostgres
-from teleows.core.utils import load_json_config
+from energiafacilities.core import load_config
+from energiafacilities.core.base_loader import BaseLoaderPostgres
+from energiafacilities.core.utils import traerjson
 
 logger = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
 
 
-def load_gde(filepath: Optional[PathLike] = None) -> dict:
+def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     """
     Carga los datos extraídos de GDE hacia PostgreSQL.
 
     Args:
         filepath: Ruta al archivo Excel descargado. Si no se proporciona,
-                 se usa la configuración de settings.yaml
+                 se usa la configuración del YAML
+        env: Entorno (dev, prod). Si no se proporciona, usa ENV_MODE o 'dev'
 
     Returns:
         Diccionario con el resultado de la carga (status, code, etl_msg)
@@ -29,16 +30,16 @@ def load_gde(filepath: Optional[PathLike] = None) -> dict:
         >>> print(resultado['etl_msg'])
     """
     try:
-        # Cargar configuraciones
-        config = load_yaml_config()
-        postgres_config = config.get("postgres", {})
+        # Cargar configuraciones desde config_dev.yaml o config_prod.yaml
+        config = load_config(env=env)
+        postgres_config = config.get("postgress", {})  # Nota: en config_dev.yaml es "postgress" con doble 's'
         gde_config = config.get("gde", {})
 
         # Validar que existen las configuraciones necesarias
         if not postgres_config:
-            raise ValueError("No se encontró configuración 'postgres' en settings.yaml")
+            raise ValueError("No se encontró configuración 'postgress' en config YAML")
         if not gde_config:
-            raise ValueError("No se encontró configuración 'gde' en settings.yaml")
+            raise ValueError("No se encontró configuración 'gde' en config YAML")
 
         # Crear instancia del loader
         loader = BaseLoaderPostgres(
@@ -52,7 +53,7 @@ def load_gde(filepath: Optional[PathLike] = None) -> dict:
 
         # Cargar mapeo de columnas
         logger.info("Cargando mapeo de columnas...")
-        columnas = load_json_config(
+        columnas = traerjson(
             archivo='config/columnas/columns_map.json',
             valor='gde_tasks'
         )

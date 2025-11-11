@@ -87,3 +87,41 @@ class IframeManager:
             message = f"Error al contar iframes: {exc}"
             logger.error("❌ %s", message, exc_info=True)
             raise RuntimeError(message) from exc
+
+    def switch_to_last_iframe(self, max_attempts: int = 10) -> bool:
+        """Cambia al último iframe disponible (útil para contenidos dinámicos recién cargados)."""
+        try:
+            # Primero volvemos al contenido por defecto para tener una referencia limpia
+            self.driver.switch_to.default_content()
+            
+            for intento in range(max_attempts):
+                try:
+                    iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+                    if not iframes:
+                        if intento < max_attempts - 1:
+                            logger.info("Intento %s/%s - No hay iframes aún, esperando...", intento + 1, max_attempts)
+                            sleep(1)
+                            continue
+                        message = "No se encontraron iframes disponibles"
+                        logger.error("❌ %s", message)
+                        return False
+                    
+                    # Cambiar al último iframe (índice = count - 1)
+                    last_index = len(iframes) - 1
+                    self.driver.switch_to.frame(last_index)
+                    logger.info("✓ Cambiado al último iframe (índice %s de %s)", last_index, len(iframes))
+                    return True
+                except Exception as exc:
+                    logger.warning("⚠ Error en intento %s/%s: %s", intento + 1, max_attempts, exc)
+                    self.driver.switch_to.default_content()
+                    if intento < max_attempts - 1:
+                        sleep(1)
+            
+            message = "No se pudo cambiar al último iframe después de varios intentos"
+            logger.error("❌ %s", message)
+            return False
+        except Exception as exc:
+            message = f"Error al cambiar al último iframe: {exc}"
+            logger.error("❌ %s", message, exc_info=True)
+            self.driver.switch_to.default_content()
+            return False

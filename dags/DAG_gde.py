@@ -15,7 +15,7 @@ from airflow.sdk import Variable  # type: ignore
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from teleows import TeleowsSettings, extraer_gde
+from energiafacilities import TeleowsSettings, extraer_gde
 
 logger = logging.getLogger(__name__)
 

@@ -113,7 +113,7 @@ def navigate_to_menu_item(
     logger: logging.Logger = logger,
     hover_pause: float = 1.0,
     click_pause: float = 2.0,
-) -> None:
+) -> bool:
     """
     Realiza hover y click sobre un elemento del menú lateral (índice basado en cero).
     """
@@ -129,6 +129,7 @@ def navigate_to_menu_item(
     wait.until(EC.element_to_be_clickable((By.XPATH, f"//span[@title='{item_title}']"))).click()
     logger.info("✓ %s seleccionado", item_name)
     time.sleep(click_pause)
+    return True
 
 
 def navigate_to_submenu(
@@ -138,11 +139,12 @@ def navigate_to_submenu(
     *,
     logger: logging.Logger = logger,
     click_pause: float = 3.0,
-) -> None:
+) -> bool:
     """Selecciona un submenú dentro del panel lateral."""
     wait.until(EC.element_to_be_clickable((By.XPATH, submenu_xpath))).click()
     logger.info("✓ %s seleccionado", submenu_name)
     time.sleep(click_pause)
+    return True
 
 
 def monitor_export_loader(
