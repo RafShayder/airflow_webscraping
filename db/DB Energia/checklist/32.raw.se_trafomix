@@ -1,0 +1,24 @@
+
+CREATE TABLE raw.se_trafomix (
+  task_id                      VARCHAR(255) NOT NULL,
+  site_id                      VARCHAR(255) NOT NULL,
+  sub_wo_id                    VARCHAR(255) NOT NULL,
+  trafom_conect_aguas_abajo    VARCHAR(255),
+  trafom_perten_telefo_conces  VARCHAR(255),
+  si_solici_corte_conces_nuestr VARCHAR(255),
+  marca                        VARCHAR(255),
+  modelo                       VARCHAR(255),
+  capacidad_kva                VARCHAR(255),
+  anio                         VARCHAR(255),
+  tipo_de_conversion_amp       VARCHAR(255),
+  relaci_transf_voltaj         VARCHAR(255),
+  sistema                      VARCHAR(255),
+  analis_rigide_dielec         VARCHAR(255),
+  limp_ajuste_verif_operat     VARCHAR(255),
+  megado_de_trafomix_mohms     VARCHAR(255),
+  detecccion_fugas_a_tierra    VARCHAR(255),
+  trafom_conect_un_pozo        VARCHAR(255),
+  medici_resist_pozo_media     VARCHAR(255),
+  observacion                  VARCHAR(255)
+);
+

@@ -1,0 +1,24 @@
+
+CREATE TABLE raw.tx_2_4_6_12_idu (
+  task_id               VARCHAR(255) NOT NULL,
+  site_id               VARCHAR(255) NOT NULL,
+  sub_wo_id             VARCHAR(255) NOT NULL,
+  ventilador            VARCHAR(255),
+  nemonico              VARCHAR(255),
+  marca                 VARCHAR(255),
+  modelo                VARCHAR(255),
+  banda                 VARCHAR(255),
+  frecuencia            VARCHAR(255),
+  numero_de_serie       VARCHAR(255),
+  agc_valor_numerico    VARCHAR(255),
+  conectores            VARCHAR(255),
+  etiquetado            VARCHAR(255),
+  limpieza_equipo       VARCHAR(255),
+  limpieza_filtro       VARCHAR(255),
+  temperatura           VARCHAR(255),
+  alarmas_externas      VARCHAR(255),
+  aterramiento          VARCHAR(255),
+  observacion           VARCHAR(255),
+  backup_configuracion  VARCHAR(255)
+);
+

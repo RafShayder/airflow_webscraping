@@ -1,0 +1,20 @@
+
+CREATE TABLE raw.se_proteccion_y_pararrayos (
+  task_id                         VARCHAR(255) NOT NULL,
+  site_id                         VARCHAR(255) NOT NULL,
+  sub_wo_id                       VARCHAR(255) NOT NULL,
+  local_cuenta_con_pararrayos     VARCHAR(255),
+  hay_algun_pararr_averia_descar  VARCHAR(255),
+  pararr_conect_transf            VARCHAR(255),
+  pararrayos_conectado_a_spat     VARCHAR(255),
+  compro_amarre_pararr            VARCHAR(255),
+  limp_oxidac_mastil_pararr       VARCHAR(255),
+  medir_contin_entre_transf       VARCHAR(255),
+  medici_pozo_tierra_conect       VARCHAR(255),
+  manten_seccio_e_interr_intern   VARCHAR(255),
+  manten_tvss_fusibl              VARCHAR(255),
+  ajuste_protec_rele_fusibl       VARCHAR(255),
+  manten_borner_platin_tierra     VARCHAR(255),
+  observacion                     VARCHAR(255)
+);
+

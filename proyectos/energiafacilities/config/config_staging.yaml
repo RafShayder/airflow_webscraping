@@ -1,0 +1,107 @@
+mode: "${ENV_MODE}"
+logging_level: "${LOGGING_LEVEL}"
+#---------------potgress--------------------------------------
+postgress:
+  user: "${POSTGRES_USER_STAGING}"
+  password: "${POSTGRES_PASS_STAGING}"
+  host: "${POSTGRES_HOST_STAGING}"
+  port: "${POSTGRES_PORT_STAGING}"
+  database: "${POSTGRES_DB_STAGING}"
+#---------------DAAS SFTP---------------------------------------
+sftp_daas_c:
+  host: "${SFTP_HOST_DAAS}"
+  port: 22
+  username: "${SFTP_USER_DAAS}"
+  password: "${SFTP_PASS_DAAS}"
+
+
+ #---------------sftp eneria----------------------------------
+sftp_energia_c:
+  host: "${SFTP_HOST_ENERGIA}"
+  port: 22
+  username: "${SFTP_USER_ENERGIA}"
+  password: "${SFTP_PASS_ENERGIA}"
+
+sftp_energia:
+  remote_dir: "/REPORTES_CONSUMOS"
+  local_dir: "tmp/sftp_energia"
+  specific_filename: "reporte-consumo-energia-PD"
+  specific_filename2: "reporte-consumo-energia-DA"
+  schema: "RAW"
+  table: "SFTP_MM_CONSUMO_SUMINISTRO" # Old not functional
+  table_DA: "SFTP_MM_CONSUMO_SUMINISTRO_DA"
+  table_PD: "SFTP_MM_CONSUMO_SUMINISTRO_PD"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  sp_carga: "ods.sp_cargar_sftp_hm_consumo_suministro" #Old not functional
+  sp_carga_DA: "ods.sp_cargar_sftp_hm_consumo_suministro_da"
+  sp_carga_PD: "ods.sp_cargar_sftp_hm_consumo_suministro_pd"
+  errorconfig: {
+    schema: "PUBLIC",
+    table : "error_energia_ultimo_lote",
+    limmit: 100,
+    remote_dir: "/daas/qa/energy-facilities/"
+  }
+
+#------------Base de sitios-------------------------------------
+
+sftp_base_sitios:
+  remote_dir: "/daas/qa/energy-facilities/base-sitios/input"
+  local_dir: "tmp/sftp_base_sitios"
+  schema: "raw"
+  table: "FS_MM_BASE_DE_SITIOS"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  specific_filename: "BASE_SITIOS"
+  sp_carga: "ods.sp_cargar_fs_hm_base_de_sitios"
+  
+sftp_base_sitios_bitacora:
+  remote_dir: "/daas/qa/energy-facilities/base-sitios/input"
+  local_dir: "tmp/sftp_base_sitios"
+  schema: "RAW"
+  table: "FS_MM_BITACORA_BASE_SITIOS"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  specific_filename: "BASE_SITIOS"
+  sp_carga: "ods.sp_cargar_fs_hm_bitacora_base_sitios"
+
+
+#--------------web indra--------------------------
+
+webindra_energia:
+  specific_filename: "recibos_energia_indra.xlsx"
+  schema: "raw"
+  table: "web_mm_indra_energia"
+  local_dir: "tmp/web_indra"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  errorconfig: {
+    schema: "PUBLIC",
+    table : "error_energia_ultimo_lote",
+    limmit: 100,
+    remote_dir: "/daas/qa/energy-facilities/errors"
+  }
+  BASE_URL: "https://recibosttr.com/sistema"
+  LOGIN_PATH: "/"
+  EXPORT_TMPL: "/sisReportes/exportarRecibosSpoutConsumo/{start}/{end}"
+  USER: "usuario.tdp"
+  PASS: "usuario.tdp2021"
+  PERIOD_MONTHS: 2
+  TIMEOUT: 120
+  MAX_RETRIES: 3
+  PROXY: "${PROXY}"  # Proxy desde variable de entorno (ej: telefonica01.gp.inet:8080)
+  HEADERS: {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "*/*",
+            "Connection": "keep-alive",
+        }
+  sp_carga: "ods.sp_cargar_web_hm_indra_energia"
+
+#------Clientes libres-------------------------------------------
+
+clientes_libres:
+  local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
+  specific_filename: "F-TELEFONICA"
+  remote_dir: "/daas/qa/energy-facilities/recibos-manuales/input/"
+  local_dir: "tmp/sftp_clientes_libres"
+  schema: "raw"
+  table: "sftp_mm_clientes_libres"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  sp_carga: "ods.sp_cargar_sftp_hm_clientes_libres"
+

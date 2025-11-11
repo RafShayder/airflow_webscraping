@@ -1,0 +1,22 @@
+
+CREATE TABLE raw.sol_banco_de_baterias_solares (
+  task_id                           VARCHAR(255) NOT NULL,
+  site_id                           VARCHAR(255) NOT NULL,
+  sub_wo_id                         VARCHAR(255) NOT NULL,
+  codigo_de_equipo                  VARCHAR(255),
+  numero_de_banco                   VARCHAR(255),
+  marca                             VARCHAR(255),
+  modelo                            VARCHAR(255),
+  capacidad_ah                      VARCHAR(255),
+  fecha_de_instalacion              VARCHAR(255),
+  temperatura_numc                  VARCHAR(255),
+  bat_elem_anexos_puentes_cables    VARCHAR(255),
+  estado_bornes_cada_bat_celda      VARCHAR(255),
+  estado_puentes_entre_cada_bat     VARCHAR(255),
+  observ_que_bat_celdas_no          VARCHAR(255),
+  engrase_de_puentes_y_bornes       VARCHAR(255),
+  medicion_de_impedancia            VARCHAR(255),
+  autonomia_hrs                     VARCHAR(255),
+  observacion                       VARCHAR(255)
+);
+

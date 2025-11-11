@@ -1,0 +1,15 @@
+
+CREATE TABLE IF NOT EXISTS raw.ie_datos_spat_general (
+  task_id                        VARCHAR(255) NOT NULL,
+  site_id                        VARCHAR(255) NOT NULL,
+  sub_wo_id                      VARCHAR(255) NOT NULL,
+
+  cantidad_de_pozos_total        VARCHAR(255),
+  cantidad_de_mallas             VARCHAR(255),
+  cantidad_de_pozos_unicos       VARCHAR(255),
+  existe_spat_completo_para_mt   VARCHAR(255),
+  pozos_varill_cables_barra      VARCHAR(255),
+  report_robo_algun_compon       VARCHAR(255),
+  mencionar_componentes_robados  VARCHAR(255)
+);
+

@@ -1,0 +1,33 @@
+
+CREATE TABLE IF NOT EXISTS raw.ge_tablero_de_transferencia_a (
+    task_id                       VARCHAR(255) NOT NULL,
+    site_id                       VARCHAR(255) NOT NULL,
+    sub_wo_id                     VARCHAR(255) NOT NULL,
+
+    codigo_unico_de_tta           VARCHAR(255),
+    tipo_de_tablero               VARCHAR(255),
+    marca_de_tta                  VARCHAR(255),
+    modelo_de_tta                 VARCHAR(255),
+    serie_de_tta                  VARCHAR(255),
+    capacidad_de_tta_amp          VARCHAR(255),
+    operacion_de_tta              VARCHAR(255),
+    estado_de_tta                 VARCHAR(255),
+    tta_tiene_controlador         VARCHAR(255),
+    marca_de_controlador          VARCHAR(255),
+    modelo_de_controlador         VARCHAR(255),
+    tta_esta_rotulado             VARCHAR(255),
+    voltaje_vrs_v                 VARCHAR(255),
+    voltaje_vst_v                 VARCHAR(255),
+    voltaje_vrt_v                 VARCHAR(255),
+    voltaje_vrn_v                 VARCHAR(255),
+    voltaje_vsn_v                 VARCHAR(255),
+    voltaje_vtn_v                 VARCHAR(255),
+    intensidad_ir_a               VARCHAR(255),
+    intensidad_is_a               VARCHAR(255),
+    intensidad_it_a               VARCHAR(255),
+    intensneutro_in_a             VARCHAR(255),
+    frecuencia_hz                 VARCHAR(255),
+    tta_etiquetado_cod_unico      VARCHAR(255),
+    tempor_partid_tranfe_parada   VARCHAR(255),
+    observacion                   VARCHAR(255)
+);

@@ -1,0 +1,94 @@
+
+
+CREATE TABLE raw.clima_evaporador (
+  task_id                              VARCHAR(255) NOT NULL,
+  site_id                              VARCHAR(255) NOT NULL,
+  sub_wo_id                            VARCHAR(255) NOT NULL,
+
+  cod_unico_aire_interv                VARCHAR(255),
+  identi_nom_aa_sala_eq_ejempl         VARCHAR(255),
+  cantidad_total_de_aa_en_sala         VARCHAR(255),
+  tipo_de_aa                           VARCHAR(255),
+  tipo_de_flujo                        VARCHAR(255),
+  marca                                VARCHAR(255),
+  modelo                               VARCHAR(255),
+  serie                                 VARCHAR(255),
+  estado                               VARCHAR(255),
+  voltaje_de_aa                        VARCHAR(255),
+  refrigerante                         VARCHAR(255),
+  capacidad_tr                         VARCHAR(255),
+  ubicacion_de_ue_sala_piso            VARCHAR(255),
+  comparte_ducto_con_otros_aa          VARCHAR(255),
+  consum_ue_fase_r_amperi              VARCHAR(255),
+  consum_ue_fase_s_amperi              VARCHAR(255),
+  consum_ue_fase_t_amperi              VARCHAR(255),
+  observacion_de_ue                    VARCHAR(255),
+
+  compre_estan_unidad_evapor           VARCHAR(255),
+  num_ompresores                       VARCHAR(255),
+  porc_carga                           VARCHAR(255),
+  medir_temper_inyecc_c                VARCHAR(255),
+  medir_temper_retorn_c                VARCHAR(255),
+  medir_temper_seteo_c                 VARCHAR(255),
+
+  rev_motor_fan_fan_giro_fan           VARCHAR(255),
+  realiz_limp_polvo_u_otros            VARCHAR(255),
+  medida_filtro_largo_x_ancho_x        VARCHAR(255),
+  se_limpio_cambio_filtro_aire         VARCHAR(255),
+  se_lavo_serpen_alki_klean_agua       VARCHAR(255),
+
+  consumo_motor_ventilador_ir          VARCHAR(255),
+  consumo_motor_ventilador_is          VARCHAR(255),
+  consumo_motor_ventilador_it          VARCHAR(255),
+
+  limp_ajuste_termin_electr_toda       VARCHAR(255), -- (incluye motoventilador)
+  rev_tensio_correa_vent_rodami        VARCHAR(255),
+  rev_ajuste_lubric_alinea             VARCHAR(255),
+  observ_filtro_rodami_poleas          VARCHAR(255),
+  rev_fusibl_conexi_electr             VARCHAR(255),
+  rev_calibr_termos_humidi             VARCHAR(255),
+
+  sala_gestio_alarma_alta_temper       VARCHAR(255),
+  temper_alarma_setead_t_c             VARCHAR(255),
+  temperatura_ambiente_tnumc           VARCHAR(255),
+  prueba_eq_princi_eq_respal           VARCHAR(255),
+
+  -- el layout repite el mismo rótulo; dejo un segundo campo para no colisionar
+  limp_ajuste_termin_electr_toda_2     VARCHAR(255),
+
+  observacion_de_sist_electrico        VARCHAR(255),
+  se_limpio_bandej_conden_drenaj       VARCHAR(255),
+  despue_manten_agua_fluye             VARCHAR(255),
+  se_hizo_manten_bomba_conden          VARCHAR(255),
+  observacion_de_drenaje               VARCHAR(255),
+
+  cantid_compre_totale_aa              VARCHAR(255),
+  capacidad_compresor_1_tr             VARCHAR(255),
+  ubicacion_de_compresor               VARCHAR(255),
+  tipo_de_compresor                    VARCHAR(255),
+  tipo_de_alimentacion                 VARCHAR(255),
+  voltaje                              VARCHAR(255),
+  estado_de_compresor                  VARCHAR(255),
+  presion_de_baja_circuito_nnum1       VARCHAR(255),
+  presion_de_alta_circuito_nnum1       VARCHAR(255),
+  consumo_compresor_ir                 VARCHAR(255),
+  consumo_compresor_is                 VARCHAR(255),
+  consumo_compresor_it                 VARCHAR(255),
+  observacion_de_compresor1            VARCHAR(255),
+
+  capacidad_compresor_2_tr             VARCHAR(255),
+  ubicacion_de_compresor2              VARCHAR(255),
+  tipo_de_compresor1                   VARCHAR(255),
+  marca_compresor_1                    VARCHAR(255),
+  tipo_de_alimentacion1                VARCHAR(255),
+  marca_compresor_2                    VARCHAR(255),
+  voltaje1                             VARCHAR(255),
+  estado_de_compresor1                 VARCHAR(255),
+  presion_de_baja_circuito_nnum2       VARCHAR(255),
+  presion_de_alta_circuito_nnum2       VARCHAR(255),
+  consumo_compresor_ir1                VARCHAR(255),
+  consumo_compresor_is1                VARCHAR(255),
+  consumo_compresor_it1                VARCHAR(255),
+  observacion_de_compresor2            VARCHAR(255)
+);
+
