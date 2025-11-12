@@ -104,139 +104,40 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
             date_to_str = settings.date_to
             logger.info("📅 Aplicando fechas manuales: %s → %s", date_from_str, date_to_str)
 
-        # Los inputs de Element UI Date Editor para CREATE TIME (no complete time)
-        # Usar createtimeRow en lugar de closetimeRow
-        # CRÍTICO: Primero hacer clic en el botón "+" para abrir los campos de fecha personalizados
         wait = WebDriverWait(driver, 10)
-        try:
-            # Esperar a que createtimeRow esté disponible
-            wait.until(EC.presence_of_element_located((By.ID, "createtimeRow")))
-            createtime_row = driver.find_element(By.ID, "createtimeRow")
-            
-            # Buscar y hacer clic en el botón "+" para abrir los campos de fecha personalizados
-            logger.info("🔘 Buscando botón '+' para abrir campos de fecha personalizados...")
-            plus_button = None
-            
-            # Estrategia 1: Buscar botón con icono "+" o "plus" dentro de createtimeRow
-            try:
-                # Buscar botones con icono plus o círculo azul con +
-                plus_buttons = createtime_row.find_elements(By.CSS_SELECTOR, "button, .el-button, [class*='plus'], [class*='add'], [class*='icon-plus']")
-                for btn in plus_buttons:
-                    try:
-                        # Verificar si el botón contiene un "+" o icono plus
-                        btn_text = btn.text.strip()
-                        btn_html = btn.get_attribute('innerHTML') or ''
-                        # Buscar icono plus o texto "+"
-                        if '+' in btn_text or '+' in btn_html or 'plus' in btn_html.lower() or 'el-icon-plus' in btn_html:
-                            # Verificar si está visible
-                            is_visible = driver.execute_script("""
-                                var elem = arguments[0];
-                                if (!elem) return false;
-                                var style = window.getComputedStyle(elem);
-                                var rect = elem.getBoundingClientRect();
-                                return style.display !== 'none' && 
-                                       style.visibility !== 'hidden' && 
-                                       style.opacity !== '0' &&
-                                       rect.width > 0 && 
-                                       rect.height > 0;
-                            """, btn)
-                            if is_visible:
-                                plus_button = btn
-                                logger.info("   ✅ Botón '+' encontrado")
-                                break
-                    except Exception:
-                        continue
-            except Exception as e:
-                logger.debug(f"   ⚠️ Estrategia 1 para botón '+' falló: {e}")
-            
-            # Estrategia 2: Buscar con JavaScript directamente
-            if not plus_button:
-                try:
-                    plus_button = driver.execute_script("""
-                        const createtimeRow = document.querySelector('#createtimeRow');
-                        if (!createtimeRow) return null;
-                        
-                        // Buscar botones dentro de createtimeRow
-                        const buttons = createtimeRow.querySelectorAll('button, .el-button, [class*="plus"], [class*="add"]');
-                        for (let btn of buttons) {
-                            const text = (btn.textContent || btn.innerText || '').trim();
-                            const html = btn.innerHTML || '';
-                            const style = window.getComputedStyle(btn);
-                            const rect = btn.getBoundingClientRect();
-                            
-                            // Verificar si es el botón plus (contiene + o icono plus)
-                            if ((text.includes('+') || html.includes('+') || html.includes('plus') || html.includes('el-icon-plus')) &&
-                                style.display !== 'none' && 
-                                style.visibility !== 'hidden' && 
-                                style.opacity !== '0' &&
-                                rect.width > 0 && 
-                                rect.height > 0) {
-                                return btn;
-                            }
-                        }
-                        return null;
-                    """)
-                    if plus_button:
-                        logger.info("   ✅ Botón '+' encontrado con JavaScript")
-                except Exception as e:
-                    logger.debug(f"   ⚠️ Estrategia 2 para botón '+' falló: {e}")
-            
-            # Hacer clic en el botón "+" si se encontró
-            if plus_button:
-                try:
-                    logger.info("   📌 Haciendo clic en botón '+' para abrir campos de fecha...")
-                    driver.execute_script("arguments[0].click();", plus_button)
-                    sleep(2.0)  # Esperar a que se abran los campos
-                    logger.info("   ✅ Campos de fecha personalizados abiertos")
-                except Exception as e:
-                    logger.warning(f"   ⚠️ No se pudo hacer clic en botón '+': {e}")
-                    # Intentar con clic normal
-                    try:
-                        plus_button.click()
-                        sleep(2.0)
-                        logger.info("   ✅ Campos de fecha personalizados abiertos (método alternativo)")
-                    except Exception as e2:
-                        logger.warning(f"   ⚠️ Método alternativo también falló: {e2}")
-            else:
-                logger.warning("   ⚠️ No se encontró el botón '+', intentando continuar...")
-                # Esperar un poco por si los campos ya están abiertos
-                sleep(1.0)
-            
-            # Ahora buscar los inputs de fecha personalizados (Del/al)
-            inputs = createtime_row.find_elements(By.CSS_SELECTOR, ".el-date-editor input[type='text']")
-            if len(inputs) < 2:
-                # Fallback: buscar cualquier input
-                inputs = createtime_row.find_elements(By.CSS_SELECTOR, "input[type='text']")
-            
-            # Si aún no hay suficientes inputs, esperar un poco más
-            if len(inputs) < 2:
-                logger.warning("   ⚠️ Campos de fecha aún no visibles, esperando...")
-                sleep(2.0)
-                inputs = createtime_row.find_elements(By.CSS_SELECTOR, ".el-date-editor input[type='text'], input[type='text']")
-            
-            if len(inputs) < 2:
-                raise RuntimeError(f"No se encontraron suficientes inputs en createtimeRow después de abrir campos (encontrados: {len(inputs)})")
-            
-            input_from_elem = inputs[0]  # Primer input = desde (Del)
-            input_to_elem = inputs[1]    # Segundo input = hasta (al)
-            
-            logger.info("✓ Campos de fecha CREATE TIME encontrados y listos")
-        except Exception as e:
-            logger.warning("⚠️ No se encontraron los elementos de fecha CREATE TIME: %s", e)
-            sleep(2)
-            raise RuntimeError("No se pudieron encontrar los campos de fecha CREATE TIME") from e
-
-        # Agregar hora a las fechas (formato datetime requerido por Element UI)
-        date_from_datetime = f"{date_from_str} 00:00:00"
-        date_to_datetime = f"{date_to_str} 23:59:59"
+        # Esperar a que createtimeRow esté disponible
+        wait.until(EC.presence_of_element_located((By.ID, "createtimeRow")))
+        createtime_row = driver.find_element(By.ID, "createtimeRow")
         
-        # Función helper para aplicar fecha a un componente Vue usando el elemento directamente
-        def apply_date_to_vue_component(input_element, date_value, date_display, field_name):
-            """Aplica una fecha al componente Vue y al input usando el elemento Selenium."""
+        # Buscar y hacer clic en el botón "+" para abrir los campos de fecha
+        try:
+            plus_button = createtime_row.find_element(By.CSS_SELECTOR, "button")
+            driver.execute_script("arguments[0].click();", plus_button)
+            sleep(2.0)
+            logger.info("✓ Campos de fecha personalizados abiertos")
+        except Exception:
+            logger.debug("Botón '+' no encontrado, campos pueden estar ya abiertos")
+            sleep(1.0)
+        
+        # Buscar los inputs de fecha
+        inputs = createtime_row.find_elements(By.CSS_SELECTOR, "input[type='text']")
+        if len(inputs) < 2:
+            sleep(2.0)
+            inputs = createtime_row.find_elements(By.CSS_SELECTOR, "input[type='text']")
+        
+        if len(inputs) < 2:
+            raise RuntimeError(f"No se encontraron suficientes inputs en createtimeRow (encontrados: {len(inputs)})")
+        
+        input_from_elem = inputs[0]
+        input_to_elem = inputs[1]
+        
+        # Script simplificado para aplicar fecha a componente Vue
+        def apply_date(input_element, date_value, date_display):
+            """Aplica una fecha al componente Vue y al input."""
             script = """
                 const input = arguments[0];
                 const dateValue = arguments[1];
-                const dateValueDisplay = arguments[2];
+                const dateDisplay = arguments[2];
                 
                 if (!input) return false;
                 
@@ -251,641 +152,58 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
                     parent = parent.parentElement;
                 }
                 
-                // Actualizar componente Vue (Vue 2) - MÚLTIPLES ESTRATEGIAS
+                // Actualizar componente Vue
                 if (vueComponent) {
-                    // Estrategia 1: Usar $set para actualizar reactivamente
                     if (vueComponent.$set) {
                         vueComponent.$set(vueComponent, 'value', dateValue);
-                        vueComponent.$set(vueComponent, 'displayValue', dateValueDisplay);
-                        // También actualizar directamente las propiedades
-                        vueComponent.value = dateValue;
-                        vueComponent.displayValue = dateValueDisplay;
-                    } else {
-                        // Si no hay $set, actualizar directamente
-                        vueComponent.value = dateValue;
-                        vueComponent.displayValue = dateValueDisplay;
+                        vueComponent.$set(vueComponent, 'displayValue', dateDisplay);
                     }
-                    
-                    // Forzar actualización del componente
+                    vueComponent.value = dateValue;
+                    vueComponent.displayValue = dateDisplay;
                     if (vueComponent.$forceUpdate) vueComponent.$forceUpdate();
-                    
-                    // Disparar eventos Vue
                     if (vueComponent.$emit) {
                         vueComponent.$emit('input', dateValue);
                         vueComponent.$emit('change', dateValue);
-                        vueComponent.$emit('blur', dateValue);
-                    }
-                    
-                    // También actualizar el modelo del componente padre si existe
-                    if (vueComponent.$parent && vueComponent.$parent.$set) {
-                        // Buscar el nombre del campo en el modelo del padre
-                        const fieldName = input.getAttribute('name') || input.id || '';
-                        if (fieldName) {
-                            vueComponent.$parent.$set(vueComponent.$parent, fieldName, dateValue);
-                        }
                     }
                 }
                 
-                // Actualizar input usando setter nativo (bypass de React/Vue)
-                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(input, dateValueDisplay);
+                // Actualizar input
+                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                nativeSetter.call(input, dateDisplay);
                 
-                // Disparar eventos nativos del DOM (más completo)
-                const events = ['focus', 'input', 'change', 'blur'];
-                events.forEach(eventType => {
-                    const event = new Event(eventType, { bubbles: true, cancelable: true });
-                    input.dispatchEvent(event);
+                // Disparar eventos
+                ['input', 'change', 'blur'].forEach(eventType => {
+                    input.dispatchEvent(new Event(eventType, { bubbles: true }));
                 });
-                
-                // También disparar eventos con datos
-                const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-                Object.defineProperty(inputEvent, 'target', { value: input, enumerable: true });
-                input.dispatchEvent(inputEvent);
-                
-                const changeEvent = new Event('change', { bubbles: true, cancelable: true });
-                Object.defineProperty(changeEvent, 'target', { value: input, enumerable: true });
-                input.dispatchEvent(changeEvent);
-                
-                // Sincronizar con el formulario padre si existe
-                let form = input.closest('form');
-                if (!form) {
-                    form = input.closest('[class*="filter"], [class*="panel"]');
-                }
-                if (form) {
-                    // Disparar evento de cambio en el formulario
-                    const formChangeEvent = new Event('change', { bubbles: true });
-                    form.dispatchEvent(formChangeEvent);
-                }
                 
                 return true;
             """
-            result = driver.execute_script(script, input_element, date_value, date_display)
-            if not result:
-                raise RuntimeError(f"No se pudo aplicar la fecha {field_name}")
-            logger.info(f"✓ Fecha {field_name} aplicada: {date_display}")
-            sleep(0.5)
+            return driver.execute_script(script, input_element, date_value, date_display)
         
-        # Función helper para hacer clic en el botón "Confirmar" del panel de fecha
-        def click_confirm_date_picker():
-            """Hace clic en el botón 'Confirmar' del panel de fecha abierto con múltiples estrategias."""
-            try:
-                # Estrategia 1: Buscar botón Confirmar con múltiples selectores
-                selectors = [
-                    ".el-picker-panel__footer button.el-picker-panel__link-btn",
-                    ".el-picker-panel__footer .el-picker-panel__link-btn",
-                    "button.el-picker-panel__link-btn",
-                    ".el-date-picker__header-btn--confirm",
-                ]
-                
-                for selector in selectors:
-                    try:
-                        confirm_buttons = driver.find_elements(By.CSS_SELECTOR, selector)
-                        for btn in confirm_buttons:
-                            try:
-                                # Verificar con JavaScript si está visible y habilitado
-                                is_visible = driver.execute_script("""
-                                    var elem = arguments[0];
-                                    if (!elem) return false;
-                                    var style = window.getComputedStyle(elem);
-                                    var rect = elem.getBoundingClientRect();
-                                    return style.display !== 'none' && 
-                                           style.visibility !== 'hidden' && 
-                                           style.opacity !== '0' &&
-                                           rect.width > 0 && 
-                                           rect.height > 0 &&
-                                           !elem.disabled;
-                                """, btn)
-                                
-                                btn_text = driver.execute_script("return arguments[0].textContent || arguments[0].innerText || '';", btn).strip()
-                                
-                                if is_visible and ("Confirmar" in btn_text or "Confirm" in btn_text):
-                                    logger.debug("   ✓ Haciendo clic en 'Confirmar' (JavaScript click)...")
-                                    # Usar JavaScript click para mayor compatibilidad
-                                    driver.execute_script("arguments[0].click();", btn)
-                                    sleep(1.0)
-                                    return True
-                            except Exception:
-                                continue
-                    except Exception:
-                        continue
-                
-                # Estrategia 2: Buscar por XPath con texto
-                xpath_selectors = [
-                    "//button[contains(@class, 'el-picker-panel__link-btn') and (contains(text(), 'Confirmar') or contains(text(), 'Confirm'))]",
-                    "//button[contains(text(), 'Confirmar')]",
-                    "//button[contains(text(), 'Confirm')]",
-                ]
-                
-                for xpath in xpath_selectors:
-                    try:
-                        confirm_btn = driver.find_element(By.XPATH, xpath)
-                        is_visible = driver.execute_script("""
-                            var elem = arguments[0];
-                            if (!elem) return false;
-                            var style = window.getComputedStyle(elem);
-                            var rect = elem.getBoundingClientRect();
-                            return style.display !== 'none' && 
-                                   style.visibility !== 'hidden' && 
-                                   style.opacity !== '0' &&
-                                   rect.width > 0 && 
-                                   rect.height > 0 &&
-                                   !elem.disabled;
-                        """, confirm_btn)
-                        
-                        if is_visible:
-                            logger.debug("   ✓ Haciendo clic en 'Confirmar' (XPath, JavaScript click)...")
-                            driver.execute_script("arguments[0].click();", confirm_btn)
-                            sleep(1.0)
-                            return True
-                    except Exception:
-                        continue
-                
-                # Estrategia 3: Buscar directamente en el DOM con JavaScript
-                try:
-                    clicked = driver.execute_script("""
-                        // Buscar todos los botones en el footer del panel
-                        const panels = document.querySelectorAll('.el-picker-panel');
-                        for (let panel of panels) {
-                            if (panel.style.display !== 'none') {
-                                const buttons = panel.querySelectorAll('button');
-                                for (let btn of buttons) {
-                                    const text = (btn.textContent || btn.innerText || '').trim();
-                                    if (text.includes('Confirmar') || text.includes('Confirm')) {
-                                        const style = window.getComputedStyle(btn);
-                                        if (style.display !== 'none' && style.visibility !== 'hidden') {
-                                            btn.click();
-                                            return true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        return false;
-                    """)
-                    if clicked:
-                        logger.debug("   ✓ Haciendo clic en 'Confirmar' (JavaScript directo DOM)...")
-                        sleep(1.0)
-                        return True
-                except Exception:
-                    pass
-                
-                logger.debug("   ⚠️ No se encontró botón 'Confirmar' visible después de múltiples intentos")
-                return False
-            except Exception as e:
-                logger.debug(f"   ⚠️ Error al buscar botón Confirmar: {e}")
-                return False
+        # Aplicar fecha DESDE
+        logger.info("📅 Aplicando fecha DESDE...")
+        driver.execute_script("arguments[0].click();", input_from_elem)
+        sleep(1.0)
+        apply_date(input_from_elem, f"{date_from_str} 00:00:00", date_from_str)
+        sleep(1.0)
         
-        # Función helper para cerrar el panel de fecha de forma robusta
-        def close_date_picker_panel():
-            """Cierra el panel de fecha usando múltiples estrategias."""
-            try:
-                # Estrategia 1: Presionar ESC para cerrar el panel
-                try:
-                    from selenium.webdriver.common.keys import Keys
-                    body = driver.find_element(By.TAG_NAME, "body")
-                    body.send_keys(Keys.ESCAPE)
-                    sleep(0.5)
-                    logger.debug("   ✓ Panel cerrado con ESC")
-                    return True
-                except Exception:
-                    pass
-                
-                # Estrategia 2: Esperar a que el panel sea clickable y hacer clic fuera con JavaScript
-                try:
-                    # Buscar un elemento fuera del panel para hacer clic
-                    filter_panel = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#allTask_tab")))
-                    # Usar JavaScript click para evitar interceptores
-                    driver.execute_script("arguments[0].click();", filter_panel)
-                    sleep(0.5)
-                    logger.debug("   ✓ Panel cerrado con JavaScript click")
-                    return True
-                except Exception:
-                    pass
-                
-                # Estrategia 3: Esperar a que el panel sea clickable y usar ActionChains
-                try:
-                    from selenium.webdriver.common.action_chains import ActionChains
-                    filter_panel = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#allTask_tab")))
-                    ActionChains(driver).move_to_element(filter_panel).click().perform()
-                    sleep(0.5)
-                    logger.debug("   ✓ Panel cerrado con ActionChains")
-                    return True
-                except Exception:
-                    pass
-                
-                # Estrategia 4: Cerrar panel directamente con JavaScript
-                try:
-                    driver.execute_script("""
-                        // Buscar y cerrar cualquier panel de fecha abierto
-                        const panels = document.querySelectorAll('.el-picker-panel');
-                        panels.forEach(panel => {
-                            if (panel.style.display !== 'none') {
-                                const closeBtn = panel.querySelector('.el-picker-panel__close-btn, .el-date-picker__header-btn');
-                                if (closeBtn) closeBtn.click();
-                            }
-                        });
-                        // También disparar evento ESC
-                        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 }));
-                    """)
-                    sleep(0.5)
-                    logger.debug("   ✓ Panel cerrado con JavaScript directo")
-                    return True
-                except Exception:
-                    pass
-                
-                logger.warning("   ⚠️ No se pudo cerrar el panel con ninguna estrategia")
-                return False
-            except Exception as e:
-                logger.warning(f"   ⚠️ Error al cerrar panel: {e}")
-                return False
+        # Cerrar panel presionando ESC
+        from selenium.webdriver.common.keys import Keys
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        sleep(1.0)
         
-        # Función helper para esperar a que el panel de fecha se cierre completamente
-        def wait_for_date_picker_closed(timeout=5):
-            """Espera a que el panel de fecha se cierre completamente."""
-            try:
-                wait_closed = WebDriverWait(driver, timeout)
-                # Verificar si hay paneles visibles
-                def no_visible_panels(driver):
-                    try:
-                        panels = driver.find_elements(By.CSS_SELECTOR, ".el-picker-panel")
-                        visible_panels = [p for p in panels if p.is_displayed()]
-                        return len(visible_panels) == 0
-                    except Exception:
-                        return True  # Si hay error, asumir que está cerrado
-                
-                wait_closed.until(no_visible_panels)
-                logger.debug("   ✓ Panel de fecha cerrado completamente")
-                return True
-            except Exception:
-                # Fallback: verificar manualmente
-                try:
-                    panels = driver.find_elements(By.CSS_SELECTOR, ".el-picker-panel")
-                    visible_panels = [p for p in panels if p.is_displayed()]
-                    if not visible_panels:
-                        logger.debug("   ✓ No hay paneles de fecha visibles")
-                        return True
-                except Exception:
-                    pass
-                # Si no podemos verificar, asumir que está cerrado después del timeout
-                logger.debug("   ⚠️ No se pudo verificar el cierre del panel, continuando...")
-                return True
+        # Aplicar fecha HASTA
+        logger.info("📅 Aplicando fecha HASTA...")
+        driver.execute_script("arguments[0].click();", input_to_elem)
+        sleep(1.0)
+        apply_date(input_to_elem, f"{date_to_str} 23:59:59", date_to_str)
+        sleep(1.0)
         
-        # Función helper para verificar que la fecha se guardó correctamente
-        def verify_date_applied(input_element, expected_date_str, field_name):
-            """Verifica que la fecha se guardó correctamente en el input."""
-            try:
-                # Esperar un poco para que se actualice
-                sleep(0.5)
-                
-                # Obtener el valor del input usando JavaScript
-                actual_value = driver.execute_script("return arguments[0].value || '';", input_element)
-                
-                # También verificar el valor del componente Vue si existe
-                vue_value = driver.execute_script("""
-                    const input = arguments[0];
-                    let parent = input.parentElement;
-                    while (parent) {
-                        if (parent.__vue__) {
-                            return parent.__vue__.value || parent.__vue__.displayValue || '';
-                        }
-                        parent = parent.parentElement;
-                    }
-                    return '';
-                """, input_element)
-                
-                # Normalizar fechas para comparación (solo la parte de fecha, sin hora)
-                expected_normalized = expected_date_str.replace('/', '-')
-                actual_normalized = actual_value.replace('/', '-')
-                vue_normalized = vue_value.replace('/', '-')
-                
-                # Verificar si alguna de las fechas coincide
-                date_applied = (
-                    expected_normalized in actual_normalized or 
-                    actual_normalized in expected_normalized or
-                    expected_normalized in vue_normalized or
-                    vue_normalized in expected_normalized
-                )
-                
-                if date_applied:
-                    logger.debug(f"   ✅ Fecha {field_name} verificada: Input='{actual_value}', Vue='{vue_value}'")
-                    return True
-                else:
-                    logger.warning(f"   ⚠️ Fecha {field_name} no coincide: Esperada='{expected_date_str}', Input='{actual_value}', Vue='{vue_value}'")
-                    return False
-            except Exception as e:
-                logger.warning(f"   ⚠️ Error al verificar fecha {field_name}: {e}")
-                return False
+        # Cerrar panel presionando ESC
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        sleep(1.0)
         
-        # Aplicar fechas usando los elementos encontrados (CREATE TIME)
-        # Paso 1: Aplicar fecha DESDE y confirmar
-        try:
-            logger.info("📅 Aplicando fecha DESDE...")
-            # Usar JavaScript click para abrir panel (mejor compatibilidad en headless)
-            driver.execute_script("arguments[0].click();", input_from_elem)
-            sleep(1.0)  # Esperar a que el panel se abra completamente
-            
-            # Aplicar la fecha con JavaScript
-            apply_date_to_vue_component(input_from_elem, date_from_datetime, date_from_str, "DESDE")
-            sleep(1.0)  # Esperar a que se actualice
-            
-            # Hacer clic en Confirmar - CRÍTICO: debe funcionar
-            confirm_clicked = click_confirm_date_picker()
-            if not confirm_clicked:
-                logger.warning("⚠️ No se pudo hacer clic en 'Confirmar' para fecha DESDE, intentando cerrar panel...")
-                # Intentar cerrar el panel y verificar si la fecha se aplicó de todas formas
-                close_date_picker_panel()
-                sleep(1.0)
-                if not verify_date_applied(input_from_elem, date_from_str, "DESDE"):
-                    raise RuntimeError("No se pudo aplicar la fecha DESDE: botón Confirmar no funcionó y fecha no se guardó")
-            else:
-                # Esperar a que el panel se cierre y verificar
-                wait_for_date_picker_closed(timeout=5)
-                sleep(1.0)
-                
-                # Verificar que la fecha se guardó correctamente
-                if not verify_date_applied(input_from_elem, date_from_str, "DESDE"):
-                    logger.warning("⚠️ Fecha DESDE aplicada pero no se verificó correctamente")
-                else:
-                    logger.info("✓ Fecha DESDE confirmada y verificada")
-        except Exception as e:
-            logger.error(f"❌ Error al aplicar fecha DESDE: {e}")
-            # Intentar cerrar el panel antes de fallar
-            try:
-                close_date_picker_panel()
-            except Exception:
-                pass
-            raise RuntimeError("No se pudo aplicar la fecha DESDE") from e
-        
-        # Paso 2: Aplicar fecha HASTA y confirmar
-        try:
-            logger.info("📅 Aplicando fecha HASTA...")
-            wait_for_date_picker_closed(timeout=3)
-            sleep(1.0)  # Asegurar que el panel anterior esté cerrado
-            
-            # Usar JavaScript click para abrir panel (mejor compatibilidad en headless)
-            driver.execute_script("arguments[0].click();", input_to_elem)
-            sleep(1.0)  # Esperar a que el panel se abra completamente
-            
-            # Aplicar la fecha con JavaScript
-            apply_date_to_vue_component(input_to_elem, date_to_datetime, date_to_str, "HASTA")
-            sleep(1.0)  # Esperar a que se actualice
-            
-            # Hacer clic en Confirmar - CRÍTICO: debe funcionar
-            confirm_clicked = click_confirm_date_picker()
-            if not confirm_clicked:
-                logger.warning("⚠️ No se pudo hacer clic en 'Confirmar' para fecha HASTA, intentando cerrar panel...")
-                # Intentar cerrar el panel y verificar si la fecha se aplicó de todas formas
-                close_date_picker_panel()
-                sleep(1.0)
-                if not verify_date_applied(input_to_elem, date_to_str, "HASTA"):
-                    raise RuntimeError("No se pudo aplicar la fecha HASTA: botón Confirmar no funcionó y fecha no se guardó")
-            else:
-                # Esperar a que el panel se cierre y verificar
-                wait_for_date_picker_closed(timeout=5)
-                sleep(1.0)
-                
-                # Verificar que la fecha se guardó correctamente
-                if not verify_date_applied(input_to_elem, date_to_str, "HASTA"):
-                    logger.warning("⚠️ Fecha HASTA aplicada pero no se verificó correctamente")
-                else:
-                    logger.info("✓ Fecha HASTA confirmada y verificada")
-        except Exception as e:
-            logger.error(f"❌ Error al aplicar fecha HASTA: {e}")
-            # Intentar cerrar el panel antes de fallar
-            try:
-                close_date_picker_panel()
-            except Exception:
-                pass
-            raise RuntimeError("No se pudo aplicar la fecha HASTA") from e
-        
-        # Verificación final: ambas fechas deben estar guardadas
-        logger.debug("🔍 Verificación final de fechas aplicadas...")
-        from_done = verify_date_applied(input_from_elem, date_from_str, "DESDE (final)")
-        to_done = verify_date_applied(input_to_elem, date_to_str, "HASTA (final)")
-        
-        if from_done and to_done:
-            logger.info("✅ Ambas fechas verificadas correctamente")
-        else:
-            logger.warning(f"⚠️ Verificación final: DESDE={from_done}, HASTA={to_done}")
-        
-        # CRÍTICO: Sincronizar fechas con el formulario antes de aplicar filtros
-        # Esto asegura que los valores se envíen correctamente cuando se hace clic en "Filtrar"
-        logger.debug("🔄 Sincronizando fechas con el formulario y modelo Vue padre...")
-        sync_result = driver.execute_script("""
-            const dateFrom = arguments[0];
-            const dateTo = arguments[1];
-            const dateFromDatetime = arguments[2];
-            const dateToDatetime = arguments[3];
-            
-            let synced = false;
-            
-            // Buscar el componente Vue padre que maneja los filtros
-            // Buscar en el panel de filtros o drawer
-            const filterPanel = document.querySelector('[class*="filter-panel"], [id*="filter"], [class*="el-drawer"], [class*="drawer"]');
-            const createtimeRow = document.querySelector('#createtimeRow');
-            
-            // Buscar componentes Vue padre que puedan manejar el estado de filtros
-            let filterVueComponent = null;
-            
-            // Estrategia 1: Buscar componente Vue en el panel de filtros
-            if (filterPanel && filterPanel.__vue__) {
-                filterVueComponent = filterPanel.__vue__;
-            }
-            
-            // Estrategia 2: Buscar componente Vue padre de createtimeRow
-            if (!filterVueComponent && createtimeRow) {
-                let parent = createtimeRow.parentElement;
-                let depth = 0;
-                while (parent && depth < 10) {
-                    if (parent.__vue__) {
-                        const vue = parent.__vue__;
-                        // Buscar componente que tenga datos de filtros
-                        if (vue.$data && (vue.$data.filterForm || vue.$data.filters || vue.$data.formData)) {
-                            filterVueComponent = vue;
-                            break;
-                        }
-                    }
-                    parent = parent.parentElement;
-                    depth++;
-                }
-            }
-            
-            // Estrategia 3: Buscar en toda la página el componente Vue que maneja filtros
-            if (!filterVueComponent) {
-                const allElements = document.querySelectorAll('*');
-                for (let elem of allElements) {
-                    if (elem.__vue__) {
-                        const vue = elem.__vue__;
-                        // Buscar componente con datos de filtros o formulario
-                        if (vue.$data) {
-                            const data = vue.$data;
-                            // Buscar propiedades comunes de formularios de filtros
-                            if (data.filterForm || data.filters || data.formData || 
-                                data.createTime || data.createTimeFrom || data.createTimeTo ||
-                                (data.form && typeof data.form === 'object')) {
-                                filterVueComponent = vue;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Si encontramos el componente Vue padre, actualizar su modelo
-            if (filterVueComponent) {
-                const data = filterVueComponent.$data;
-                
-                // CRÍTICO: Crear filterForm si no existe
-                if (!data.filterForm) {
-                    if (filterVueComponent.$set) {
-                        filterVueComponent.$set(data, 'filterForm', {});
-                        synced = true;
-                    } else {
-                        data.filterForm = {};
-                    }
-                }
-                
-                // Intentar actualizar diferentes propiedades posibles
-                const possibleProps = [
-                    'createTime', 'createTimeFrom', 'createTimeTo',
-                    'filterForm', 'filters', 'formData', 'form'
-                ];
-                
-                for (let prop of possibleProps) {
-                    if (data[prop]) {
-                        if (typeof data[prop] === 'object') {
-                            // Si es un objeto, actualizar propiedades dentro
-                            if (data[prop].createTimeFrom !== undefined || prop === 'filterForm') {
-                                if (filterVueComponent.$set) {
-                                    filterVueComponent.$set(data[prop], 'createTimeFrom', dateFromDatetime);
-                                } else {
-                                    data[prop].createTimeFrom = dateFromDatetime;
-                                }
-                                synced = true;
-                            }
-                            if (data[prop].createTimeTo !== undefined || prop === 'filterForm') {
-                                if (filterVueComponent.$set) {
-                                    filterVueComponent.$set(data[prop], 'createTimeTo', dateToDatetime);
-                                } else {
-                                    data[prop].createTimeTo = dateToDatetime;
-                                }
-                                synced = true;
-                            }
-                            if (data[prop].from !== undefined || prop === 'filterForm') {
-                                if (filterVueComponent.$set) {
-                                    filterVueComponent.$set(data[prop], 'from', dateFromDatetime);
-                                } else {
-                                    data[prop].from = dateFromDatetime;
-                                }
-                                synced = true;
-                            }
-                            if (data[prop].to !== undefined || prop === 'filterForm') {
-                                if (filterVueComponent.$set) {
-                                    filterVueComponent.$set(data[prop], 'to', dateToDatetime);
-                                } else {
-                                    data[prop].to = dateToDatetime;
-                                }
-                                synced = true;
-                            }
-                        }
-                    }
-                }
-                
-                // CRÍTICO: Asegurar que filterForm tenga las fechas (si existe o se creó)
-                if (data.filterForm) {
-                    if (filterVueComponent.$set) {
-                        filterVueComponent.$set(data.filterForm, 'createTimeFrom', dateFromDatetime);
-                        filterVueComponent.$set(data.filterForm, 'createTimeTo', dateToDatetime);
-                        filterVueComponent.$set(data.filterForm, 'from', dateFromDatetime);
-                        filterVueComponent.$set(data.filterForm, 'to', dateToDatetime);
-                    } else {
-                        data.filterForm.createTimeFrom = dateFromDatetime;
-                        data.filterForm.createTimeTo = dateToDatetime;
-                        data.filterForm.from = dateFromDatetime;
-                        data.filterForm.to = dateToDatetime;
-                    }
-                    synced = true;
-                }
-                
-                // También actualizar directamente si existen estas propiedades
-                if (filterVueComponent.$set) {
-                    if (data.createTimeFrom !== undefined) {
-                        filterVueComponent.$set(filterVueComponent, 'createTimeFrom', dateFromDatetime);
-                        synced = true;
-                    }
-                    if (data.createTimeTo !== undefined) {
-                        filterVueComponent.$set(filterVueComponent, 'createTimeTo', dateToDatetime);
-                        synced = true;
-                    }
-                    // También crear si no existen
-                    if (data.createTimeFrom === undefined) {
-                        filterVueComponent.$set(filterVueComponent, 'createTimeFrom', dateFromDatetime);
-                        synced = true;
-                    }
-                    if (data.createTimeTo === undefined) {
-                        filterVueComponent.$set(filterVueComponent, 'createTimeTo', dateToDatetime);
-                        synced = true;
-                    }
-                }
-                
-                // Forzar actualización del componente
-                if (filterVueComponent.$forceUpdate) {
-                    filterVueComponent.$forceUpdate();
-                }
-                
-                // También actualizar componentes padre si existen
-                let parent = filterVueComponent.$parent;
-                while (parent && parent.$forceUpdate) {
-                    parent.$forceUpdate();
-                    parent = parent.$parent;
-                }
-            }
-            
-            // También actualizar los inputs directamente para asegurar que tienen los valores correctos
-            const inputs = document.querySelectorAll('#createtimeRow input');
-            if (inputs.length >= 2) {
-                const fromInput = inputs[0];
-                const toInput = inputs[1];
-                
-                // Actualizar valores usando setter nativo
-                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(fromInput, dateFrom);
-                nativeInputValueSetter.call(toInput, dateTo);
-                
-                // Disparar eventos
-                ['focus', 'input', 'change', 'blur'].forEach(eventType => {
-                    fromInput.dispatchEvent(new Event(eventType, { bubbles: true }));
-                    toInput.dispatchEvent(new Event(eventType, { bubbles: true }));
-                });
-            }
-            
-            return { synced: synced, foundComponent: filterVueComponent !== null };
-        """, date_from_str, date_to_str, date_from_datetime, date_to_datetime)
-        
-        if sync_result and sync_result.get('synced'):
-            logger.info("✅ Fechas sincronizadas con el modelo Vue padre del formulario")
-        elif sync_result and sync_result.get('foundComponent'):
-            logger.warning("⚠️ Componente Vue padre encontrado pero no se pudo sincronizar completamente")
-        else:
-            logger.warning("⚠️ No se encontró componente Vue padre del formulario, usando sincronización básica")
-        
-        sleep(1.5)  # Esperar más tiempo para que se sincronice completamente
-        
-        # CRÍTICO: Hacer blur en los inputs de fecha para asegurar que Vue los registre
-        logger.debug("🔄 Haciendo blur en inputs de fecha para activar registro en Vue...")
-        try:
-            inputs = driver.find_elements(By.CSS_SELECTOR, "#createtimeRow input")
-            if len(inputs) >= 2:
-                # Hacer blur en ambos inputs para activar el registro en Vue
-                driver.execute_script("arguments[0].blur();", inputs[0])
-                sleep(0.3)
-                driver.execute_script("arguments[0].blur();", inputs[1])
-                sleep(0.5)
-                logger.debug("✓ Blur aplicado en inputs de fecha")
-        except Exception as e:
-            logger.warning(f"⚠️ No se pudo hacer blur en inputs: {e}")
-        
-        sleep(1.0)  # Esperar adicional después del blur
+        logger.info("✓ Fechas aplicadas correctamente")
     elif settings.date_mode == 2:
         logger.info("📅 Seleccionando rango rápido: Último mes")
         driver.find_element(By.XPATH, '//*[@id="createtimeRow"]/div[2]/div[2]/div/div[1]/label[3]').click()
@@ -895,176 +213,15 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
 
 
 def _apply_filters(driver) -> None:
-    """Aplica los filtros haciendo clic en el botón "Filtrar" del panel de filtros.
+    """Simula el hover requerido para que la UI habilite el botón de filtros.
 
-    Primero hace hover sobre el split button para habilitarlo, luego hace clic
-    en el botón "Filtrar" que está dentro del panel de filtros.
+    En Integratel el botón confirma los filtros sólo después del hover sobre el
+    split button. ``ActionChains`` reproduce ese comportamiento.
     """
-    logger.info("🔧 Aplicando filtros...")
-    
-    # CRÍTICO: Verificar estado de fechas ANTES de hacer clic en "Filtrar"
-    logger.info("🔍 Verificando estado de fechas antes de aplicar filtros...")
-    date_status = driver.execute_script("""
-        const createtimeRow = document.querySelector('#createtimeRow');
-        if (!createtimeRow) return { found: false };
-        
-        const inputs = createtimeRow.querySelectorAll('input');
-        if (inputs.length < 2) return { found: false, inputs: inputs.length };
-        
-        const fromInput = inputs[0];
-        const toInput = inputs[1];
-        
-        // Obtener valores de inputs
-        const fromValue = fromInput.value || '';
-        const toValue = toInput.value || '';
-        
-        // Buscar componentes Vue de los inputs
-        let fromVue = null;
-        let toVue = null;
-        
-        let parent = fromInput.parentElement;
-        let depth = 0;
-        while (parent && depth < 10 && !fromVue) {
-            if (parent.__vue__) {
-                fromVue = parent.__vue__;
-                break;
-            }
-            parent = parent.parentElement;
-            depth++;
-        }
-        
-        parent = toInput.parentElement;
-        depth = 0;
-        while (parent && depth < 10 && !toVue) {
-            if (parent.__vue__) {
-                toVue = parent.__vue__;
-                break;
-            }
-            parent = parent.parentElement;
-            depth++;
-        }
-        
-        // Obtener valores de componentes Vue
-        const fromVueValue = fromVue ? (fromVue.value || fromVue.displayValue || '') : '';
-        const toVueValue = toVue ? (toVue.value || toVue.displayValue || '') : '';
-        
-        // Buscar componente Vue padre que maneja filtros
-        let filterVue = null;
-        parent = createtimeRow.parentElement;
-        depth = 0;
-        while (parent && depth < 15) {
-            if (parent.__vue__) {
-                const vue = parent.__vue__;
-                if (vue.$data && (vue.$data.filterForm || vue.$data.filters || vue.$data.formData)) {
-                    filterVue = vue;
-                    break;
-                }
-            }
-            parent = parent.parentElement;
-            depth++;
-        }
-        
-        // Obtener valores del componente Vue padre si existe
-        let filterFormFrom = null;
-        let filterFormTo = null;
-        if (filterVue && filterVue.$data) {
-            const data = filterVue.$data;
-            if (data.filterForm && data.filterForm.createTimeFrom) {
-                filterFormFrom = data.filterForm.createTimeFrom;
-            }
-            if (data.filterForm && data.filterForm.createTimeTo) {
-                filterFormTo = data.filterForm.createTimeTo;
-            }
-            if (data.createTimeFrom) filterFormFrom = data.createTimeFrom;
-            if (data.createTimeTo) filterFormTo = data.createTimeTo;
-        }
-        
-        return {
-            found: true,
-            inputFrom: fromValue,
-            inputTo: toValue,
-            vueFrom: fromVueValue,
-            vueTo: toVueValue,
-            filterFormFrom: filterFormFrom,
-            filterFormTo: filterFormTo,
-            hasFilterVue: filterVue !== null
-        };
-    """)
-    
-    if date_status and date_status.get('found'):
-        logger.info(f"   📅 Estado de fechas antes de filtrar:")
-        logger.info(f"      Input DESDE: {date_status.get('inputFrom', 'N/A')}")
-        logger.info(f"      Input HASTA: {date_status.get('inputTo', 'N/A')}")
-        logger.info(f"      Vue DESDE: {date_status.get('vueFrom', 'N/A')}")
-        logger.info(f"      Vue HASTA: {date_status.get('vueTo', 'N/A')}")
-        if date_status.get('hasFilterVue'):
-            logger.info(f"      Form DESDE: {date_status.get('filterFormFrom', 'N/A')}")
-            logger.info(f"      Form HASTA: {date_status.get('filterFormTo', 'N/A')}")
-        
-        # Verificar si las fechas están vacías
-        if not date_status.get('inputFrom') or not date_status.get('inputTo'):
-            logger.warning("⚠️ ⚠️ ⚠️ ADVERTENCIA: Las fechas están vacías en los inputs antes de filtrar!")
-            logger.warning("   Esto significa que los filtros de fecha NO se aplicarán")
-    
-    # Paso 1: Hover sobre el split button para habilitarlo
-    wait = WebDriverWait(driver, 15)
-    try:
-        element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#allTask_tab .el-button:nth-child(3)")))
-        ActionChains(driver).move_to_element(element).perform()
-        sleep(2.0)  # Aumentado para headless
-        logger.debug("✓ Hover sobre split button realizado")
-    except Exception as e:
-        logger.warning(f"⚠️ No se pudo hacer hover sobre split button: {e}")
-    
-    # Paso 2: Buscar y hacer clic en el botón "Filtrar" del panel de filtros
-    try:
-        wait = WebDriverWait(driver, 15)
-        # Esperar explícitamente a que el botón esté disponible
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "button.ows_filter_filter")))
-        
-        # Buscar botón "Filtrar" con clase ows_filter_filter que esté visible
-        filter_buttons = driver.find_elements(By.CSS_SELECTOR, "button.ows_filter_filter")
-        filter_button = None
-        
-        for btn in filter_buttons:
-            try:
-                # En headless, verificar con JavaScript si está visible
-                is_visible = driver.execute_script("""
-                    var elem = arguments[0];
-                    if (!elem) return false;
-                    var style = window.getComputedStyle(elem);
-                    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-                """, btn)
-                
-                if is_visible and btn.is_enabled() and btn.text.strip() == "Filtrar":
-                    filter_button = btn
-                    break
-            except Exception:
-                continue
-        
-        if filter_button:
-            logger.info("   📌 Haciendo clic en botón 'Filtrar' (JavaScript click para compatibilidad)...")
-            # Usar JavaScript click para mayor compatibilidad en headless
-            driver.execute_script("arguments[0].click();", filter_button)
-            sleep(3.0)  # Aumentado para headless
-            logger.info("✓ Filtros aplicados correctamente")
-        else:
-            logger.warning("⚠️ No se encontró el botón 'Filtrar' visible, usando fallback...")
-            # Fallback con JavaScript click
-            wait = WebDriverWait(driver, 15)
-            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#allTask_tab .el-button:nth-child(3)")))
-            driver.execute_script("arguments[0].click();", element)
-            sleep(3.0)
-    except Exception as e:
-        logger.warning(f"⚠️ Error al hacer clic en botón Filtrar: {e}")
-        # Fallback al comportamiento original
-        try:
-            element = driver.find_element(By.CSS_SELECTOR, "#allTask_tab .el-button:nth-child(3)")
-            ActionChains(driver).move_to_element(element).perform()
-            sleep(2)
-        except Exception as e2:
-            logger.error(f"❌ Error en fallback: {e2}")
-            raise RuntimeError("No se pudo aplicar los filtros") from e2
+    logger.info("🔧 Aplicando filtros (hover + click)...")
+    element = driver.find_element(By.CSS_SELECTOR, "#allTask_tab .el-button:nth-child(3)")
+    ActionChains(driver).move_to_element(element).perform()
+    sleep(2)
 
 
 def _trigger_export(driver) -> float:
