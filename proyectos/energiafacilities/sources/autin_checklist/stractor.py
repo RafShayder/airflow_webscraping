@@ -193,9 +193,9 @@ class DynamicChecklistWorkflow:
             desired_name=self.desired_filename,
             logger=logger,
         )
-        logger.info("🎉 Script completado exitosamente!")
-        logger.info("📋 Navegación a Dynamic checklist > Sub PM Query completada")
-        logger.info("🔧 Filtros aplicados y lista cargada")
+        logger.info("Script completado exitosamente!")
+        logger.info("Navegación a Dynamic checklist > Sub PM Query completada")
+        logger.info("Filtros aplicados y lista cargada")
         return downloaded
 
     def close(self) -> None:
@@ -225,7 +225,7 @@ class DynamicChecklistWorkflow:
             if "unexpected keyword argument 'proxy'" in message and "proxy" in browser_kwargs:
                 browser_kwargs.pop("proxy", None)
                 logger.warning(
-                    "⚠ BrowserManager en el entorno no admite 'proxy'. Continuando sin proxy..."
+                    " BrowserManager en el entorno no admite 'proxy'. Continuando sin proxy..."
                 )
                 browser_manager = BrowserManager(**browser_kwargs)
             else:
@@ -349,7 +349,7 @@ class DynamicChecklistWorkflow:
         # Intento 2: Buscar con texto alternativo (español/inglés)
         if label in BUTTON_ALTERNATIVES:
             alt_label = BUTTON_ALTERNATIVES[label]
-            logger.info("🔄 Intentando con texto alternativo: '%s'", alt_label)
+            logger.info("Intentando con texto alternativo: '%s'", alt_label)
             try:
                 return extended_wait.until(
                     EC.element_to_be_clickable((By.XPATH, XPATH_SPLITBUTTON_BY_TEXT.format(text=alt_label)))
@@ -358,7 +358,7 @@ class DynamicChecklistWorkflow:
                 pass
         
         # Intento 3: Búsqueda alternativa - buscar todos los splitbuttons y encontrar uno que coincida
-        logger.warning("⚠ Intentando buscar cualquier splitbutton disponible...")
+        logger.warning("Intentando buscar cualquier splitbutton disponible...")
         buttons = self.driver.find_elements(By.CSS_SELECTOR, CSS_SPLITBUTTON_TEXT)
         if not buttons:
             raise RuntimeError("No se encontraron botones splitbutton disponibles")

@@ -9,12 +9,12 @@ Clientes (objetos de alto nivel) que encapsulan interacciones con Selenium:
 Se reexportan aquí para ofrecer una API estable al resto del paquete.
 """
 
-from .auth import AuthManager
-from .browser import BrowserManager
-from .filters import FilterManager
-from .iframes import IframeManager
-from .date_filter_manager import DateFilterManager
-from .log_management_manager import LogManagementManager
+from clients.auth import AuthManager
+from clients.browser import BrowserManager
+from clients.filters import FilterManager
+from clients.iframes import IframeManager
+from clients.date_filter_manager import DateFilterManager
+from clients.log_management_manager import LogManagementManager
 
 __all__ = [
     "AuthManager",

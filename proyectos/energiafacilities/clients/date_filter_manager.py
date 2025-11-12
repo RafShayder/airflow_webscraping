@@ -19,8 +19,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from ..common.vue_helpers import inject_date_via_javascript
-from ..common.dynamic_checklist_constants import (
+from common.vue_helpers import inject_date_via_javascript
+from common.dynamic_checklist_constants import (
     RADIO_BUTTON_LAST_MONTH_INDEX,
     MIN_RADIO_BUTTONS_REQUIRED,
     CSS_RADIO_BUTTON,

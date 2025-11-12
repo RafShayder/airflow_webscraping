@@ -222,7 +222,7 @@ def wait_for_download(
 
     ``since`` representa el timestamp a partir del cual considerar archivos válidos.
     """
-    logger.info("⏳ Verificando que el archivo se haya descargado...")
+    logger.info(" Verificando que el archivo se haya descargado...")
     deadline = time.time() + timeout
     before = set(initial_snapshot or [])
 
@@ -244,7 +244,7 @@ def wait_for_download(
 
         if candidates:
             latest = max(candidates, key=lambda p: p.stat().st_mtime)
-            logger.info("✓ Archivo descargado detectado: %s", latest.name)
+            logger.info("Archivo descargado detectado: %s", latest.name)
             if desired_name:
                 target_path = _resolve_target_filename(download_dir, desired_name, overwrite)
                 try:
@@ -252,10 +252,10 @@ def wait_for_download(
                         target_path.unlink()
                     latest.rename(target_path)
                     latest = target_path
-                    logger.info("📦 Archivo renombrado a: %s", target_path.name)
+                    logger.info(" Archivo renombrado a: %s", target_path.name)
                 except Exception as exc:
                     message = f"No se pudo renombrar el archivo descargado a {target_path.name}"
-                    logger.error("❌ %s", message, exc_info=True)
+                    logger.error(" %s", message, exc_info=True)
                     raise RuntimeError(message) from exc
             return latest
 

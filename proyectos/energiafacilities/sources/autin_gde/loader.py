@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
 
 
-def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
+def load_gde(filepath: Optional[PathLike] = None,) -> dict:
     """
     Carga los datos extraídos de GDE hacia PostgreSQL.
 
@@ -31,7 +31,7 @@ def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     """
     try:
         # Cargar configuraciones desde config_dev.yaml o config_prod.yaml
-        config = load_config(env=env)
+        config = load_config()
         postgres_config = config.get("postgress", {})  # Nota: en config_dev.yaml es "postgress" con doble 's'
         gde_config = config.get("gde", {})
 

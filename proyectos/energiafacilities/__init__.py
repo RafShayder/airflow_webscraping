@@ -9,8 +9,8 @@ API pública:
 
 from .config.teleows_config import TeleowsSettings
 from .core import load_settings, setup_logging
-from .sources.gde.stractor import extraer_gde, run_gde
-from .sources.dynamic_checklist.stractor import extraer_dynamic_checklist, run_dynamic_checklist
+from .sources.autin_gde.stractor import extraer_gde, run_gde
+from .sources.autin_checklist.stractor import extraer_dynamic_checklist, run_dynamic_checklist
 
 __all__ = [
     "run_gde",

@@ -42,10 +42,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from ...clients import AuthManager, BrowserManager, FilterManager, IframeManager
-from ...common import require, wait_for_download
-from ...config.teleows_config import TeleowsSettings
-from ...core.utils import load_settings
+from clients.auth import AuthManager
+from clients.browser import BrowserManager
+from clients.filters import FilterManager
+from clients.iframes import  IframeManager
+from common.selenium_utils import require, wait_for_download
+from config.teleows_config import TeleowsSettings
+from core.utils import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +101,11 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
             date_from = date_to - timedelta(days=settings.last_n_days)
             date_from_str = date_from.strftime('%Y-%m-%d')
             date_to_str = date_to.strftime('%Y-%m-%d')
-            logger.info("📅 Aplicando últimos %s días: %s → %s", settings.last_n_days, date_from_str, date_to_str)
+            logger.info("Aplicando últimos %s días: %s → %s", settings.last_n_days, date_from_str, date_to_str)
         else:
             date_from_str = settings.date_from
             date_to_str = settings.date_to
-            logger.info("📅 Aplicando fechas manuales: %s → %s", date_from_str, date_to_str)
+            logger.info("Aplicando fechas manuales: %s → %s", date_from_str, date_to_str)
 
         wait = WebDriverWait(driver, 10)
         # Esperar a que createtimeRow esté disponible
@@ -114,7 +117,7 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
             plus_button = createtime_row.find_element(By.CSS_SELECTOR, "button")
             driver.execute_script("arguments[0].click();", plus_button)
             sleep(2.0)
-            logger.info("✓ Campos de fecha personalizados abiertos")
+            logger.info("Campos de fecha personalizados abiertos")
         except Exception:
             logger.debug("Botón '+' no encontrado, campos pueden estar ya abiertos")
             sleep(1.0)
@@ -181,7 +184,7 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
             return driver.execute_script(script, input_element, date_value, date_display)
         
         # Aplicar fecha DESDE
-        logger.info("📅 Aplicando fecha DESDE...")
+        logger.info("Aplicando fecha DESDE...")
         driver.execute_script("arguments[0].click();", input_from_elem)
         sleep(1.0)
         apply_date(input_from_elem, f"{date_from_str} 00:00:00", date_from_str)
@@ -193,7 +196,7 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
         sleep(1.0)
         
         # Aplicar fecha HASTA
-        logger.info("📅 Aplicando fecha HASTA...")
+        logger.info("Aplicando fecha HASTA...")
         driver.execute_script("arguments[0].click();", input_to_elem)
         sleep(1.0)
         apply_date(input_to_elem, f"{date_to_str} 23:59:59", date_to_str)
@@ -203,9 +206,9 @@ def _apply_date_filters(driver, settings: TeleowsSettings) -> None:
         driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
         sleep(1.0)
         
-        logger.info("✓ Fechas aplicadas correctamente")
+        logger.info("Fechas aplicadas correctamente")
     elif settings.date_mode == 2:
-        logger.info("📅 Seleccionando rango rápido: Último mes")
+        logger.info("Seleccionando rango rápido: Último mes")
         driver.find_element(By.XPATH, '//*[@id="createtimeRow"]/div[2]/div[2]/div/div[1]/label[3]').click()
         sleep(1)
     else:
@@ -218,7 +221,7 @@ def _apply_filters(driver) -> None:
     En Integratel el botón confirma los filtros sólo después del hover sobre el
     split button. ``ActionChains`` reproduce ese comportamiento.
     """
-    logger.info("🔧 Aplicando filtros (hover + click)...")
+    logger.info("Aplicando filtros (hover + click)...")
     element = driver.find_element(By.CSS_SELECTOR, "#allTask_tab .el-button:nth-child(3)")
     ActionChains(driver).move_to_element(element).perform()
     sleep(2)
@@ -230,7 +233,7 @@ def _trigger_export(driver) -> float:
     El timestamp es usado luego por ``_download_export`` para identificar cuál
     de los archivos descargados corresponde al request actual.
     """
-    logger.info("📤 Disparando exportación...")
+    logger.info("Disparando exportación...")
     driver.find_element(By.CSS_SELECTOR, "#test > .sdm_splitbutton_text").click()
     sleep(1)
     return time.time()
@@ -264,7 +267,7 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
     texto de la primera fila (estado). Al detectar un estado final distinto de
     Succeed se lanza una excepción para que el DAG lo refleje como fallo.
     """
-    logger.info("🔄 Iniciando monitoreo de estado de exportación...")
+    logger.info("Iniciando monitoreo de estado de exportación...")
     end_states = {"Succeed", "Failed", "Aborted", "Waiting", "Concurrent Waiting"}
     deadline = time.time() + timeout_seconds
     attempt = 0
@@ -273,7 +276,7 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
         attempt += 1
         try:
             driver.find_element(By.CSS_SELECTOR, "span.button_icon.btnIcon[style*='refresh']").click()
-            logger.info("🔄 Refresh intento %s (restan %.0f s)", attempt, deadline - time.time())
+            logger.info("Refresh intento %s (restan %.0f s)", attempt, deadline - time.time())
         except Exception as exc:
             logger.warning("⚠ No se pudo presionar Refresh: %s", exc, exc_info=True)
 
@@ -281,16 +284,16 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
         status = driver.find_element(
             By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[3]/div/span'
         ).text.strip()
-        logger.info("📊 Estado de exportación: %s", status)
+        logger.info("Estado de exportación: %s", status)
 
         if status in end_states:
             if status == "Succeed":
-                logger.info("✅ Exportación completada exitosamente")
+                logger.info("Exportación completada exitosamente")
                 return
             raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
 
         if status != "Running":
-            logger.warning("⚠ Estado desconocido '%s'. Continuando monitoreo...", status)
+            logger.warning("Estado desconocido '%s'. Continuando monitoreo...", status)
 
         sleep(poll_interval)
 
@@ -312,7 +315,7 @@ def _download_export(
       antes y después de la descarga, filtrando *.crdownload.
     - ``output_filename`` puede provenir de settings o del DAG (override).
     """
-    logger.info("📥 Preparando descarga...")
+    logger.info("Preparando descarga...")
     before = {p for p in download_dir.iterdir() if p.is_file()}
     driver.find_element(
         By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[11]/div/div[3]'
@@ -356,12 +359,12 @@ def run_gde(
     Devuelve:
         ``Path`` absoluto del archivo final descargado (renombrado si corresponde).
     """
-    download_dir = Path(settings.download_path).resolve()
+    download_dir = Path(settings["download_path"]).resolve()
     download_dir.mkdir(parents=True, exist_ok=True)
 
     browser_kwargs: Dict[str, Any] = {
         "download_path": str(download_dir),
-        "headless": settings.headless if headless is None else headless,
+        "headless": settings["headless"] if headless is None else headless,
         "extra_args": chrome_extra_args,
     }
     if settings.proxy:
@@ -474,3 +477,10 @@ def extraer_gde(
     )
     logger.info("Extracción GDE finalizada. Archivo: %s", path)
     return str(path)
+
+
+from core.utils import  load_config
+config = load_config()
+config_autin = config.get("gde", {})
+
+extraer_gde(settings=config_autin)

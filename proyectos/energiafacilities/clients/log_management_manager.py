@@ -19,7 +19,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from ..common.dynamic_checklist_constants import (
+from common.dynamic_checklist_constants import (
     MENU_INDEX_LOG_MANAGEMENT,
     MENU_LOG_MANAGEMENT,
     SUBMENU_DATA_EXPORT_LOGS,

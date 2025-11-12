@@ -121,7 +121,7 @@ teleows:
 #------GDE (Console GDE)-------------------------------------------
 gde:
   # Configuración de extracción
-  local_dir: "tmp/teleows"
+  download_path: "tmp/teleows"
   specific_filename: "Console_GDE_export.xlsx"
 
   # Configuración de fechas específica para GDE

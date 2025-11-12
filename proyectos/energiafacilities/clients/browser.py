@@ -56,7 +56,7 @@ class BrowserManager:
         if self.download_path:
             abs_download_path = str(Path(self.download_path).resolve())
             Path(abs_download_path).mkdir(parents=True, exist_ok=True)
-            print(f"📁 Configurando descargas en: {abs_download_path}")
+            print(f"Configurando descargas en: {abs_download_path}")
             prefs = {
                 "download.default_directory": abs_download_path,
                 "download.prompt_for_download": False,
@@ -67,7 +67,7 @@ class BrowserManager:
             }
             options.add_experimental_option("prefs", prefs)
         else:
-            print("⚠️ No se especificó ruta de descarga - usando carpeta por defecto del sistema")
+            print("No se especificó ruta de descarga - usando carpeta por defecto del sistema")
 
         return options
 
@@ -86,12 +86,12 @@ class BrowserManager:
             options.add_argument("--disable-setuid-sandbox")
             options.add_argument("--disable-extensions")
             options.binary_location = "/usr/bin/chromium"
-            print("🐳 Configuración Docker/Chromium aplicada")
+            print("Configuración Docker/Chromium aplicada")
 
         chromedriver_path = None
         if os.path.exists("/usr/bin/chromedriver"):
             chromedriver_path = "/usr/bin/chromedriver"
-            print(f"🐳 Docker detectado - usando ChromeDriver del sistema: {chromedriver_path}")
+            print(f"Docker detectado - usando ChromeDriver del sistema: {chromedriver_path}")
         elif os.path.exists("/usr/local/bin/chromedriver") and os.path.islink("/usr/local/bin/chromedriver"):
             real_path = os.path.realpath("/usr/local/bin/chromedriver")
             if os.path.exists(real_path):
