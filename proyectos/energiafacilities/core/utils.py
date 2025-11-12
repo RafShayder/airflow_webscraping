@@ -265,7 +265,7 @@ def load_settings(overrides: Optional[Dict[str, Any]] = None):
     Genera un TeleowsSettings aplicando overrides opcionales.
     Compatible con módulos migrados desde teleows.
     """
-    from energiafacilities.teleows_config import TeleowsSettings
+    from energiafacilities.config.teleows_config import TeleowsSettings
     overrides = overrides or {}
     settings = TeleowsSettings.load_with_overrides(overrides)
     logger.debug("TeleowsSettings generado con overrides: %s", sorted(overrides.keys()))

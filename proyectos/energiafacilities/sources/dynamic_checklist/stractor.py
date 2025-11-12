@@ -80,7 +80,7 @@ from ...common.dynamic_checklist_constants import (
     XPATH_SUBMENU_SUB_PM_QUERY,
     XPATH_SUBMENU_DATA_EXPORT_LOGS,
 )
-from ...teleows_config import TeleowsSettings
+from ...config.teleows_config import TeleowsSettings
 from ...core.utils import load_settings
 
 logger = logging.getLogger(__name__)

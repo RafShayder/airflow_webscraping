@@ -44,7 +44,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from ...clients import AuthManager, BrowserManager, FilterManager, IframeManager
 from ...common import require, wait_for_download
-from ...teleows_config import TeleowsSettings
+from ...config.teleows_config import TeleowsSettings
 from ...core.utils import load_settings
 
 logger = logging.getLogger(__name__)

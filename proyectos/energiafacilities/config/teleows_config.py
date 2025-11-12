@@ -3,9 +3,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
-BASE_DIR = Path(__file__).resolve().parent
-# Usar config/config_*.yaml en lugar de settings.yaml para consolidar configuración
-CONFIG_DIR = BASE_DIR / "config"
+# BASE_DIR ahora es energiafacilities/ (subir un nivel desde config/)
+BASE_DIR = Path(__file__).resolve().parent.parent
+# CONFIG_DIR ahora es config/ (directorio actual)
+CONFIG_DIR = Path(__file__).resolve().parent
 
 _ENV_FIELD_MAP: Mapping[str, str] = {
     "username": "USERNAME",
@@ -439,3 +440,4 @@ def load_yaml_config(env: Optional[str] = None) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error al cargar configuración: {e}")
         raise
+

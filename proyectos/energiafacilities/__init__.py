@@ -7,7 +7,7 @@ API pública:
     - extraer_gde, extraer_dynamic_checklist: funciones de extracción principales.
 """
 
-from .teleows_config import TeleowsSettings
+from .config.teleows_config import TeleowsSettings
 from .core import load_settings, setup_logging
 from .sources.gde.stractor import extraer_gde, run_gde
 from .sources.dynamic_checklist.stractor import extraer_dynamic_checklist, run_dynamic_checklist
