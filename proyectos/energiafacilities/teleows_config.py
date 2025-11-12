@@ -17,6 +17,7 @@ _ENV_FIELD_MAP: Mapping[str, str] = {
     "date_mode": "DATE_MODE",
     "date_from": "DATE_FROM",
     "date_to": "DATE_TO",
+    "last_n_days": "LAST_N_DAYS",
     "gde_output_filename": "GDE_OUTPUT_FILENAME",
     "dynamic_checklist_output_filename": "DYNAMIC_CHECKLIST_OUTPUT_FILENAME",
     "export_overwrite_files": "EXPORT_OVERWRITE_FILES",
@@ -33,10 +34,15 @@ def _default_download_path() -> str:
     return str(Path.home() / "Downloads" / "scraper_downloads")
 
 
-def _load_settings_file() -> Dict[str, Any]:
+def _load_settings_file(scraper_type: Optional[str] = None) -> Dict[str, Any]:
     """
     Carga configuración desde config/config_*.yaml (mismo sistema que otros módulos).
     Extrae las secciones 'teleows', 'gde' y 'dynamic_checklist' y las combina.
+
+    Args:
+        scraper_type: Tipo de scraper ('gde', 'dynamic_checklist', etc.)
+                     Si se especifica, carga solo la configuración de ese scraper.
+                     Si es None, usa lógica de prioridad (GDE primero, backward compatibility).
     """
     try:
         from envyaml import EnvYAML
@@ -60,26 +66,54 @@ def _load_settings_file() -> Dict[str, Any]:
         if not isinstance(raw, dict):
             return {}
         
-        # Combinar secciones teleows, gde y dynamic_checklist
+        # Combinar secciones teleows con la sección específica del scraper
         result = {}
         if "teleows" in raw:
             result.update(raw["teleows"])
-        
-        # Mapear campos específicos de gde y dynamic_checklist
-        if "gde" in raw:
-            gde_config = raw["gde"]
-            result.update(gde_config)
-            # Mapear specific_filename a gde_output_filename si existe
-            if "specific_filename" in gde_config and "gde_output_filename" not in result:
-                result["gde_output_filename"] = gde_config["specific_filename"]
-        
-        if "dynamic_checklist" in raw:
-            dc_config = raw["dynamic_checklist"]
-            result.update(dc_config)
-            # Mapear specific_filename a dynamic_checklist_output_filename si existe
-            if "specific_filename" in dc_config and "dynamic_checklist_output_filename" not in result:
-                result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
-        
+
+        # Campos que son específicos del scraper y deben sobrescribir los generales
+        scraper_specific_fields = {"date_mode", "date_from", "date_to", "last_n_days",
+                                   "specific_filename", "local_dir"}
+
+        # Si scraper_type está especificado, cargar solo esa configuración
+        if scraper_type:
+            if scraper_type == "gde" and "gde" in raw:
+                gde_config = raw["gde"]
+                for field in scraper_specific_fields:
+                    if field in gde_config:
+                        result[field] = gde_config[field]
+                if "specific_filename" in gde_config:
+                    result["gde_output_filename"] = gde_config["specific_filename"]
+            elif scraper_type == "dynamic_checklist" and "dynamic_checklist" in raw:
+                dc_config = raw["dynamic_checklist"]
+                for field in scraper_specific_fields:
+                    if field in dc_config:
+                        result[field] = dc_config[field]
+                if "specific_filename" in dc_config:
+                    result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+        else:
+            # Backward compatibility: cargar el primero que tenga configuración (GDE primero)
+            gde_loaded = False
+
+            if "gde" in raw:
+                gde_config = raw["gde"]
+                if "last_n_days" in gde_config or "date_mode" in gde_config:
+                    for field in scraper_specific_fields:
+                        if field in gde_config:
+                            result[field] = gde_config[field]
+                    if "specific_filename" in gde_config:
+                        result["gde_output_filename"] = gde_config["specific_filename"]
+                    gde_loaded = True
+
+            if not gde_loaded and "dynamic_checklist" in raw:
+                dc_config = raw["dynamic_checklist"]
+                if "date_mode" in dc_config:
+                    for field in scraper_specific_fields:
+                        if field in dc_config:
+                            result[field] = dc_config[field]
+                    if "specific_filename" in dc_config:
+                        result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+
         return result
     
     # Usar EnvYAML (mismo sistema que core/utils.py)
@@ -95,37 +129,65 @@ def _load_settings_file() -> Dict[str, Any]:
         pass  # python-dotenv no está instalado, continuar sin cargar .env
     except Exception:
         pass  # Si hay error al cargar .env, continuar sin él
-    
+
     env = os.getenv("ENV_MODE", "dev").lower()
     config_path = CONFIG_DIR / f"config_{env}.yaml"
-    
+
     if not config_path.exists():
         return {}
-    
+
     try:
         cfg = EnvYAML(config_path, strict=False)
         config_dict = dict(cfg)
-        
-        # Combinar secciones teleows, gde y dynamic_checklist
+
+        # Combinar secciones teleows con la sección específica del scraper
         result = {}
         if "teleows" in config_dict:
             result.update(config_dict["teleows"])
-        
-        # Mapear campos específicos de gde y dynamic_checklist
-        if "gde" in config_dict:
-            gde_config = config_dict["gde"]
-            result.update(gde_config)
-            # Mapear specific_filename a gde_output_filename si existe
-            if "specific_filename" in gde_config and "gde_output_filename" not in result:
-                result["gde_output_filename"] = gde_config["specific_filename"]
-        
-        if "dynamic_checklist" in config_dict:
-            dc_config = config_dict["dynamic_checklist"]
-            result.update(dc_config)
-            # Mapear specific_filename a dynamic_checklist_output_filename si existe
-            if "specific_filename" in dc_config and "dynamic_checklist_output_filename" not in result:
-                result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
-        
+
+        # Campos que son específicos del scraper y deben sobrescribir los generales
+        scraper_specific_fields = {"date_mode", "date_from", "date_to", "last_n_days",
+                                   "specific_filename", "local_dir"}
+
+        # Si scraper_type está especificado, cargar solo esa configuración
+        if scraper_type:
+            if scraper_type == "gde" and "gde" in config_dict:
+                gde_config = config_dict["gde"]
+                for field in scraper_specific_fields:
+                    if field in gde_config:
+                        result[field] = gde_config[field]
+                if "specific_filename" in gde_config:
+                    result["gde_output_filename"] = gde_config["specific_filename"]
+            elif scraper_type == "dynamic_checklist" and "dynamic_checklist" in config_dict:
+                dc_config = config_dict["dynamic_checklist"]
+                for field in scraper_specific_fields:
+                    if field in dc_config:
+                        result[field] = dc_config[field]
+                if "specific_filename" in dc_config:
+                    result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+        else:
+            # Backward compatibility: cargar el primero que tenga configuración (GDE primero)
+            gde_loaded = False
+
+            if "gde" in config_dict:
+                gde_config = config_dict["gde"]
+                if "last_n_days" in gde_config or "date_mode" in gde_config:
+                    for field in scraper_specific_fields:
+                        if field in gde_config:
+                            result[field] = gde_config[field]
+                    if "specific_filename" in gde_config:
+                        result["gde_output_filename"] = gde_config["specific_filename"]
+                    gde_loaded = True
+
+            if not gde_loaded and "dynamic_checklist" in config_dict:
+                dc_config = config_dict["dynamic_checklist"]
+                if "date_mode" in dc_config:
+                    for field in scraper_specific_fields:
+                        if field in dc_config:
+                            result[field] = dc_config[field]
+                    if "specific_filename" in dc_config:
+                        result["dynamic_checklist_output_filename"] = dc_config["specific_filename"]
+
         return result
     except Exception:
         return {}
@@ -163,7 +225,7 @@ def _as_bool(value: Any, default: bool) -> bool:
     return str(value).strip().lower() in _TRUE_VALUES
 
 
-def _as_int(value: Any, default: int) -> int:
+def _as_int(value: Any, default: Any) -> Any:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -201,6 +263,7 @@ class TeleowsSettings:
     date_mode: int = 2
     date_from: str = "2025-09-01"
     date_to: str = "2025-09-10"
+    last_n_days: Optional[int] = None
     gde_output_filename: Optional[str] = None
     dynamic_checklist_output_filename: Optional[str] = None
     export_overwrite_files: bool = True
@@ -208,16 +271,16 @@ class TeleowsSettings:
     headless: bool = False
 
     @classmethod
-    def load(cls) -> "TeleowsSettings":
+    def load(cls, scraper_type: Optional[str] = None) -> "TeleowsSettings":
         raw_settings: Dict[str, Any] = {}
-        raw_settings.update(_load_settings_file())
+        raw_settings.update(_load_settings_file(scraper_type=scraper_type))
         raw_settings.update(_load_env_overrides())
         return _build_settings(raw_settings)
 
     @classmethod
-    def load_with_overrides(cls, overrides: Dict[str, Any]) -> "TeleowsSettings":
+    def load_with_overrides(cls, overrides: Dict[str, Any], scraper_type: Optional[str] = None) -> "TeleowsSettings":
         raw_settings: Dict[str, Any] = {}
-        raw_settings.update(_load_settings_file())
+        raw_settings.update(_load_settings_file(scraper_type=scraper_type))
         raw_settings.update(_load_env_overrides())  # Cargar variables de entorno antes de overrides
         raw_settings.update(overrides)  # Los overrides de Airflow tienen prioridad final
         return _build_settings(raw_settings)
@@ -252,6 +315,8 @@ def _build_settings(raw_settings: Dict[str, Any]) -> TeleowsSettings:
     date_mode = _as_int(raw_settings.get("date_mode"), 2)
     date_from = _as_optional_str(raw_settings.get("date_from")) or "2025-09-01"
     date_to = _as_optional_str(raw_settings.get("date_to")) or "2025-09-10"
+    last_n_days_raw = raw_settings.get("last_n_days")
+    last_n_days = _as_int(last_n_days_raw, None) if last_n_days_raw is not None else None
     gde_output_filename = _as_optional_str(raw_settings.get("gde_output_filename"))
     dynamic_output_filename = _as_optional_str(
         raw_settings.get("dynamic_checklist_output_filename")
@@ -270,6 +335,7 @@ def _build_settings(raw_settings: Dict[str, Any]) -> TeleowsSettings:
         date_mode=date_mode,
         date_from=date_from,
         date_to=date_to,
+        last_n_days=last_n_days,
         gde_output_filename=gde_output_filename,
         dynamic_checklist_output_filename=dynamic_output_filename,
         export_overwrite_files=export_overwrite_files,

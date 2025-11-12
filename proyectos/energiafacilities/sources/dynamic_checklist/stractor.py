@@ -39,7 +39,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from ...clients import AuthManager, BrowserManager, FilterManager, IframeManager
+from ...clients import (
+    AuthManager,
+    BrowserManager,
+    FilterManager,
+    IframeManager,
+    DateFilterManager,
+    LogManagementManager,
+)
 from ...common import (
     click_with_retry,
     monitor_export_loader,
@@ -49,62 +56,34 @@ from ...common import (
     wait_for_download,
     wait_for_notification_to_clear,
 )
+from ...common.dynamic_checklist_constants import (
+    MENU_INDEX_DYNAMIC_CHECKLIST,
+    MENU_INDEX_LOG_MANAGEMENT,
+    SPLITBUTTON_TIMEOUT,
+    LOADER_TIMEOUT,
+    DOWNLOAD_TIMEOUT,
+    DEFAULT_STATUS_POLL_INTERVAL,
+    BUTTON_FILTER,
+    BUTTON_FILTER_ALT,
+    BUTTON_EXPORT,
+    BUTTON_REFRESH,
+    MENU_DYNAMIC_CHECKLIST,
+    MENU_LOG_MANAGEMENT,
+    SUBMENU_SUB_PM_QUERY,
+    SUBMENU_DATA_EXPORT_LOGS,
+    LABEL_SUB_PM_QUERY,
+    LABEL_DATA_EXPORT_LOGS,
+    CSS_SPLITBUTTON_TEXT,
+    XPATH_SPLITBUTTON_BY_TEXT,
+    XPATH_PAGINATION_TOTAL,
+    XPATH_LOADING_MASK,
+    XPATH_SUBMENU_SUB_PM_QUERY,
+    XPATH_SUBMENU_DATA_EXPORT_LOGS,
+)
 from ...teleows_config import TeleowsSettings
 from ...core.utils import load_settings
 
 logger = logging.getLogger(__name__)
-
-# ========================================================================
-# Constantes
-# ========================================================================
-
-# Índices y posiciones
-MENU_INDEX_DYNAMIC_CHECKLIST = 5
-MENU_INDEX_LOG_MANAGEMENT = 5
-RADIO_BUTTON_LAST_MONTH_INDEX = 7
-MIN_RADIO_BUTTONS_REQUIRED = 8
-
-# Timeouts (segundos)
-SPLITBUTTON_TIMEOUT = 30
-LOADER_TIMEOUT = 60
-DOWNLOAD_TIMEOUT = 300
-DEFAULT_STATUS_POLL_INTERVAL = 30
-
-# Sleeps (segundos)
-SLEEP_AFTER_RADIO_CLICK = 2
-SLEEP_AFTER_PROMPT_CLOSE = 2
-SLEEP_AFTER_REFRESH = 2
-SLEEP_AFTER_DOWNLOAD_CLICK = 3
-
-# Textos y etiquetas
-BUTTON_FILTER = "Filtrar"
-BUTTON_FILTER_ALT = "Filter"
-BUTTON_EXPORT = "Export sub WO detail"
-BUTTON_REFRESH = "Refresh"
-MENU_DYNAMIC_CHECKLIST = "Dynamic checklist"
-MENU_LOG_MANAGEMENT = "Log Management"
-SUBMENU_SUB_PM_QUERY = "Sub PM Query"
-SUBMENU_DATA_EXPORT_LOGS = "Data Export Logs"
-LABEL_SUB_PM_QUERY = "Sub PM Query"
-LABEL_DATA_EXPORT_LOGS = "Data Export Logs"
-
-# Estados de exportación
-EXPORT_END_STATES = {"Succeed", "Failed", "Aborted", "Waiting", "Concurrent Waiting"}
-EXPORT_SUCCESS_STATE = "Succeed"
-EXPORT_RUNNING_STATE = "Running"
-
-# Selectores CSS/XPath
-CSS_RADIO_BUTTON = ".el-radio-button__inner"
-CSS_SPLITBUTTON_TEXT = ".sdm_splitbutton_text"
-XPATH_SPLITBUTTON_BY_TEXT = "//span[@class='sdm_splitbutton_text' and contains(text(),'{text}')]"
-XPATH_PAGINATION_TOTAL = "//span[@class='el-pagination__total' and contains(text(),'Total')]"
-XPATH_LOADING_MASK = "//div[contains(@class,'el-loading-mask')]"
-XPATH_SUBMENU_SUB_PM_QUERY = "//span[@class='level-1 link-nav' and @title='Sub PM Query']"
-XPATH_SUBMENU_DATA_EXPORT_LOGS = "//span[contains(text(),'Data Export Logs')]"
-XPATH_EXPORT_ROW = "//tr[contains(.,'[check_list_mobile/check_list_mobile/custom_excel]')]"
-XPATH_EXPORT_STATUS_CELL = ".//td[3]//span"
-XPATH_DOWNLOAD_BUTTON = ".//td[11]//div[contains(@class,'export-operation-text') and contains(text(),'Download')]"
-XPATH_CLOSE_PROMPT_BUTTON = "//button[@class='prompt-header-tool-btn keyboard-focus']//i[@class='prompt-header-close el-icon-close']"
 
 # Alternativas de texto para botones (español/inglés)
 BUTTON_ALTERNATIVES = {"Filtrar": "Filter", "Filter": "Filtrar"}
@@ -145,6 +124,9 @@ class DynamicChecklistWorkflow:
         self.driver, self.wait = self.browser_manager.create_driver()
         self.iframe_manager = IframeManager(self.driver)
         self.filter_manager = FilterManager(self.driver, self.wait)
+        self.date_filter_manager = DateFilterManager(self.driver, self.wait)
+        # LogManagementManager se inicializa después porque necesita métodos de la instancia
+        self.log_management_manager = None
 
     def run(self) -> Path:
         self.run_start = time.time()
@@ -169,7 +151,13 @@ class DynamicChecklistWorkflow:
     def _apply_filters(self) -> None:
         """Aplica los filtros necesarios para la consulta."""
         self._prepare_filters()
-        self._select_last_month()
+        
+        # Log de debugging para verificar configuración de fechas
+        logger.info("🔍 Configuración de fechas: date_mode=%s, last_n_days=%s, date_from=%s, date_to=%s",
+                   getattr(self.settings, 'date_mode', None), getattr(self.settings, 'last_n_days', None),
+                   getattr(self.settings, 'date_from', None), getattr(self.settings, 'date_to', None))
+        
+        self.date_filter_manager.apply_date_filters(self.settings)
         self._click_splitbutton(BUTTON_FILTER)
         self._wait_for_list()
 
@@ -182,7 +170,20 @@ class DynamicChecklistWorkflow:
         require(case_detected, "No se detectó resultado de exportación antes del timeout")
 
         if case_detected == "log_management":
-            self._handle_log_management()
+            # Inicializar LogManagementManager si aún no está inicializado
+            if self.log_management_manager is None:
+                self.log_management_manager = LogManagementManager(
+                    self.driver,
+                    self.wait,
+                    self.iframe_manager,
+                    self._navigate_to_menu_with_submenu,
+                    self._switch_to_last_iframe,
+                    self._wait_for_list,
+                    self._click_splitbutton,
+                    self.status_timeout,
+                    self.status_poll_interval,
+                )
+            self.log_management_manager.handle_log_management()
 
         downloaded = wait_for_download(
             self.download_dir,
@@ -320,20 +321,6 @@ class DynamicChecklistWorkflow:
             "No se pudo abrir el panel de filtros",
         )
 
-    def _select_last_month(self) -> None:
-        """Marca la opción de rango 'Último mes' dentro del panel de filtros."""
-        logger.info("⏳ Esperando a que se cargue 'Último mes' en el panel...")
-        radio_elements = self.wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_RADIO_BUTTON))
-        )
-        if len(radio_elements) < MIN_RADIO_BUTTONS_REQUIRED:
-            raise RuntimeError(
-                f"No se encontraron suficientes elementos radio. Encontrados: {len(radio_elements)}"
-            )
-        # El octavo elemento corresponde al rango 'Último mes' en la sección Complete time.
-        radio_elements[RADIO_BUTTON_LAST_MONTH_INDEX].click()
-        logger.info("✓ 'Último mes' seleccionado en Complete time (8vo elemento)")
-        sleep(SLEEP_AFTER_RADIO_CLICK)
 
     # ========================================================================
     # Interacciones con la UI (botones, esperas)
@@ -419,105 +406,6 @@ class DynamicChecklistWorkflow:
         except TimeoutException:
             logger.warning("⚠ No se detectó loader tras la exportación (posible fallo silencioso)")
 
-    # ========================================================================
-    # Log Management (exportación asíncrona)
-    # ========================================================================
-
-    def _handle_log_management(self) -> None:
-        """Sigue el flujo de Log Management cuando la exportación corre en segundo plano."""
-        self._close_export_prompt()
-        self.iframe_manager.switch_to_default_content()
-        logger.info("📋 Navegando a Log Management...")
-        self._navigate_to_menu_with_submenu(
-            menu_index=MENU_INDEX_LOG_MANAGEMENT,
-            menu_title=MENU_LOG_MANAGEMENT,
-            menu_name=MENU_LOG_MANAGEMENT,
-            submenu_xpath=XPATH_SUBMENU_DATA_EXPORT_LOGS,
-            submenu_name=SUBMENU_DATA_EXPORT_LOGS,
-        )
-        logger.info("⏳ Cambiando al iframe de Data Export Logs...")
-        self._switch_to_last_iframe(LABEL_DATA_EXPORT_LOGS)
-        self._wait_for_list()
-        # Una vez en la tabla de logs, monitorizamos el estado hasta poder descargar.
-        self._monitor_log_management()
-
-    def _close_export_prompt(self) -> None:
-        """Intenta cerrar el modal de advertencia antes de cambiar de módulo."""
-        try:
-            close_button = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, XPATH_CLOSE_PROMPT_BUTTON))
-            )
-            close_button.click()
-            logger.info("✓ Mensaje de información cerrado")
-            sleep(SLEEP_AFTER_PROMPT_CLOSE)
-        except Exception:
-            # El cierre no es crítico, pero dejamos registro si falla.
-            logger.warning("⚠ No se pudo cerrar el mensaje", exc_info=True)
-
-    def _monitor_log_management(self) -> None:
-        """Revisa repetidamente el estado de la exportación y dispara la descarga final."""
-        logger.info("🔍 Buscando exportación en progreso...")
-        deadline = time.time() + self.status_timeout
-        attempt = 0
-
-        # Consultamos la tabla hasta obtener un estado terminal o agotar el timeout configurado.
-        while time.time() < deadline:
-            attempt += 1
-            try:
-                self._refresh_export_status()
-                target_row = self._find_export_row()
-                status = self._get_export_status(target_row)
-                
-                logger.info(
-                    "📊 Status de exportación: %s (intento %s, quedan %.0f s)",
-                    status,
-                    attempt,
-                    max(0, deadline - time.time()),
-                )
-
-                if status in EXPORT_END_STATES:
-                    if status == EXPORT_SUCCESS_STATE:
-                        self._download_from_log_table(target_row)
-                        return
-                    raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
-
-                if status != EXPORT_RUNNING_STATE:
-                    logger.warning("⚠ Status inesperado: %s", status)
-
-            except RuntimeError:
-                raise
-            except Exception:
-                logger.exception("❌ Error al revisar exportación (intento %s)", attempt)
-
-            sleep(self.status_poll_interval)
-
-        message = "Tiempo máximo de espera alcanzado para la exportación"
-        logger.error("⏱️ %s", message)
-        raise RuntimeError(message)
-
-    def _refresh_export_status(self) -> None:
-        """Refresca el estado de la exportación en la tabla."""
-        try:
-            self._click_splitbutton(BUTTON_REFRESH, pause=0)
-        except Exception:
-            logger.warning("⚠ Error al presionar Refresh", exc_info=True)
-        sleep(SLEEP_AFTER_REFRESH)
-
-    def _find_export_row(self):
-        """Encuentra la fila de la tabla correspondiente a la exportación de Dynamic Checklist."""
-        return self.driver.find_element(By.XPATH, XPATH_EXPORT_ROW)
-
-    def _get_export_status(self, target_row) -> str:
-        """Obtiene el estado de exportación desde la fila de la tabla."""
-        return target_row.find_element(By.XPATH, XPATH_EXPORT_STATUS_CELL).text.strip()
-
-    def _download_from_log_table(self, target_row) -> None:
-        """Descarga el archivo desde la tabla de logs cuando la exportación está completa."""
-        logger.info("✅ Exportación completada exitosamente!")
-        download_button = target_row.find_element(By.XPATH, XPATH_DOWNLOAD_BUTTON)
-        download_button.click()
-        logger.info("✓ Click en 'Download' - archivo descargándose...")
-        sleep(SLEEP_AFTER_DOWNLOAD_CLICK)
 
 
 # ========================================================================

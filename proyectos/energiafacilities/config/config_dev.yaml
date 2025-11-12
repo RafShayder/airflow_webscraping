@@ -109,14 +109,11 @@ teleows:
   username: "${TELEOWS_USERNAME}"
   password: "${TELEOWS_PASSWORD}"
 
-  # Configuración de scraping
+  # Configuración general de scraping (compartida por todos los scrapers)
   download_path: "tmp/teleows"
   max_iframe_attempts: 60
   max_status_attempts: 60
   options_to_select: "CM,OPM"
-  date_mode: 2  # 1=rango manual, 2=último mes automático
-  date_from: "2025-09-01"
-  date_to: "2025-09-10"
   export_overwrite_files: true
   proxy: "${PROXY}"
   headless: true
@@ -127,10 +124,16 @@ gde:
   local_dir: "tmp/teleows"
   specific_filename: "Console_GDE_export.xlsx"
 
+  # Configuración de fechas específica para GDE
+  date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
+
   # Configuración de carga a BD
   schema: "raw"
-  table: "gde_tasks"
+  table: "web_mm_autin_infogeneral"
+  sheet_name: "Export All Custom"  # Nombre de la pestaña en el Excel
   if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  page_size: 1000
   chunksize: 10000
   sp_carga: "ods.sp_cargar_gde_tasks"
 
@@ -146,6 +149,10 @@ dynamic_checklist:
   # Configuración de extracción
   local_dir: "tmp/teleows"
   specific_filename: "DynamicChecklist_SubPM.xlsx"
+
+  # Configuración de fechas específica para Dynamic Checklist
+  date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"

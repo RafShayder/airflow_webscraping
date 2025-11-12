@@ -16,7 +16,11 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities import TeleowsSettings, extraer_dynamic_checklist
-from energiafacilities.sources.dynamic_checklist.loader import load_dynamic_checklist
+from energiafacilities.sources.dynamic_checklist.loader import (
+    load_dynamic_checklist,
+    load_single_table,
+    TABLAS_DYNAMIC_CHECKLIST
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +44,7 @@ _SETTINGS_FIELDS = {
     "date_mode",
     "date_from",
     "date_to",
+    "last_n_days",
     "gde_output_filename",
     "dynamic_checklist_output_filename",
     "export_overwrite_files",
@@ -51,6 +56,7 @@ _SETTINGS_FIELDS = {
 def load_settings_from_airflow(
     conn_id: str = "teleows_portal",
     variable_prefix: str = "TELEOWS_",
+    scraper_type: str = "dynamic_checklist",
 ) -> TeleowsSettings:
     overrides: Dict[str, Any] = {}
     overrides.update(_load_variable_overrides(variable_prefix))
@@ -58,13 +64,14 @@ def load_settings_from_airflow(
     overrides.update(conn_overrides)
 
     logger.info(
-        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, overrides=%s)",
+        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, scraper_type=%s, overrides=%s)",
         conn_id,
         variable_prefix,
+        scraper_type,
         sorted(overrides.keys()),
     )
 
-    return TeleowsSettings.load_with_overrides(overrides)
+    return TeleowsSettings.load_with_overrides(overrides, scraper_type=scraper_type)
 
 
 def _load_connection_overrides(conn_id: str) -> Dict[str, Any]:
@@ -120,6 +127,8 @@ def run_dynamic_checklist_scraper() -> str:
     """
     settings = load_settings_from_airflow()
     logger.info("🚀 Iniciando scraper de Dynamic Checklist...")
+    logger.info("🔍 [DEBUG] Settings cargados: date_mode=%s, last_n_days=%s, date_from=%s, date_to=%s",
+               settings.date_mode, settings.last_n_days, settings.date_from, settings.date_to)
 
     try:
         file_path = extraer_dynamic_checklist(settings=settings)
@@ -130,26 +139,69 @@ def run_dynamic_checklist_scraper() -> str:
         raise
 
 
-def run_dynamic_checklist_loader(**kwargs) -> dict:
+def set_fecha_carga(**kwargs) -> str:
     """
-    Ejecuta la carga de datos de Dynamic Checklist hacia PostgreSQL.
-    Obtiene el filepath del stractor mediante XCom.
+    Establece la fecha de carga para todas las tablas y la retorna vía XCom.
+    Esta fecha será compartida por todas las tareas de carga.
+    """
+    from datetime import datetime
+    fecha_carga = datetime.now()
+    fecha_carga_str = fecha_carga.isoformat()
+    logger.info("📅 Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
+    return fecha_carga_str
+
+
+def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict:
+    """
+    Ejecuta la carga de una sola tabla de Dynamic Checklist.
+    
+    Args:
+        tabla_sql: Nombre de la tabla SQL destino
+        nombre_pestana: Nombre de la pestaña en el Excel
     """
     ti = kwargs.get('ti')
-    file_path = ti.xcom_pull(task_ids='scrape_dynamic_checklist')
     
+    # Obtener filepath del scraper
+    file_path = ti.xcom_pull(task_ids='scrape_dynamic_checklist')
     if not file_path:
         raise ValueError("No se recibió filepath del stractor. Verifica que el stractor se ejecutó correctamente.")
     
-    logger.info("📥 Iniciando carga de Dynamic Checklist desde: %s", file_path)
+    # Obtener fecha_carga de la tarea intermedia
+    fecha_carga_str = ti.xcom_pull(task_ids='set_fecha_carga')
+    fecha_carga = None
+    if fecha_carga_str:
+        from datetime import datetime
+        fecha_carga = datetime.fromisoformat(fecha_carga_str)
+    
+    logger.info("📥 Cargando tabla '%s' desde: %s", tabla_sql, file_path)
     
     try:
-        resultado = load_dynamic_checklist(filepath=file_path)
-        logger.info("✅ Loader Dynamic Checklist completado: %s", resultado.get('etl_msg', 'OK'))
+        resultado = load_single_table(
+            tabla_sql=tabla_sql,
+            nombre_pestana=nombre_pestana,
+            filepath=file_path,
+            fecha_carga=fecha_carga
+        )
+        
+        if resultado.get('status') == 'success':
+            logger.info("✅ Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
+        else:
+            logger.error("❌ Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
+        
         return resultado
     except Exception as exc:
-        logger.error("❌ Error en loader Dynamic Checklist: %s", exc)
+        logger.error("❌ Error en loader de tabla '%s': %s", tabla_sql, exc)
         raise
+
+
+def make_table_loader(tabla_sql: str, nombre_pestana: str):
+    """
+    Crea una función wrapper para cargar una tabla específica.
+    Esto evita problemas de closure en el loop.
+    """
+    def load_table(**kwargs):
+        return run_load_single_table(tabla_sql=tabla_sql, nombre_pestana=nombre_pestana, **kwargs)
+    return load_table
 
 
 with DAG(
@@ -173,19 +225,41 @@ with DAG(
         """,
     )
 
-    load_checklist = PythonOperator(
-        task_id="load_dynamic_checklist",
-        python_callable=run_dynamic_checklist_loader,
+    # Tarea intermedia para establecer fecha_carga compartida
+    set_fecha = PythonOperator(
+        task_id="set_fecha_carga",
+        python_callable=set_fecha_carga,
         doc_md="""
-        ### Loader Dynamic Checklist
-
-        1. Obtiene el archivo Excel del stractor.
-        2. Procesa las 11 pestañas del Excel.
-        3. Mapea columnas usando columns_map.json.
-        4. Carga datos en las tablas correspondientes en schema 'raw'.
-        5. Retorna resumen de la carga (tablas exitosas/fallidas).
+        ### Establecer Fecha de Carga
+        
+        Establece la fecha y hora de inicio del proceso de carga.
+        Esta fecha será compartida por todas las tablas para mantener consistencia.
         """,
     )
-
-    # Dependencias: scrape -> load
-    scrape_checklist >> load_checklist
+    
+    # Crear una tarea de carga para cada tabla (11 tareas paralelas)
+    load_tasks = []
+    for tabla_sql, nombre_pestana in TABLAS_DYNAMIC_CHECKLIST.items():
+        # Crear task_id único para cada tabla
+        task_id = f"load_table_{tabla_sql}"
+        
+        # Crear función wrapper con los parámetros fijados (evita problemas de closure)
+        load_function = make_table_loader(tabla_sql, nombre_pestana)
+        
+        load_task = PythonOperator(
+            task_id=task_id,
+            python_callable=load_function,
+            doc_md=f"""
+            ### Loader Tabla: {tabla_sql}
+            
+            1. Obtiene el archivo Excel del stractor.
+            2. Procesa la pestaña '{nombre_pestana}'.
+            3. Mapea columnas usando columns_map.json.
+            4. Carga datos en la tabla {tabla_sql} en schema 'raw'.
+            5. Retorna resultado de la carga.
+            """,
+        )
+        load_tasks.append(load_task)
+    
+    # Dependencias: scrape -> set_fecha -> todas las tareas de carga (en paralelo)
+    scrape_checklist >> set_fecha >> load_tasks

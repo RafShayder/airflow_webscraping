@@ -14,8 +14,13 @@ from airflow.sdk import Variable  # type: ignore
 
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
+sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
 from energiafacilities import TeleowsSettings, extraer_gde
+from energiafacilities.core.utils import setup_logging
+from energiafacilities.sources.gde.loader import load_gde
+
+setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +44,7 @@ _SETTINGS_FIELDS = {
     "date_mode",
     "date_from",
     "date_to",
+    "last_n_days",
     "gde_output_filename",
     "dynamic_checklist_output_filename",
     "export_overwrite_files",
@@ -50,6 +56,7 @@ _SETTINGS_FIELDS = {
 def load_settings_from_airflow(
     conn_id: str = "teleows_portal",
     variable_prefix: str = "TELEOWS_",
+    scraper_type: str = "gde",
 ) -> TeleowsSettings:
     overrides: Dict[str, Any] = {}
     overrides.update(_load_variable_overrides(variable_prefix))
@@ -57,13 +64,14 @@ def load_settings_from_airflow(
     overrides.update(conn_overrides)
 
     logger.info(
-        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, overrides=%s)",
+        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, scraper_type=%s, overrides=%s)",
         conn_id,
         variable_prefix,
+        scraper_type,
         sorted(overrides.keys()),
     )
 
-    return TeleowsSettings.load_with_overrides(overrides)
+    return TeleowsSettings.load_with_overrides(overrides, scraper_type=scraper_type)
 
 
 def _load_connection_overrides(conn_id: str) -> Dict[str, Any]:
@@ -119,6 +127,8 @@ def run_gde_scraper() -> str:
     """
     settings = load_settings_from_airflow()
     logger.info("🚀 Iniciando scraper de GDE...")
+    logger.info("🔍 [DEBUG] Settings cargados: date_mode=%s, last_n_days=%s, date_from=%s, date_to=%s",
+               settings.date_mode, settings.last_n_days, settings.date_from, settings.date_to)
 
     try:
         file_path = extraer_gde(settings=settings)
@@ -129,15 +139,26 @@ def run_gde_scraper() -> str:
         raise
 
 
+def procesar_load_gde(**kwargs):
+    """
+    Procesa la carga de datos de GDE hacia PostgreSQL.
+    Obtiene el filepath del task anterior mediante XCom.
+    """
+    ti = kwargs['ti']
+    linkdata = ti.xcom_pull(task_ids='scrape_gde_report')
+    logger.info(f"📁 Archivo recibido desde extract: {linkdata}")
+    return load_gde(filepath=linkdata)
+
+
 with DAG(
     "dag_gde_teleows",
     default_args=default_args,
-    description="Scraper para reporte GDE - Ejecución manual",
+    description="Scraper y carga de datos GDE - Ejecución manual",
     schedule=None,
     catchup=False,
     tags=["scraper", "gde", "integratel", "teleows"],
 ) as dag:
-    scrape_gde = PythonOperator(
+    extract = PythonOperator(
         task_id="scrape_gde_report",
         python_callable=run_gde_scraper,
         doc_md="""
@@ -150,4 +171,17 @@ with DAG(
         """,
     )
 
-    scrape_gde
+    load = PythonOperator(
+        task_id="load_gde",
+        python_callable=procesar_load_gde,
+        doc_md="""
+        ### Loader GDE
+
+        1. Obtiene el archivo descargado del task anterior.
+        2. Carga los datos desde la pestaña "Export All Custom" hacia PostgreSQL.
+        3. Usa el mapeo de columnas desde columns_map.json.
+        4. Agrega la columna fechacarga automáticamente.
+        """,
+    )
+
+    extract >> load

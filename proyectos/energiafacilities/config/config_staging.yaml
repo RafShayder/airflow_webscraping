@@ -105,3 +105,69 @@ clientes_libres:
   if_exists: "replace"         # 'append' | 'replace' | 'fail'
   sp_carga: "ods.sp_cargar_sftp_hm_clientes_libres"
 
+#------Teleows / Integratel Portal-------------------------------------------
+teleows:
+  # Credenciales del portal (usar variables de entorno o Airflow Connection)
+  username: "${TELEOWS_USERNAME}"
+  password: "${TELEOWS_PASSWORD}"
+
+  # Configuración general de scraping (compartida por todos los scrapers)
+  download_path: "tmp/teleows"
+  max_iframe_attempts: 60
+  max_status_attempts: 60
+  options_to_select: "CM,OPM"
+  export_overwrite_files: true
+  proxy: "${PROXY}"
+  headless: true
+
+#------GDE (Console GDE)-------------------------------------------
+gde:
+  # Configuración de extracción
+  local_dir: "tmp/teleows"
+  specific_filename: "Console_GDE_export.xlsx"
+
+  # Configuración de fechas específica para GDE
+  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
+
+  # Configuración de carga a BD
+  schema: "raw"
+  table: "web_mm_autin_infogeneral"
+  sheet_name: "Export All Custom"  # Nombre de la pestaña en el Excel
+  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  page_size: 1000
+  chunksize: 10000
+  sp_carga: "ods.sp_cargar_gde_tasks"
+
+  # Configuración de errores
+  errorconfig:
+    schema: "PUBLIC"
+    table: "error_gde_ultimo_lote"
+    limmit: 100
+    remote_dir: "/daas/qa/energy-facilities/gde/errors"
+
+#------Dynamic Checklist (Sub PM Query)-------------------------------------------
+dynamic_checklist:
+  # Configuración de extracción
+  local_dir: "tmp/teleows"
+  specific_filename: "DynamicChecklist_SubPM.xlsx"
+
+  # Configuración de fechas específica para Dynamic Checklist
+  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  last_n_days: 60  # Últimos N días desde hoy (solo funciona con date_mode=1)
+
+  # Configuración de carga a BD
+  schema: "raw"
+  table: "dynamic_checklist_tasks"
+  if_exists: "replace"         # 'append' | 'replace' | 'fail' (mantenido para compatibilidad con otros módulos)
+  load_mode: "append"          # Modo específico para dynamic_checklist (siempre append para histórico)
+  chunksize: 10000
+  sp_carga: "ods.sp_cargar_dynamic_checklist_tasks"
+
+  # Configuración de errores
+  errorconfig:
+    schema: "PUBLIC"
+    table: "error_dynamic_checklist_ultimo_lote"
+    limmit: 100
+    remote_dir: "/daas/qa/energy-facilities/dynamic_checklist/errors"
+

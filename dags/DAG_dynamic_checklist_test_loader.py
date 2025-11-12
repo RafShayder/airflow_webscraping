@@ -15,7 +15,11 @@ from airflow.sdk import Variable  # type: ignore
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities.sources.dynamic_checklist.loader import load_dynamic_checklist
+from energiafacilities.sources.dynamic_checklist.loader import (
+    load_dynamic_checklist,
+    load_single_table,
+    TABLAS_DYNAMIC_CHECKLIST
+)
 from energiafacilities.core.utils import load_config
 
 logger = logging.getLogger(__name__)
@@ -82,10 +86,21 @@ def find_latest_dynamic_checklist_file() -> str:
         raise
 
 
-def run_test_loader(**kwargs) -> dict:
+def set_fecha_carga(**kwargs) -> str:
     """
-    Ejecuta el loader de Dynamic Checklist usando un archivo existente.
-    
+    Establece la fecha de carga para todas las tablas y la retorna vía XCom.
+    Esta fecha será compartida por todas las tareas de carga.
+    """
+    from datetime import datetime
+    fecha_carga = datetime.now()
+    fecha_carga_str = fecha_carga.isoformat()
+    logger.info("📅 Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
+    return fecha_carga_str
+
+
+def get_filepath(**kwargs) -> str:
+    """
+    Obtiene la ruta del archivo Excel a procesar.
     Opciones para especificar el archivo (en orden de prioridad):
     1. Variable de Airflow: DYNAMIC_CHECKLIST_TEST_FILE
     2. Buscar el archivo más reciente en el directorio configurado
@@ -110,67 +125,129 @@ def run_test_loader(**kwargs) -> dict:
     if not Path(file_path).exists():
         raise FileNotFoundError(f"El archivo especificado no existe: {file_path}")
     
-    logger.info(f"📥 Iniciando carga de Dynamic Checklist desde: {file_path}")
+    logger.info(f"📁 Archivo seleccionado: {file_path}")
+    return file_path
+
+
+def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict:
+    """
+    Ejecuta la carga de una sola tabla de Dynamic Checklist.
+    
+    Args:
+        tabla_sql: Nombre de la tabla SQL destino
+        nombre_pestana: Nombre de la pestaña en el Excel
+    """
+    ti = kwargs.get('ti')
+    
+    # Obtener filepath de la tarea anterior
+    file_path = ti.xcom_pull(task_ids='get_filepath')
+    if not file_path:
+        raise ValueError("No se recibió filepath. Verifica que la tarea get_filepath se ejecutó correctamente.")
+    
+    # Obtener fecha_carga de la tarea intermedia
+    fecha_carga_str = ti.xcom_pull(task_ids='set_fecha_carga')
+    fecha_carga = None
+    if fecha_carga_str:
+        from datetime import datetime
+        fecha_carga = datetime.fromisoformat(fecha_carga_str)
+    
+    logger.info("📥 Cargando tabla '%s' desde: %s", tabla_sql, file_path)
     
     try:
-        resultado = load_dynamic_checklist(filepath=file_path)
-        logger.info("✅ Loader Dynamic Checklist completado")
-        logger.info(f"📊 Resumen: {resultado.get('etl_msg', 'OK')}")
+        resultado = load_single_table(
+            tabla_sql=tabla_sql,
+            nombre_pestana=nombre_pestana,
+            filepath=file_path,
+            fecha_carga=fecha_carga
+        )
         
-        # Log detallado si hay resultados por tabla
-        if 'resultados' in resultado:
-            logger.info(f"✅ Tablas cargadas exitosamente: {len(resultado['resultados'])}")
-            for res in resultado['resultados']:
-                logger.info(f"   - {res.get('tabla', 'N/A')}: {res.get('resultado', {}).get('etl_msg', 'OK')}")
-        
-        if 'errores' in resultado and resultado['errores']:
-            logger.warning(f"⚠️  Tablas con errores: {len(resultado['errores'])}")
-            for err in resultado['errores']:
-                logger.warning(f"   - {err.get('tabla', 'N/A')}: {err.get('error', 'Error desconocido')}")
+        if resultado.get('status') == 'success':
+            logger.info("✅ Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
+        else:
+            logger.error("❌ Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
         
         return resultado
     except Exception as exc:
-        logger.error(f"❌ Error en loader Dynamic Checklist: {exc}")
+        logger.error("❌ Error en loader de tabla '%s': %s", tabla_sql, exc)
         raise
+
+
+def make_table_loader(tabla_sql: str, nombre_pestana: str):
+    """
+    Crea una función wrapper para cargar una tabla específica.
+    Esto evita problemas de closure en el loop.
+    """
+    def load_table(**kwargs):
+        return run_load_single_table(tabla_sql=tabla_sql, nombre_pestana=nombre_pestana, **kwargs)
+    return load_table
 
 
 with DAG(
     "dag_dynamic_checklist_test_loader",
     default_args=default_args,
-    description="Test del loader de Dynamic Checklist usando archivo existente",
+    description="Test del loader de Dynamic Checklist usando archivo existente - Carga paralela por tabla",
     schedule=None,
     catchup=False,
     tags=["test", "dynamic-checklist", "loader", "testing"],
 ) as dag:
-    test_loader = PythonOperator(
-        task_id="test_load_dynamic_checklist",
-        python_callable=run_test_loader,
+    # Tarea para obtener el archivo
+    get_file = PythonOperator(
+        task_id="get_filepath",
+        python_callable=get_filepath,
         doc_md="""
-        ### Test Loader Dynamic Checklist
-
-        Ejecuta solo el loader usando un archivo Excel previamente generado.
+        ### Obtener Archivo Excel
+        
+        Obtiene la ruta del archivo Excel a procesar.
         
         **Opciones para especificar el archivo:**
         
         1. **Variable de Airflow** (recomendado para testing):
            - Variable: `DYNAMIC_CHECKLIST_TEST_FILE`
            - Valor: ruta completa al archivo Excel
-           - Ejemplo: `/opt/airflow/proyectos/energiafacilities/tmp/teleows/DynamicChecklist_SubPM.xlsx`
+           - Ejemplo: `/opt/airflow/tmp/teleows/DynamicChecklist_SubPM.xlsx`
         
         2. **Búsqueda automática**:
            - Busca el archivo más reciente en el directorio configurado
            - Prioridad: nombre exacto > archivos con "DynamicChecklist" > cualquier .xlsx
-        
-        **Proceso:**
-        1. Localiza el archivo Excel (Variable o búsqueda automática)
-        2. Procesa las 11 pestañas del Excel
-        3. Mapea columnas usando columns_map.json
-        4. Carga datos en las tablas correspondientes en schema 'raw'
-        5. Retorna resumen de la carga (tablas exitosas/fallidas)
-        
-        **Nota:** Este DAG NO ejecuta el stractor, solo el loader.
         """,
     )
-
-    test_loader
+    
+    # Tarea intermedia para establecer fecha_carga compartida
+    set_fecha = PythonOperator(
+        task_id="set_fecha_carga",
+        python_callable=set_fecha_carga,
+        doc_md="""
+        ### Establecer Fecha de Carga
+        
+        Establece la fecha y hora de inicio del proceso de carga.
+        Esta fecha será compartida por todas las tablas para mantener consistencia.
+        """,
+    )
+    
+    # Crear una tarea de carga para cada tabla (11 tareas paralelas)
+    load_tasks = []
+    for tabla_sql, nombre_pestana in TABLAS_DYNAMIC_CHECKLIST.items():
+        # Crear task_id único para cada tabla
+        task_id = f"load_table_{tabla_sql}"
+        
+        # Crear función wrapper con los parámetros fijados (evita problemas de closure)
+        load_function = make_table_loader(tabla_sql, nombre_pestana)
+        
+        load_task = PythonOperator(
+            task_id=task_id,
+            python_callable=load_function,
+            doc_md=f"""
+            ### Loader Tabla: {tabla_sql}
+            
+            1. Obtiene el archivo Excel de la tarea get_filepath.
+            2. Procesa la pestaña '{nombre_pestana}'.
+            3. Mapea columnas usando columns_map.json.
+            4. Carga datos en la tabla {tabla_sql} en schema 'raw'.
+            5. Retorna resultado de la carga.
+            """,
+        )
+        load_tasks.append(load_task)
+    
+    # Dependencias: get_file -> set_fecha -> todas las tareas de carga (en paralelo)
+    get_file >> set_fecha >> load_tasks
 

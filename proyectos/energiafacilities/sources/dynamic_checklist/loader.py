@@ -29,6 +29,143 @@ TABLAS_DYNAMIC_CHECKLIST = {
 }
 
 
+def load_single_table(
+    tabla_sql: str,
+    nombre_pestana: str,
+    filepath: PathLike,
+    fecha_carga: Optional[datetime] = None,
+    env: str = None
+) -> dict:
+    """
+    Carga una sola tabla de Dynamic Checklist hacia PostgreSQL.
+    
+    Args:
+        tabla_sql: Nombre de la tabla SQL destino (ej: "cf_banco_de_baterias")
+        nombre_pestana: Nombre de la pestaña en el Excel (ej: "CF - BANCO DE BATERIAS")
+        filepath: Ruta al archivo Excel
+        fecha_carga: Fecha y hora de inicio del proceso (opcional, se usa datetime.now() si no se proporciona)
+        env: Entorno (dev, prod). Si no se proporciona, usa ENV_MODE o 'dev'
+    
+    Returns:
+        Diccionario con el resultado de la carga (status, code, etl_msg)
+    
+    Example:
+        >>> resultado = load_single_table(
+        ...     "cf_banco_de_baterias",
+        ...     "CF - BANCO DE BATERIAS",
+        ...     "./tmp/DynamicChecklist_SubPM.xlsx"
+        ... )
+    """
+    try:
+        # Cargar configuraciones
+        config = load_config(env=env)
+        postgres_config = config.get("postgress", {})
+        dynamic_checklist_config = config.get("dynamic_checklist", {})
+        
+        if not postgres_config:
+            raise ValueError("No se encontró configuración 'postgress' en config YAML")
+        if not dynamic_checklist_config:
+            raise ValueError("No se encontró configuración 'dynamic_checklist' en config YAML")
+        
+        filepath_str = str(filepath)
+        if not Path(filepath_str).exists():
+            raise FileNotFoundError(f"Archivo no encontrado: {filepath_str}")
+        
+        # Crear instancia del loader base
+        loader = BaseLoaderPostgres(
+            config=postgres_config,
+            configload=dynamic_checklist_config
+        )
+        
+        # Usar fecha_carga proporcionada o generar una nueva
+        if fecha_carga is None:
+            fecha_carga = datetime.now()
+        
+        schema = dynamic_checklist_config.get('schema', 'raw')
+        load_mode = dynamic_checklist_config.get('load_mode', 'append')
+        
+        logger.info(f"\n{'='*80}")
+        logger.info(f"📊 Procesando tabla: {tabla_sql}")
+        logger.info(f"   📋 Pestaña Excel: {nombre_pestana}")
+        logger.info(f"   🗄️  Tabla destino: {schema}.{tabla_sql}")
+        logger.info(f"   📅 Fecha de carga: {fecha_carga}")
+        logger.info(f"{'='*80}")
+        
+        # Cargar mapeo de columnas
+        try:
+            columnas = traerjson(
+                archivo='config/columnas/columns_map.json',
+                valor=tabla_sql
+            )
+            if columnas:
+                logger.info(f"✅ Mapeo cargado: {len(columnas)} columnas mapeadas")
+            else:
+                logger.warning(f"⚠️  No se encontró mapeo de columnas para {tabla_sql}, continuando sin mapeo...")
+                columnas = None
+        except Exception as e:
+            logger.error(f"❌ Error al cargar mapeo de columnas para {tabla_sql}: {str(e)}")
+            logger.warning(f"⚠️  Continuando sin mapeo de columnas...")
+            columnas = None
+        
+        # Verificar datos
+        logger.info(f"🔍 Verificando estructura de datos para {tabla_sql}...")
+        verificacion = loader.verificar_datos(
+            data=filepath_str,
+            column_mapping=columnas,
+            sheet_name=nombre_pestana,
+            strictreview=False,
+            numerofilasalto=0,
+            table_name=tabla_sql
+        )
+        logger.info(f"✅ Verificación exitosa: {verificacion.get('etl_msg', 'OK')}")
+        
+        # Cargar datos
+        logger.info(f"💾 Cargando datos de '{nombre_pestana}' hacia {schema}.{tabla_sql}...")
+        resultado = loader.load_data(
+            data=filepath_str,
+            sheet_name=nombre_pestana,
+            column_mapping=columnas,
+            numerofilasalto=0,
+            table_name=tabla_sql,
+            schema=schema,
+            modo=load_mode,
+            fecha_carga=fecha_carga
+        )
+        
+        logger.info(f"✅ {tabla_sql} cargada exitosamente")
+        logger.info(f"   📊 Resultado: {resultado.get('etl_msg', 'OK')}")
+        
+        return {
+            'status': 'success',
+            'code': 200,
+            'etl_msg': resultado.get('etl_msg', f"Tabla {tabla_sql} cargada exitosamente"),
+            'tabla': tabla_sql,
+            'pestana': nombre_pestana,
+            'resultado': resultado
+        }
+        
+    except Exception as e:
+        error_msg = f"Error al cargar tabla {tabla_sql}: {str(e)}"
+        logger.error(f"❌ {error_msg}")
+        logger.error(f"   Tipo de error: {type(e).__name__}")
+        logger.error(f"   Detalles completos: {str(e)}")
+        import traceback
+        logger.error(f"   Traceback completo:")
+        for line in traceback.format_exc().split('\n'):
+            if line.strip():
+                logger.error(f"      {line}")
+        
+        return {
+            'status': 'error',
+            'code': 500,
+            'etl_msg': error_msg,
+            'tabla': tabla_sql,
+            'pestana': nombre_pestana,
+            'error': f"{type(e).__name__}: {str(e)}",
+            'tipo_error': type(e).__name__
+        }
+
+
 def load_dynamic_checklist(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     """
     Carga los datos extraídos de Dynamic Checklist hacia PostgreSQL.

@@ -13,10 +13,14 @@ from .auth import AuthManager
 from .browser import BrowserManager
 from .filters import FilterManager
 from .iframes import IframeManager
+from .date_filter_manager import DateFilterManager
+from .log_management_manager import LogManagementManager
 
 __all__ = [
     "AuthManager",
     "BrowserManager",
     "FilterManager",
     "IframeManager",
+    "DateFilterManager",
+    "LogManagementManager",
 ]

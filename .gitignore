@@ -177,7 +177,6 @@ downloads/
 logs/
 
 README_Docker.md
-README.md
 tests/
 requirements-test.txt
 requirements-dev.txt

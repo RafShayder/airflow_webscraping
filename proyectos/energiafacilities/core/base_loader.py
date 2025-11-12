@@ -221,11 +221,34 @@ class BaseLoaderPostgres:
             # --- Mapeo inverso ---
             if column_mapping:
                 inverse_map = {v: k for k, v in column_mapping.items()}
-                cols_existentes = [c for c in inverse_map.keys() if c in df.columns]
+                # Guardar columnas originales para comparación
+                columnas_originales = list(df.columns)
+                # Comparación case-insensitive y sin espacios extra
+                df_cols_normalized = {col.strip(): col for col in df.columns}
+                inverse_map_normalized = {k.strip(): v for k, v in inverse_map.items()}
+                
+                cols_existentes = []
+                cols_mapeo = {}
+                for excel_col_normalized, excel_col_original in df_cols_normalized.items():
+                    if excel_col_normalized in inverse_map_normalized:
+                        cols_existentes.append(excel_col_original)
+                        cols_mapeo[excel_col_original] = inverse_map_normalized[excel_col_normalized]
+                    else:
+                        # Intentar búsqueda case-insensitive
+                        excel_col_lower = excel_col_normalized.lower()
+                        for map_key_normalized, map_value in inverse_map_normalized.items():
+                            if map_key_normalized.lower() == excel_col_lower:
+                                cols_existentes.append(excel_col_original)
+                                cols_mapeo[excel_col_original] = map_value
+                                logger.debug(f"Mapeo case-insensitive: '{excel_col_original}' -> '{map_value}'")
+                                break
                 
                 if cols_existentes:
-                    df = df[cols_existentes].rename(columns=inverse_map)
-                    logger.debug("Mapeo invertido aplicado (DB ➜ Excel)")
+                    df = df[cols_existentes].rename(columns=cols_mapeo)
+                    logger.debug(f"Mapeo invertido aplicado (DB ➜ Excel): {len(cols_existentes)} columnas mapeadas")
+                    if len(cols_existentes) < len(columnas_originales):
+                        cols_no_mapeadas = set(columnas_originales) - set(cols_existentes)
+                        logger.warning(f"⚠️  {len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas: {list(cols_no_mapeadas)[:5]}{'...' if len(cols_no_mapeadas) > 5 else ''}")
                 else:
                     logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
                     raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
