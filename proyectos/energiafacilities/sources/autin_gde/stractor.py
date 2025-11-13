@@ -225,6 +225,8 @@ class GDEWorkflow:
         # Aplicar filtros de fecha según date_mode
         if self.config.date_mode == 1:
             _apply_gde_manual_dates(self.driver, self.wait, self.config)
+            # Asegurar que el panel de filtros sigue abierto y estamos en el iframe correcto
+            _ensure_filter_panel_open(self.driver, self.wait, self.filter_manager)
         else:
             self.date_filter_manager.apply_date_filters(self.config)
         
@@ -344,10 +346,38 @@ def _apply_task_type_filters(driver, wait, options: Iterable[str]) -> None:
         sleep(DELAY_NORMAL)
 
 
+def _ensure_filter_panel_open(driver, wait: WebDriverWait, filter_manager: FilterManager) -> None:
+    """Asegura que el panel de filtros esté abierto y el contexto del iframe sea correcto."""
+    # Restaurar contexto del iframe principal
+    _switch_to_frame_with(driver, ".ows_filter_title")
+    
+    # Verificar si el panel está abierto (el drawer wrapper debe estar visible)
+    try:
+        panel_open = WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".el-drawer__wrapper"))
+        )
+        if panel_open and panel_open.is_displayed():
+            logger.debug("Panel de filtros ya está abierto")
+            return
+    except TimeoutException:
+        pass
+    
+    # Si el panel está cerrado, reabrirlo
+    logger.debug("Panel de filtros cerrado, reabriendo...")
+    driver.switch_to.default_content()
+    _switch_to_frame_with(driver, ".ows_filter_title")
+    filter_manager.open_filter_panel(method="complex")
+    sleep(DELAY_LONG)
+
+
 def _apply_filters(driver) -> None:
     """Aplica los filtros usando el botón Filtrar con ícono caret y espera la carga."""
     wait = WebDriverWait(driver, 15)
     logger.debug("Aplicando filtros (botón caret + espera de tabla)...")
+    
+    # Asegurar que estamos en el iframe correcto antes de buscar el botón
+    _switch_to_frame_with(driver, ".ows_filter_title")
+    
     _click_filter_button(driver, wait)
     _wait_for_filters_to_apply(driver, wait)
     if not _select_first_grid_row(driver, wait):
@@ -356,12 +386,23 @@ def _apply_filters(driver) -> None:
 
 def _click_filter_button(driver, wait: WebDriverWait) -> None:
     """Hace click en el span que contiene el ícono caret + texto 'Filtrar'."""
+    # Esperar explícitamente a que el botón esté disponible
     try:
         filter_button = wait.until(EC.element_to_be_clickable((By.XPATH, FILTER_BUTTON_XPATH)))
     except TimeoutException:
-        filter_button = driver.find_element(By.XPATH, FILTER_BUTTON_XPATH)
+        # Si falla, intentar buscar alternativas o esperar un poco más
+        logger.debug("Botón Filtrar no encontrado inmediatamente, intentando alternativas...")
+        sleep(DELAY_LONG)
+        try:
+            filter_button = wait.until(EC.presence_of_element_located((By.XPATH, FILTER_BUTTON_XPATH)))
+        except TimeoutException:
+            logger.error("No se pudo encontrar el botón Filtrar después de múltiples intentos")
+            raise RuntimeError("No se pudo encontrar el botón 'Filtrar'. Verifica que el panel de filtros esté abierto.")
 
     try:
+        # Scroll al elemento para asegurar visibilidad
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", filter_button)
+        sleep(DELAY_SHORT)
         filter_button.click()
     except Exception:
         driver.execute_script("arguments[0].click();", filter_button)
@@ -431,57 +472,22 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
     _robust_click(driver, cont)
     sleep(DELAY_MEDIUM)
 
-    # 3) Esperar a que aparezca el input "Seleccionar fecha" en el popover
-    #    El popover puede tardar en aparecer después del click
+    # 3) Click en el input "Seleccionar fecha" y setear valor
+    #    Puede haber varios; elegimos el visible y habilitado
     target = None
-    try:
-        # Intentar múltiples placeholders (puede variar según la versión de Element UI)
-        placeholders = [
-            "Seleccionar fecha",
-            "seleccionar fecha", 
-            "Seleccionar",
-            "seleccionar",
-            "Select date",
-            "select date"
-        ]
-        
-        for placeholder in placeholders:
-            try:
-                # Esperar explícitamente a que aparezca el input visible y habilitado
-                # Usar una condición personalizada que verifique visibilidad y habilitación
-                def input_is_visible_and_enabled(driver):
-                    elements = driver.find_elements(
-                        By.CSS_SELECTOR, f'input.el-input__inner[placeholder="{placeholder}"]'
-                    )
-                    for el in elements:
-                        try:
-                            if el.is_displayed() and el.is_enabled():
-                                return el
-                        except Exception:
-                            continue
-                    return False
-                
-                target = wait.until(input_is_visible_and_enabled)
-                logger.debug("Input encontrado con placeholder: %s", placeholder)
-                break
-            except TimeoutException:
-                continue
-        
-        # Fallback: buscar dentro del contenedor si no se encontró en el popover
-        if target is None:
-            try:
-                inner_inputs = cont.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder]')
-                for element in inner_inputs:
-                    if element.is_displayed() and element.is_enabled():
-                        target = element
-                        logger.debug("Input encontrado dentro del contenedor")
-                        break
-            except Exception:
-                pass
-                
-    except Exception as e:
-        logger.debug("Error buscando input de fecha: %s", e)
-    
+    inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+    for el in inputs:
+        if el.is_displayed() and el.is_enabled():
+            target = el  # suele ser el del popover activo
+
+    # fallback: buscar dentro del propio contenedor
+    if target is None:
+        try:
+            target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+        except Exception:
+            pass
+
+    logger.debug("Buscando input 'Seleccionar fecha'...")
     require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
 
     # Escribir la fecha de forma robusta
