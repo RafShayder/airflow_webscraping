@@ -504,7 +504,7 @@ def _apply_gde_manual_dates(
     _switch_to_frame_with(driver, ".ows_filter_title")
     
     date_from, date_to = _resolve_manual_date_range(config)
-    logger.info("Aplicando fechas manuales: DESDE %s → HASTA %s", date_from, date_to)
+    logger.debug("Aplicando fechas manuales: DESDE %s → HASTA %s", date_from, date_to)
 
     # === DESDE ===
     _click_y_setear_fecha(driver, wait, CREATETIME_FROM_XPATH, date_from)

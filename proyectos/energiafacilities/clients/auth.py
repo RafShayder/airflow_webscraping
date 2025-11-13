@@ -60,7 +60,7 @@ class AuthManager:
             try:
                 self.wait.until(EC.staleness_of(login_button))
             except TimeoutException:
-                logger.warning("🔁 Botón de login sigue activo, intentando segundo clic.")
+                logger.debug("Botón de login sigue activo, intentando segundo clic")
                 second_button = self.wait.until(
                     EC.element_to_be_clickable((By.ID, "loginButton"))
                 )
