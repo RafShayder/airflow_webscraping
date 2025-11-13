@@ -160,7 +160,7 @@ def monitor_export_loader(
     """
     logger.debug("Esperando a que termine la exportación")
     logger.info(
-        "ℹ Nota: La exportación puede tardar hasta %s segundos, por favor espere...",
+        "Nota: La exportación puede tardar hasta %s segundos, por favor espere...",
         timeout,
     )
     start_time = time.time()

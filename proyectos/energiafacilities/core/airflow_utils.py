@@ -77,5 +77,5 @@ def load_overrides_from_airflow(
         except ImportError:
             logger.debug("Airflow no disponible, omitiendo carga desde Variables")
 
-    logger.info("🧩 Overrides cargados desde Airflow: %s", sorted(overrides.keys()))
+    logger.debug("Overrides cargados desde Airflow: %s", sorted(overrides.keys()))
     return overrides
