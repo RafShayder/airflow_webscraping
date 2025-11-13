@@ -56,6 +56,7 @@ from energiafacilities.clients import (
     IframeManager,
     DateFilterManager,
     LogManagementManager,
+    setup_browser_with_proxy,
 )
 from energiafacilities.common import (
     click_with_retry,
@@ -89,6 +90,13 @@ logger = logging.getLogger(__name__)
 
 # Alternativas de texto para botones (español/inglés)
 BUTTON_ALTERNATIVES = {"Filtrar": "Filter", "Filter": "Filtrar"}
+
+# Constantes de delays (en segundos) para estabilidad de UI
+DELAY_SHORT = 0.1  # Para eventos de UI inmediatos (clicks, inputs)
+DELAY_MEDIUM = 0.2  # Para cambios de estado de elementos
+DELAY_NORMAL = 0.3  # Para transiciones de UI estándar
+DELAY_LONG = 1.0  # Para transiciones completas (cambios de página, modales)
+DELAY_VERY_LONG = 2.0  # Para operaciones que requieren procesamiento del backend
 
 
 @dataclass
@@ -266,37 +274,13 @@ class DynamicChecklistWorkflow:
         self, headless: Optional[bool], chrome_extra_args: Optional[Iterable[str]]
     ) -> BrowserManager:
         """Configura y crea la instancia de BrowserManager con manejo de proxy."""
-        browser_kwargs: Dict[str, Any] = {
-            "download_path": str(self.download_dir),
-            "headless": self.config.headless if headless is None else headless,
-            "extra_args": chrome_extra_args,
-        }
-        if self.config.proxy:
-            browser_kwargs["proxy"] = self.config.proxy
-
-        try:
-            browser_manager = BrowserManager(**browser_kwargs)
-        except TypeError as exc:
-            message = str(exc)
-            if "unexpected keyword argument 'proxy'" in message and "proxy" in browser_kwargs:
-                browser_kwargs.pop("proxy", None)
-                logger.warning(
-                    "BrowserManager en el entorno no admite 'proxy'. Continuando sin proxy..."
-                )
-                browser_manager = BrowserManager(**browser_kwargs)
-            else:
-                raise
-
-        # Configurar proxy si está disponible (código común para ambos casos)
-        if self.config.proxy:
-            if not hasattr(browser_manager, "proxy"):
-                browser_manager.proxy = self.config.proxy  # type: ignore[attr-defined]
-            os.environ["PROXY"] = self.config.proxy
-        else:
-            # Eliminar variable de entorno si proxy es None para evitar usar proxy del sistema
-            os.environ.pop("PROXY", None)
-
-        return browser_manager
+        # Usar helper compartido para configuración de browser con proxy
+        return setup_browser_with_proxy(
+            download_path=str(self.download_dir),
+            proxy=self.config.proxy,
+            headless=self.config.headless if headless is None else headless,
+            chrome_extra_args=chrome_extra_args,
+        )
 
     # ========================================================================
     # Navegación y configuración inicial
@@ -385,8 +369,8 @@ class DynamicChecklistWorkflow:
         # Intento 3: Búsqueda alternativa - buscar todos los splitbuttons y encontrar uno que coincida
         logger.warning("Intentando buscar cualquier splitbutton disponible...")
         buttons = self.driver.find_elements(By.CSS_SELECTOR, CSS_SPLITBUTTON_TEXT)
-        if not buttons:
-            raise RuntimeError("No se encontraron botones splitbutton disponibles")
+        logger.debug("Buscando botones splitbutton...")
+        require(len(buttons) > 0, "No se encontraron botones splitbutton disponibles")
         
         logger.debug("Encontrados %s botones splitbutton", len(buttons))
         search_labels = [label]
@@ -399,7 +383,8 @@ class DynamicChecklistWorkflow:
             if any(search_label.lower() in btn_text.lower() for search_label in search_labels):
                 return btn
         
-        raise RuntimeError(f"No se pudo encontrar el botón '{label}' o sus variantes")
+        logger.debug("No se pudo encontrar el botón '%s' o sus variantes después de todos los intentos", label)
+        require(False, f"No se pudo encontrar el botón '{label}' o sus variantes")
 
     def _click_splitbutton(self, label: str, pause: int = 2) -> None:
         """Hace click en un splitbutton por su texto visible, con fallback automático."""
@@ -407,7 +392,7 @@ class DynamicChecklistWorkflow:
         click_with_retry(button, self.driver)
         logger.debug("Botón '%s' presionado", label)
         if pause:
-            sleep(pause)
+            sleep(DELAY_VERY_LONG if pause >= 2 else DELAY_LONG if pause >= 1 else pause)
 
     def _wait_for_list(self) -> None:
         """Confirma que la tabla principal esté disponible tras aplicar filtros."""

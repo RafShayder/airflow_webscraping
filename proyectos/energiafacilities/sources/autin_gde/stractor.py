@@ -4,6 +4,7 @@ Workflow GDE: automatiza la descarga del reporte Console GDE Export.
 === Flujo general ===
 1) Configuración y navegador
    - ``GDEConfig`` carga credenciales, proxy, filtros, rutas desde config YAML.
+   - ``GDEWorkflow`` encapsula el flujo completo (enfoque OOP, consistente con Checklist).
    - ``BrowserManager`` (clients.browser) crea el driver de Selenium.
 2) Login y contexto
    - ``AuthManager`` realiza la autenticación.
@@ -24,6 +25,8 @@ Workflow GDE: automatiza la descarga del reporte Console GDE Export.
 
 Los DAGs y scripts externos deben invocar ``extraer_gde()`` para mantener un
 único punto de entrada, el cual carga automáticamente desde config YAML.
+
+Para uso avanzado, se puede usar directamente ``GDEWorkflow`` (similar a ``DynamicChecklistWorkflow``).
 
 """
 
@@ -49,15 +52,23 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 
-from energiafacilities.clients import AuthManager, BrowserManager, DateFilterManager, FilterManager, IframeManager
+from energiafacilities.clients import AuthManager, BrowserManager, DateFilterManager, FilterManager, IframeManager, setup_browser_with_proxy
 from energiafacilities.common import require, wait_for_download
 from energiafacilities.core.utils import load_config, default_download_path
 
 logger = logging.getLogger(__name__)
 
+# Constantes de selectores XPATH
 FILTER_BUTTON_XPATH = "//span[.//i[contains(@class,'el-icon-caret-right')] and contains(normalize-space(),'Filtrar')]"
 CREATETIME_FROM_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[1]"
 CREATETIME_TO_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[2]"
+
+# Constantes de delays (en segundos) para estabilidad de UI
+DELAY_SHORT = 0.1  # Para eventos de UI inmediatos (clicks, inputs)
+DELAY_MEDIUM = 0.2  # Para cambios de estado de elementos
+DELAY_NORMAL = 0.3  # Para transiciones de UI estándar
+DELAY_LONG = 1.0  # Para transiciones completas (cambios de página, modales)
+DELAY_VERY_LONG = 2.0  # Para operaciones que requieren procesamiento del backend
 
 
 @dataclass
@@ -127,6 +138,176 @@ class GDEConfig:
         )
 
 
+# ========================================================================
+# Clase principal de workflow
+# ========================================================================
+
+class GDEWorkflow:
+    """
+    Implementa el flujo completo de GDE.
+    
+    Componentes clave utilizados:
+        - ``BrowserManager``: instancia del driver de Selenium con rutas de descarga.
+        - ``AuthManager``: login al portal Integratel.
+        - ``IframeManager``: cambio entre iframes para acceder a filtros y Export Status.
+        - ``FilterManager``: apertura/esperas del panel de filtros.
+        - ``DateFilterManager``: aplicación de filtros de fecha.
+        - Helpers locales: encapsulan interacciones específicas de la UI.
+    """
+    
+    def __init__(
+        self,
+        config: GDEConfig,
+        *,
+        headless: Optional[bool] = None,
+        chrome_extra_args: Optional[Iterable[str]] = None,
+        status_timeout: Optional[int] = None,
+        status_poll_interval: Optional[int] = None,
+        output_filename: Optional[str] = None,
+    ) -> None:
+        self.config = config
+        self.status_timeout = status_timeout or config.max_status_attempts * 30
+        self.status_poll_interval = status_poll_interval or 8
+        self.desired_filename = (output_filename or config.gde_output_filename or "").strip() or None
+        self.download_dir = Path(config.download_path).resolve()
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        self._overwrite_files = config.export_overwrite_files
+        self.export_started = None  # Se inicializa en _export_and_download()
+        
+        # Inicializar managers
+        self.browser_manager = self._setup_browser(headless, chrome_extra_args)
+        self.driver, self.wait = self.browser_manager.create_driver()
+        self.iframe_manager = IframeManager(self.driver)
+        self.filter_manager = FilterManager(self.driver, self.wait)
+        self.date_filter_manager = DateFilterManager(self.driver, self.wait)
+    
+    def _setup_browser(
+        self, headless: Optional[bool], chrome_extra_args: Optional[Iterable[str]]
+    ) -> BrowserManager:
+        """Configura y crea la instancia de BrowserManager con manejo de proxy."""
+        return setup_browser_with_proxy(
+            download_path=str(self.download_dir),
+            proxy=self.config.proxy,
+            headless=self.config.headless if headless is None else headless,
+            chrome_extra_args=chrome_extra_args,
+        )
+    
+    def run(self) -> Path:
+        """Ejecuta el flujo completo de GDE y devuelve la ruta del archivo descargado."""
+        self._authenticate_and_navigate()
+        self._apply_filters()
+        return self._export_and_download()
+    
+    def _authenticate_and_navigate(self) -> None:
+        """Autentica y navega al módulo GDE."""
+        auth_manager = AuthManager(self.driver)
+        require(
+            auth_manager.login(self.config.username, self.config.password),
+            "No se pudo realizar el login",
+        )
+        require(
+            self.iframe_manager.find_main_iframe(max_attempts=self.config.max_iframe_attempts),
+            "No se encontró el iframe principal",
+        )
+        
+        self.filter_manager.wait_for_filters_ready()
+        self.filter_manager.open_filter_panel(method="complex")
+    
+    def _apply_filters(self) -> None:
+        """Aplica los filtros necesarios para la consulta."""
+        _click_clear_filters(self.driver, self.wait)
+        _apply_task_type_filters(self.driver, self.wait, self.config.options_to_select)
+        
+        # Aplicar filtros de fecha según date_mode
+        if self.config.date_mode == 1:
+            _apply_gde_manual_dates(self.driver, self.wait, self.config)
+        else:
+            self.date_filter_manager.apply_date_filters(self.config)
+        
+        _apply_filters(self.driver)
+    
+    def _export_and_download(self) -> Path:
+        """Ejecuta la exportación y maneja la descarga del archivo."""
+        self.export_started = _trigger_export(self.driver)
+        
+        _navigate_to_export_status(self.iframe_manager)
+        _monitor_status(
+            self.driver,
+            self.status_timeout,
+            self.status_poll_interval,
+        )
+        
+        downloaded = _download_export(
+            self.driver,
+            self.download_dir,
+            self.export_started,
+            overwrite_files=self._overwrite_files,
+            output_filename=self.desired_filename,
+        )
+        
+        logger.info("Flujo GDE completado")
+        return downloaded
+    
+    def close(self) -> None:
+        """Cierra el navegador."""
+        logger.debug("Cerrando navegador...")
+        self.browser_manager.close_driver()
+
+
+# ========================================================================
+# Helpers de UI (clicks robustos, navegación de iframes)
+# ========================================================================
+
+def _robust_click(driver, elem):
+    """Intenta click con varias estrategias (igual que en test.py)."""
+    try:
+        elem.click()
+        return True
+    except Exception:
+        try:
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", elem)
+            sleep(DELAY_MEDIUM)
+            elem.click()
+            return True
+        except Exception:
+            try:
+                driver.execute_script("arguments[0].click();", elem)
+                return True
+            except Exception:
+                logger.debug("No se pudo hacer click en el elemento después de intentar todas las estrategias")
+                return False
+
+
+def _switch_to_frame_with(driver, css_or_xpath: str) -> bool:
+    """Replica la utilidad usada en test.py para ubicar el iframe correcto."""
+    driver.switch_to.default_content()
+    locator = (By.XPATH, css_or_xpath) if css_or_xpath.startswith("//") else (By.CSS_SELECTOR, css_or_xpath)
+
+    try:
+        driver.find_element(*locator)
+        return True
+    except Exception:
+        pass
+
+    frames = driver.find_elements(By.TAG_NAME, "iframe")
+    for frame in frames:
+        driver.switch_to.default_content()
+        driver.switch_to.frame(frame)
+        try:
+            driver.find_element(*locator)
+            return True
+        except Exception:
+            continue
+
+    driver.switch_to.default_content()
+    logger.debug("No se pudo encontrar el iframe con selector: %s", css_or_xpath)
+    return False
+
+
+# ========================================================================
+# Gestión de filtros
+# ========================================================================
+
 def _click_clear_filters(driver, wait) -> None:
     """Limpia filtros anteriores para evitar arrastrar configuraciones previas.
 
@@ -139,7 +320,7 @@ def _click_clear_filters(driver, wait) -> None:
         )
     ).click()
     logger.debug("Filtros anteriores limpiados")
-    sleep(1)
+    sleep(DELAY_LONG)
 
 
 def _apply_task_type_filters(driver, wait, options: Iterable[str]) -> None:
@@ -150,13 +331,13 @@ def _apply_task_type_filters(driver, wait, options: Iterable[str]) -> None:
     """
     logger.debug("Asignando opciones en Task Type...")
     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#all_taskType .el-select__caret"))).click()
-    sleep(1)
+    sleep(DELAY_LONG)
 
     for option in options:
         xpath = f"//li[contains(@class, 'el-select-dropdown__item') and @title='{option}']"
         wait.until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
         logger.debug("Opción seleccionada: %s", option)
-        sleep(0.3)
+        sleep(DELAY_NORMAL)
 
 
 def _apply_filters(driver) -> None:
@@ -202,115 +383,15 @@ def _wait_for_filters_to_apply(driver, wait: WebDriverWait) -> None:
         logger.warning("Loading mask permaneció visible más de lo esperado")
 
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#allTask_tab .el-table__body tr")))
-    sleep(0.3)
+    sleep(DELAY_NORMAL)
 
 
-def _robust_click(driver, elem):
-    """Intenta click con varias estrategias (igual que en test.py)."""
-    try:
-        elem.click()
-        return True
-    except Exception:
-        try:
-            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", elem)
-            sleep(0.2)
-            elem.click()
-            return True
-        except Exception:
-            try:
-                driver.execute_script("arguments[0].click();", elem)
-                return True
-            except Exception:
-                return False
-
-
-def _apply_gde_manual_dates(
-    driver,
-    wait: WebDriverWait,
-    config: GDEConfig,
-) -> None:
-    """Replica exactamente la lógica de test.py para Create Time (sin verificaciones extras)."""
-    # Asegúrate de estar en el iframe de filtros (igual que test.py)
-    _switch_to_frame_with(driver, ".ows_filter_title")
-    
-    date_from, date_to = _resolve_manual_date_range(config)
-    logger.info("Aplicando fechas manuales: DESDE %s → HASTA %s", date_from, date_to)
-
-    def click_y_setear_fecha(container_xpath: str, fecha: str):
-        """Función interna exactamente igual a test.py"""
-        # 1) Intenta abrir el modo "intervalo personalizado" con el botón +
-        try:
-            plus = driver.find_element(By.CSS_SELECTOR, ".ows_datetime_interval_customer_text.el-icon-circle-plus")
-            if plus.is_displayed():
-                _robust_click(driver, plus)
-                sleep(0.2)
-        except Exception:
-            pass  # si no existe, seguimos
-
-        # 2) Click en el contenedor (DESDE o HASTA)
-        cont = wait.until(EC.element_to_be_clickable((By.XPATH, container_xpath)))
-        _robust_click(driver, cont)
-        sleep(0.2)
-
-        # 3) Click en el input "Seleccionar fecha" y setear valor
-        #    Puede haber varios; elegimos el visible y habilitado
-        target = None
-        inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-        for el in inputs:
-            if el.is_displayed() and el.is_enabled():
-                target = el  # suele ser el del popover activo
-
-        # fallback: buscar dentro del propio contenedor
-        if target is None:
-            try:
-                target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-            except Exception:
-                pass
-
-        if target is None:
-            raise RuntimeError("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
-
-        # Escribir la fecha de forma robusta
-        try:
-            target.click()
-            sleep(0.1)
-            target.send_keys(Keys.CONTROL, 'a')
-            target.send_keys(Keys.DELETE)
-            target.send_keys(fecha)
-            # Disparar eventos para que el framework (Element UI) detecte el cambio
-            driver.execute_script(
-                "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
-                "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
-                target
-            )
-            target.send_keys(Keys.ENTER)  # confirma/cierra el popover
-            sleep(0.2)
-        except Exception as e:
-            raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
-
-    def confirmar_selector_fecha():
-        try:
-            active_input = driver.switch_to.active_element
-            active_input.send_keys(Keys.ENTER)
-            sleep(0.2)
-        except Exception:
-            pass
-
-    # === DESDE ===
-    click_y_setear_fecha(CREATETIME_FROM_XPATH, date_from)
-    logger.debug("Fecha DESDE aplicada: %s", date_from)
-    sleep(0.3)
-
-    # === HASTA ===
-    click_y_setear_fecha(CREATETIME_TO_XPATH, date_to)
-    logger.debug("Fecha HASTA aplicada: %s", date_to)
-    sleep(0.3)
-    confirmar_selector_fecha()
-
-    logger.debug("Fechas manuales aplicadas: %s → %s", date_from, date_to)
-
+# ========================================================================
+# Gestión de fechas manuales
+# ========================================================================
 
 def _resolve_manual_date_range(config: GDEConfig) -> tuple[Optional[str], Optional[str]]:
+    """Resuelve el rango de fechas desde la configuración."""
     if config.last_n_days:
         date_to = datetime.now()
         date_from = date_to - timedelta(days=config.last_n_days)
@@ -318,30 +399,126 @@ def _resolve_manual_date_range(config: GDEConfig) -> tuple[Optional[str], Option
     return config.date_from, config.date_to
 
 
-def _switch_to_frame_with(driver, css_or_xpath: str) -> bool:
-    """Replica la utilidad usada en test.py para ubicar el iframe correcto."""
-    driver.switch_to.default_content()
-    locator = (By.XPATH, css_or_xpath) if css_or_xpath.startswith("//") else (By.CSS_SELECTOR, css_or_xpath)
-
+def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fecha: str) -> None:
+    """Abre el selector de fecha y establece el valor (extraído de función anidada).
+    
+    Replica exactamente la lógica de test.py para establecer fechas en el selector.
+    
+    Args:
+        driver: Instancia de WebDriver
+        wait: WebDriverWait para esperas explícitas
+        container_xpath: XPATH del contenedor (DESDE o HASTA)
+        fecha: Fecha en formato string (YYYY-MM-DD)
+        
+    Raises:
+        RuntimeError: Si no se encuentra el input o no se puede escribir la fecha
+    """
+    # 1) Intenta abrir el modo "intervalo personalizado" con el botón +
     try:
-        driver.find_element(*locator)
-        return True
+        plus = driver.find_element(By.CSS_SELECTOR, ".ows_datetime_interval_customer_text.el-icon-circle-plus")
+        if plus.is_displayed():
+            _robust_click(driver, plus)
+            sleep(DELAY_MEDIUM)
+    except Exception:
+        pass  # si no existe, seguimos
+
+    # 2) Click en el contenedor (DESDE o HASTA)
+    cont = wait.until(EC.element_to_be_clickable((By.XPATH, container_xpath)))
+    _robust_click(driver, cont)
+    sleep(DELAY_MEDIUM)
+
+    # 3) Click en el input "Seleccionar fecha" y setear valor
+    #    Puede haber varios; elegimos el visible y habilitado
+    target = None
+    inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+    for el in inputs:
+        if el.is_displayed() and el.is_enabled():
+            target = el  # suele ser el del popover activo
+
+    # fallback: buscar dentro del propio contenedor
+    if target is None:
+        try:
+            target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+        except Exception:
+            pass
+
+    logger.debug("Buscando input 'Seleccionar fecha'...")
+    require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
+
+    # Escribir la fecha de forma robusta
+    try:
+        target.click()
+        sleep(DELAY_SHORT)
+        target.send_keys(Keys.CONTROL, 'a')
+        target.send_keys(Keys.DELETE)
+        target.send_keys(fecha)
+        # Disparar eventos para que el framework (Element UI) detecte el cambio
+        driver.execute_script(
+            "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+            target
+        )
+        target.send_keys(Keys.ENTER)  # confirma/cierra el popover
+        sleep(DELAY_MEDIUM)
+    except Exception as e:
+        logger.debug("No se pudo escribir la fecha '%s': %s", fecha, e)
+        raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
+
+
+def _confirmar_selector_fecha(driver) -> None:
+    """Confirma el selector de fecha enviando ENTER al elemento activo.
+    
+    Función helper extraída para mejorar legibilidad y testabilidad.
+    
+    Args:
+        driver: Instancia de WebDriver
+    """
+    try:
+        active_input = driver.switch_to.active_element
+        active_input.send_keys(Keys.ENTER)
+        sleep(DELAY_MEDIUM)
     except Exception:
         pass
 
-    frames = driver.find_elements(By.TAG_NAME, "iframe")
-    for frame in frames:
-        driver.switch_to.default_content()
-        driver.switch_to.frame(frame)
-        try:
-            driver.find_element(*locator)
-            return True
-        except Exception:
-            continue
 
-    driver.switch_to.default_content()
-    return False
+def _apply_gde_manual_dates(
+    driver,
+    wait: WebDriverWait,
+    config: GDEConfig,
+) -> None:
+    """Aplica fechas manuales para Create Time usando la lógica de test.py.
+    
+    Replica exactamente la lógica de test.py para Create Time (sin verificaciones extras).
+    Primero establece la fecha DESDE, luego HASTA.
+    
+    Args:
+        driver: Instancia de WebDriver
+        wait: WebDriverWait para esperas explícitas
+        config: Configuración GDE con fechas
+    """
+    # Asegúrate de estar en el iframe de filtros (igual que test.py)
+    _switch_to_frame_with(driver, ".ows_filter_title")
+    
+    date_from, date_to = _resolve_manual_date_range(config)
+    logger.info("Aplicando fechas manuales: DESDE %s → HASTA %s", date_from, date_to)
 
+    # === DESDE ===
+    _click_y_setear_fecha(driver, wait, CREATETIME_FROM_XPATH, date_from)
+    logger.debug("Fecha DESDE aplicada: %s", date_from)
+    sleep(DELAY_NORMAL)
+
+    # === HASTA ===
+    _click_y_setear_fecha(driver, wait, CREATETIME_TO_XPATH, date_to)
+    logger.debug("Fecha HASTA aplicada: %s", date_to)
+    sleep(DELAY_NORMAL)
+    _confirmar_selector_fecha(driver)
+
+    logger.debug("Fechas manuales aplicadas: %s → %s", date_from, date_to)
+
+
+# ========================================================================
+# Gestión de advertencias y selección de filas
+# ========================================================================
 
 def _handle_filter_warning(driver, wait: WebDriverWait, *, reapply_filter: bool = True) -> bool:
     """Cierra la advertencia 'Select at least one record' y reaplica filtros si se solicita."""
@@ -350,6 +527,7 @@ def _handle_filter_warning(driver, wait: WebDriverWait, *, reapply_filter: bool 
             EC.visibility_of_element_located((By.CSS_SELECTOR, ".prompt-wrapper.vigour-prompt.prompt-type-alert"))
         )
     except TimeoutException:
+        logger.debug("No se encontró advertencia de filtros (timeout)")
         return False
 
     accept_button = prompt.find_element(
@@ -383,18 +561,23 @@ def _select_first_grid_row(driver, wait: WebDriverWait) -> bool:
             checkbox = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, checkbox_selector)))
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", checkbox)
             checkbox.click()
-            sleep(0.2)
+            sleep(DELAY_MEDIUM)
             logger.debug("Primera fila seleccionada")
             return True
         except ElementClickInterceptedException:
-            logger.warning("Click interceptado al seleccionar fila (intento %s)", attempt + 1)
+            logger.debug("Click interceptado al seleccionar fila (intento %s)", attempt + 1)
             if not _handle_filter_warning(driver, wait):
                 break
         except TimeoutException:
-            logger.warning("No se encontró fila seleccionable")
+            logger.debug("No se encontró fila seleccionable (timeout)")
             break
+    logger.debug("No se pudo seleccionar la primera fila después de todos los intentos")
     return False
 
+
+# ========================================================================
+# Exportación y monitoreo de estado
+# ========================================================================
 
 def _click_export_button(driver) -> None:
     """Intenta hacer click en Exportar, cerrando advertencias si bloquean el botón."""
@@ -405,7 +588,7 @@ def _click_export_button(driver) -> None:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "#test > .sdm_splitbutton_text"))
             )
             export_button.click()
-            sleep(1)
+            sleep(DELAY_LONG)
             logger.debug("Exportar presionado")
             return
         except ElementClickInterceptedException:
@@ -416,7 +599,8 @@ def _click_export_button(driver) -> None:
             if not _handle_filter_warning(driver, wait):
                 raise
             _select_first_grid_row(driver, wait)
-    raise RuntimeError("No se pudo presionar el botón de exportación")
+    logger.debug("No se pudo presionar el botón de exportación después de 3 intentos")
+    require(False, "No se pudo presionar el botón de exportación")
 
 
 def _trigger_export(driver) -> float:
@@ -436,15 +620,15 @@ def _navigate_to_export_status(iframe_manager: IframeManager) -> None:
     iframe_manager.switch_to_default_content()
     logger.debug("Navegando a sección de export status...")
     iframe_manager.driver.find_element(By.CSS_SELECTOR, ".el-icon-close:nth-child(2)").click()
-    sleep(1)
+    sleep(DELAY_LONG)
 
     driver = iframe_manager.driver
     driver.find_element(By.CSS_SELECTOR, ".el-row:nth-child(6) > .side-item-icon").click()
-    sleep(1)
+    sleep(DELAY_LONG)
     driver.find_element(By.CSS_SELECTOR, ".level-1").click()
-    sleep(1)
+    sleep(DELAY_LONG)
     require(iframe_manager.switch_to_iframe(1), "No se pudo cambiar al iframe de export status")
-    sleep(1)
+    sleep(DELAY_LONG)
 
 
 def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
@@ -467,7 +651,7 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
         except Exception as exc:
             logger.warning("No se pudo presionar Refresh: %s", exc, exc_info=True)
 
-        sleep(2)
+        sleep(DELAY_VERY_LONG)
         status = driver.find_element(
             By.XPATH, '//*[@id="testGrid"]/div[1]/div[3]/table/tbody/tr[1]/td[3]/div/span'
         ).text.strip()
@@ -477,15 +661,21 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
             if status == "Succeed":
                 logger.info("Exportación completada exitosamente")
                 return
-            raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
+            logger.debug("Proceso de exportación terminó con estado: %s", status)
+            require(False, f"Proceso de exportación terminó con estado: {status}")
 
         if status != "Running":
             logger.warning("Estado desconocido '%s'. Continuando monitoreo...", status)
 
         sleep(poll_interval)
 
-    raise RuntimeError("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
+    logger.debug("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
+    require(False, "Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
 
+
+# ========================================================================
+# Descarga de archivos
+# ========================================================================
 
 def _download_export(
     driver,
@@ -520,6 +710,10 @@ def _download_export(
     )
 
 
+# ========================================================================
+# Funciones principales de ejecución
+# ========================================================================
+
 def run_gde(
     config: GDEConfig,
     *,
@@ -546,92 +740,18 @@ def run_gde(
     Devuelve:
         ``Path`` absoluto del archivo final descargado (renombrado si corresponde).
     """
-    download_dir = Path(config.download_path).resolve()
-    download_dir.mkdir(parents=True, exist_ok=True)
-
-    browser_kwargs: Dict[str, Any] = {
-        "download_path": str(download_dir),
-        "headless": config.headless if headless is None else headless,
-        "extra_args": chrome_extra_args,
-    }
-    if config.proxy:
-        browser_kwargs["proxy"] = config.proxy
-
+    workflow = GDEWorkflow(
+        config=config,
+        headless=headless,
+        chrome_extra_args=chrome_extra_args,
+        status_timeout=status_timeout,
+        status_poll_interval=status_poll_interval,
+        output_filename=output_filename,
+    )
     try:
-        browser_manager = BrowserManager(**browser_kwargs)
-    except TypeError as exc:
-        message = str(exc)
-        if "unexpected keyword argument 'proxy'" in message and "proxy" in browser_kwargs:
-            browser_kwargs.pop("proxy", None)
-            logger.warning(
-                "BrowserManager no admite argumento 'proxy' (versión antigua en contenedor). "
-                "Continuando sin proxy..."
-            )
-            browser_manager = BrowserManager(**browser_kwargs)
-        else:
-            raise
-
-    # Configurar proxy (común para ambos casos: éxito y fallback)
-    if config.proxy:
-        if not hasattr(browser_manager, "proxy"):
-            browser_manager.proxy = config.proxy  # type: ignore[attr-defined]
-        os.environ["PROXY"] = config.proxy
-    else:
-        os.environ.pop("PROXY", None)
-
-    driver, wait = browser_manager.create_driver()
-
-    try:
-        auth_manager = AuthManager(driver)
-        require(
-            auth_manager.login(config.username, config.password),
-            "No se pudo realizar el login",
-        )
-
-        iframe_manager = IframeManager(driver)
-        require(
-            iframe_manager.find_main_iframe(max_attempts=config.max_iframe_attempts),
-            "No se encontró el iframe principal",
-        )
-
-        filter_manager = FilterManager(driver, wait)
-        filter_manager.wait_for_filters_ready()
-        filter_manager.open_filter_panel(method="complex")
-
-        _click_clear_filters(driver, wait)
-        _apply_task_type_filters(driver, wait, config.options_to_select)
-
-        # Aplicar filtros de fecha según date_mode
-        if config.date_mode == 1:
-            _apply_gde_manual_dates(driver, wait, config)
-        else:
-            date_filter_manager = DateFilterManager(driver, wait)
-            date_filter_manager.apply_date_filters(config)
-
-        _apply_filters(driver)
-        export_started = _trigger_export(driver)
-
-        _navigate_to_export_status(iframe_manager)
-        _monitor_status(
-            driver,
-            status_timeout or config.max_status_attempts * 30,
-            status_poll_interval or 8,
-        )
-
-        final_name = (output_filename or config.gde_output_filename or "").strip() or None
-        downloaded = _download_export(
-            driver,
-            download_dir,
-            export_started,
-            overwrite_files=config.export_overwrite_files,
-            output_filename=final_name,
-        )
-
-        logger.info("Flujo GDE completado")
-        return downloaded
+        return workflow.run()
     finally:
-        logger.debug("Cerrando navegador...")
-        browser_manager.close_driver()
+        workflow.close()
 
 
 def extraer_gde(

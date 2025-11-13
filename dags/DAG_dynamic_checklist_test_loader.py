@@ -16,7 +16,6 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.sources.autin_checklist.loader import (
-    load_dynamic_checklist,
     load_single_table,
     TABLAS_DYNAMIC_CHECKLIST
 )
@@ -50,13 +49,13 @@ def find_latest_dynamic_checklist_file() -> str:
         # El stractor guarda en /opt/airflow/tmp/teleows/ directamente
         base_path = Path("/opt/airflow") / local_dir
         
-        logger.info(f"🔍 Buscando archivo en: {base_path}")
+        logger.info("Buscando archivo en: %s", base_path)
         
         # Buscar archivos que coincidan con el patrón
         # Primero intentar el nombre exacto
         exact_file = base_path / specific_filename
         if exact_file.exists():
-            logger.info(f"✅ Archivo encontrado (exacto): {exact_file}")
+            logger.info("Archivo encontrado (exacto): %s", exact_file)
             return str(exact_file)
         
         # Si no existe, buscar el más reciente que contenga "DynamicChecklist" o "SubPM"
@@ -66,14 +65,14 @@ def find_latest_dynamic_checklist_file() -> str:
         if pattern_files:
             # Ordenar por fecha de modificación (más reciente primero)
             latest_file = max(pattern_files, key=lambda p: p.stat().st_mtime)
-            logger.info(f"✅ Archivo más reciente encontrado: {latest_file}")
+            logger.info("Archivo más reciente encontrado: %s", latest_file)
             return str(latest_file)
         
         # Si no se encuentra, buscar cualquier .xlsx y tomar el más reciente
         all_excel = list(base_path.glob("*.xlsx"))
         if all_excel:
             latest_file = max(all_excel, key=lambda p: p.stat().st_mtime)
-            logger.warning(f"⚠️  Usando archivo Excel más reciente encontrado: {latest_file}")
+            logger.warning("Usando archivo Excel más reciente encontrado: %s", latest_file)
             return str(latest_file)
         
         raise FileNotFoundError(
@@ -82,7 +81,7 @@ def find_latest_dynamic_checklist_file() -> str:
         )
         
     except Exception as e:
-        logger.error(f"❌ Error al buscar archivo: {e}")
+        logger.error("Error al buscar archivo: %s", e)
         raise
 
 
@@ -94,7 +93,7 @@ def set_fecha_carga(**kwargs) -> str:
     from datetime import datetime
     fecha_carga = datetime.now()
     fecha_carga_str = fecha_carga.isoformat()
-    logger.info("📅 Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
+    logger.info("Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
     return fecha_carga_str
 
 
@@ -111,21 +110,21 @@ def get_filepath(**kwargs) -> str:
     try:
         file_path = Variable.get("DYNAMIC_CHECKLIST_TEST_FILE", default_var=None)
         if file_path:
-            logger.info(f"📁 Usando archivo desde Variable: {file_path}")
+            logger.info("Usando archivo desde Variable: %s", file_path)
             file_path = str(file_path).strip()
     except Exception:
         pass
     
     # Opción 2: Buscar el archivo más reciente
     if not file_path:
-        logger.info("🔍 Buscando archivo más reciente...")
+        logger.info("Buscando archivo más reciente...")
         file_path = find_latest_dynamic_checklist_file()
     
     # Validar que el archivo existe
     if not Path(file_path).exists():
         raise FileNotFoundError(f"El archivo especificado no existe: {file_path}")
     
-    logger.info(f"📁 Archivo seleccionado: {file_path}")
+    logger.info("Archivo seleccionado: %s", file_path)
     return file_path
 
 
@@ -151,7 +150,7 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         from datetime import datetime
         fecha_carga = datetime.fromisoformat(fecha_carga_str)
     
-    logger.info("📥 Cargando tabla '%s' desde: %s", tabla_sql, file_path)
+    logger.info("Cargando tabla '%s' desde: %s", tabla_sql, file_path)
     
     try:
         resultado = load_single_table(
@@ -162,13 +161,13 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         )
         
         if resultado.get('status') == 'success':
-            logger.info("✅ Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
+            logger.info("Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
         else:
-            logger.error("❌ Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
+            logger.error("Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
         
         return resultado
     except Exception as exc:
-        logger.error("❌ Error en loader de tabla '%s': %s", tabla_sql, exc)
+        logger.error("Error en loader de tabla '%s': %s", tabla_sql, exc)
         raise
 
 
@@ -241,7 +240,7 @@ with DAG(
             
             1. Obtiene el archivo Excel de la tarea get_filepath.
             2. Procesa la pestaña '{nombre_pestana}'.
-            3. Mapea columnas usando columns_map.json.
+            3. Mapea columnas usando columns_map_checklist.json.
             4. Carga datos en la tabla {tabla_sql} en schema 'raw'.
             5. Retorna resultado de la carga.
             """,

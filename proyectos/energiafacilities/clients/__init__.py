@@ -10,7 +10,7 @@ Se reexportan aquí para ofrecer una API estable al resto del paquete.
 """
 
 from .auth import AuthManager
-from .browser import BrowserManager
+from .browser import BrowserManager, setup_browser_with_proxy
 from .filters import FilterManager
 from .iframes import IframeManager
 from .date_filter_manager import DateFilterManager
@@ -19,6 +19,7 @@ from .log_management_manager import LogManagementManager
 __all__ = [
     "AuthManager",
     "BrowserManager",
+    "setup_browser_with_proxy",
     "FilterManager",
     "IframeManager",
     "DateFilterManager",

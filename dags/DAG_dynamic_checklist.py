@@ -189,7 +189,7 @@ with DAG(
             
             1. Obtiene el archivo Excel del stractor.
             2. Procesa la pestaña '{nombre_pestana}'.
-            3. Mapea columnas usando columns_map.json.
+            3. Mapea columnas usando columns_map_checklist.json.
             4. Carga datos en la tabla {tabla_sql} en schema 'raw'.
             5. Retorna resultado de la carga.
             """,

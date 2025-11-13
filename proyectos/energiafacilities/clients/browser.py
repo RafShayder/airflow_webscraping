@@ -122,3 +122,73 @@ class BrowserManager:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_driver()
+
+
+def setup_browser_with_proxy(
+    download_path: str,
+    proxy: Optional[str] = None,
+    headless: Optional[bool] = None,
+    chrome_extra_args: Optional[Iterable[str]] = None,
+    wait_timeout: int = 20,
+) -> BrowserManager:
+    """
+    Configura BrowserManager con manejo robusto de proxy.
+    
+    Maneja el caso donde BrowserManager puede no aceptar el argumento 'proxy'
+    en versiones antiguas, configurándolo manualmente después de la creación.
+    
+    Args:
+        download_path: Ruta de descarga para archivos
+        proxy: URL del proxy (opcional)
+        headless: Modo headless (opcional, usa False por defecto)
+        chrome_extra_args: Argumentos adicionales para Chrome
+        wait_timeout: Timeout para WebDriverWait
+        
+    Returns:
+        BrowserManager configurado con proxy si está disponible
+        
+    Example:
+        >>> browser_manager = setup_browser_with_proxy(
+        ...     download_path="/tmp/downloads",
+        ...     proxy="http://proxy.example.com:8080"
+        ... )
+        >>> driver, wait = browser_manager.create_driver()
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    browser_kwargs: dict = {
+        "download_path": download_path,
+        "wait_timeout": wait_timeout,
+        "headless": headless if headless is not None else False,
+        "extra_args": chrome_extra_args,
+    }
+    
+    # Intentar crear BrowserManager con proxy si está disponible
+    if proxy:
+        browser_kwargs["proxy"] = proxy
+    
+    try:
+        browser_manager = BrowserManager(**browser_kwargs)
+    except TypeError as exc:
+        message = str(exc)
+        if "unexpected keyword argument 'proxy'" in message and "proxy" in browser_kwargs:
+            browser_kwargs.pop("proxy", None)
+            logger.warning(
+                "BrowserManager no admite argumento 'proxy' (versión antigua). "
+                "Continuando sin proxy en kwargs..."
+            )
+            browser_manager = BrowserManager(**browser_kwargs)
+        else:
+            raise
+    
+    # Configurar proxy manualmente si está disponible (común para ambos casos)
+    if proxy:
+        if not hasattr(browser_manager, "proxy"):
+            browser_manager.proxy = proxy  # type: ignore[attr-defined]
+        os.environ["PROXY"] = proxy
+    else:
+        # Eliminar variable de entorno si proxy es None para evitar usar proxy del sistema
+        os.environ.pop("PROXY", None)
+    
+    return browser_manager

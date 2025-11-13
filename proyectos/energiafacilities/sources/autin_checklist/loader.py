@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Optional, Union, Dict, List
 from datetime import datetime
+
+# Configurar path para imports cuando se ejecuta directamente
+current_path = Path(__file__).resolve()
+sys.path.insert(0, str(current_path.parents[3]))  # /.../proyectos
+sys.path.insert(0, str(current_path.parents[4]))  # repo root for other imports
 
 from energiafacilities.core import load_config
 from energiafacilities.core.base_loader import BaseLoaderPostgres
@@ -205,3 +211,10 @@ def _process_table(
         "pestana": nombre_pestana,
         "resultado": resultado,
     }
+
+
+# Ejecución local (desarrollo/testing)
+# Para producción, usar los DAGs de Airflow en dags/DAG_dynamic_checklist.py
+# El entorno se determina automáticamente desde ENV_MODE o usa "dev" por defecto
+if __name__ == "__main__":
+    load_dynamic_checklist()
