@@ -356,25 +356,10 @@ def _apply_filters(driver) -> None:
 
 def _click_filter_button(driver, wait: WebDriverWait) -> None:
     """Hace click en el span que contiene el ícono caret + texto 'Filtrar'."""
-    # Asegurar que estamos en el iframe correcto antes de buscar el botón
-    # (el botón puede no estar disponible si el contexto del iframe se perdió)
-    _switch_to_frame_with(driver, ".ows_filter_title")
-    
     try:
-        # Esperar a que el botón sea clickeable (con timeout más largo para headless)
         filter_button = wait.until(EC.element_to_be_clickable((By.XPATH, FILTER_BUTTON_XPATH)))
-        # Hacer scroll al botón para asegurar que esté en viewport (crítico en headless)
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", filter_button)
-        sleep(DELAY_SHORT)
     except TimeoutException:
-        # Fallback: intentar encontrar el botón sin espera explícita
-        try:
-            filter_button = driver.find_element(By.XPATH, FILTER_BUTTON_XPATH)
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", filter_button)
-            sleep(DELAY_SHORT)
-        except Exception as e:
-            logger.debug("No se pudo encontrar el botón Filtrar: %s", e)
-            raise
+        filter_button = driver.find_element(By.XPATH, FILTER_BUTTON_XPATH)
 
     try:
         filter_button.click()
@@ -443,49 +428,61 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
 
     # 2) Click en el contenedor (DESDE o HASTA)
     cont = wait.until(EC.element_to_be_clickable((By.XPATH, container_xpath)))
-    # Hacer scroll al contenedor para asegurar que esté en viewport (crítico en headless)
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", cont)
-    sleep(DELAY_SHORT)
     _robust_click(driver, cont)
     sleep(DELAY_MEDIUM)
 
-    # 3) Esperar explícitamente a que el popover aparezca en el DOM (crítico en headless)
-    # En headless, el popover puede existir pero no estar "visible" según is_displayed()
+    # 3) Esperar a que el picker panel aparezca (específico para headless/Airflow)
+    # En headless, el popover puede tardar más en renderizarse o estar fuera del viewport
     try:
-        # Esperar a que el input aparezca en el DOM (no solo visible)
-        popover_input = wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]'))
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".el-picker-panel, .el-date-picker"))
         )
-        # Hacer scroll al popover si es necesario (en headless puede estar fuera del viewport)
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", popover_input)
-        sleep(DELAY_SHORT)
-        target = popover_input
+        logger.debug("Picker panel detectado")
+        sleep(DELAY_SHORT)  # Dar tiempo adicional para que se renderice completamente
     except TimeoutException:
-        # Fallback: buscar todos los inputs y usar el primero disponible
-        logger.debug("Popover no apareció inmediatamente, buscando inputs disponibles...")
-        inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-        target = None
-        
-        # En headless, no confiar en is_displayed() - usar el primer input que exista en el DOM
-        for el in inputs:
-            try:
-                # Verificar que el elemento existe y tiene las propiedades necesarias
-                if el.get_attribute('placeholder') == 'Seleccionar fecha':
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", el)
-                    sleep(DELAY_SHORT)
-                    target = el
-                    break
-            except Exception:
-                continue
-        
-        # Último fallback: buscar dentro del contenedor
-        if target is None:
-            try:
-                target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});", target)
-                sleep(DELAY_SHORT)
-            except Exception:
-                pass
+        logger.debug("Picker panel no apareció explícitamente, continuando de todas formas")
+
+    # 4) Click en el input "Seleccionar fecha" y setear valor
+    # En headless/Airflow: NO depender de is_displayed() - el elemento puede existir pero no estar "visible"
+    target = None
+    
+    # Estrategia 1: Buscar todos los inputs y usar JavaScript para verificar visibilidad real
+    inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+    for el in inputs:
+        try:
+            # Usar JavaScript para verificar si el elemento está realmente renderizado
+            # (más confiable que is_displayed() en headless)
+            is_actually_visible = driver.execute_script("""
+                var el = arguments[0];
+                var rect = el.getBoundingClientRect();
+                var style = window.getComputedStyle(el);
+                return rect.width > 0 && rect.height > 0 && 
+                       style.display !== 'none' && 
+                       style.visibility !== 'hidden' &&
+                       style.opacity !== '0';
+            """, el)
+            
+            if is_actually_visible:
+                target = el
+                logger.debug("Input encontrado usando verificación JavaScript")
+                break
+        except Exception:
+            # Si falla la verificación JS, usar el elemento de todas formas
+            if target is None:
+                target = el
+
+    # Estrategia 2: Si no encontramos ninguno "visible", tomar el último (suele ser el del popover)
+    if target is None and inputs:
+        target = inputs[-1]
+        logger.debug("Usando último input encontrado (fallback para headless)")
+
+    # Estrategia 3: Buscar dentro del propio contenedor
+    if target is None:
+        try:
+            target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+            logger.debug("Input encontrado dentro del contenedor")
+        except Exception:
+            pass
 
     logger.debug("Buscando input 'Seleccionar fecha'...")
     require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
@@ -558,10 +555,6 @@ def _apply_gde_manual_dates(
     sleep(DELAY_NORMAL)
     _confirmar_selector_fecha(driver)
 
-    # Asegurar que seguimos en el iframe correcto después de aplicar fechas
-    # (crítico para que el botón "Filtrar" sea encontrado después)
-    _switch_to_frame_with(driver, ".ows_filter_title")
-    
     logger.debug("Fechas manuales aplicadas: %s → %s", date_from, date_to)
 
 
