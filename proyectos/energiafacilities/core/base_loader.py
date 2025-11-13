@@ -116,8 +116,26 @@ class BaseLoaderPostgres:
                 df = data
                 origen = "DataFrame"
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
-                df = pd.read_excel(data, sheet_name=sheet_name,skiprows=numerofilasalto)
-                origen = f"Excel ({data})"
+                try:
+                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                    origen = f"Excel ({data})"
+                except ValueError as e:
+                    # Si falla por nombre de hoja, listar las hojas disponibles
+                    if "Worksheet named" in str(e) or "not found" in str(e).lower():
+                        try:
+                            xl_file = pd.ExcelFile(data, engine='openpyxl')
+                            available_sheets = xl_file.sheet_names
+                            error_msg = (
+                                f"No se encontró la hoja '{sheet_name}' en el archivo '{data}'. "
+                                f"Hojas disponibles: {', '.join([f'\"{s}\"' for s in available_sheets])}"
+                            )
+                            logger.error(error_msg)
+                            raise ValueError(error_msg) from e
+                        except Exception:
+                            # Si no podemos leer el Excel, lanzar el error original
+                            raise
+                    else:
+                        raise
             elif isinstance(data, str) and data.lower().endswith(".csv"):
                 df = pd.read_csv(data,skiprows=numerofilasalto)
                 origen = f"CSV ({data})"
@@ -211,7 +229,25 @@ class BaseLoaderPostgres:
             if isinstance(data, pd.DataFrame):
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
-                df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                try:
+                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                except ValueError as e:
+                    # Si falla por nombre de hoja, listar las hojas disponibles
+                    if "Worksheet named" in str(e) or "not found" in str(e).lower():
+                        try:
+                            xl_file = pd.ExcelFile(data, engine='openpyxl')
+                            available_sheets = xl_file.sheet_names
+                            error_msg = (
+                                f"No se encontró la hoja '{sheet_name}' en el archivo '{data}'. "
+                                f"Hojas disponibles: {', '.join([f'\"{s}\"' for s in available_sheets])}"
+                            )
+                            logger.error(error_msg)
+                            raise ValueError(error_msg) from e
+                        except Exception:
+                            # Si no podemos leer el Excel, lanzar el error original
+                            raise
+                    else:
+                        raise
             elif isinstance(data, str) and data.lower().endswith(".csv"):
                 df = pd.read_csv(data, skiprows=numerofilasalto)
             else:
