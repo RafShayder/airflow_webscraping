@@ -52,7 +52,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 
-from energiafacilities.clients import AuthManager, BrowserManager, DateFilterManager, FilterManager, IframeManager, setup_browser_with_proxy
+from energiafacilities.clients.auth import AuthManager
+from energiafacilities.clients.browser import BrowserManager, setup_browser_with_proxy
+from energiafacilities.clients.date_filter_manager import DateFilterManager
+from energiafacilities.clients.filters import FilterManager
+from energiafacilities.clients.iframes import IframeManager
 from energiafacilities.common import require, wait_for_download
 from energiafacilities.core.utils import load_config, default_download_path
 

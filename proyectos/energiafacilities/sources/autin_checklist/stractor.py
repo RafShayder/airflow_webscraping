@@ -49,15 +49,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from energiafacilities.clients import (
-    AuthManager,
-    BrowserManager,
-    FilterManager,
-    IframeManager,
-    DateFilterManager,
-    LogManagementManager,
-    setup_browser_with_proxy,
-)
+from energiafacilities.clients.auth import AuthManager
+from energiafacilities.clients.browser import BrowserManager, setup_browser_with_proxy
+from energiafacilities.clients.filters import FilterManager
+from energiafacilities.clients.iframes import IframeManager
+from energiafacilities.clients.date_filter_manager import DateFilterManager
+from energiafacilities.clients.log_management_manager import LogManagementManager
 from energiafacilities.common import (
     click_with_retry,
     monitor_export_loader,
