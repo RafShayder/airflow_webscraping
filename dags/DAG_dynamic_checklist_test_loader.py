@@ -68,16 +68,12 @@ def find_latest_dynamic_checklist_file() -> str:
             logger.info("Archivo más reciente encontrado: %s", latest_file)
             return str(latest_file)
         
-        # Si no se encuentra, buscar cualquier .xlsx y tomar el más reciente
-        all_excel = list(base_path.glob("*.xlsx"))
-        if all_excel:
-            latest_file = max(all_excel, key=lambda p: p.stat().st_mtime)
-            logger.warning("Usando archivo Excel más reciente encontrado: %s", latest_file)
-            return str(latest_file)
-        
+        # NO buscar cualquier .xlsx porque podría tomar el archivo de GDE por error
+        # Solo buscar archivos específicos de Dynamic Checklist
         raise FileNotFoundError(
-            f"No se encontró ningún archivo Excel en {base_path}. "
-            f"Ejecuta primero el stractor o especifica un archivo mediante Variable 'DYNAMIC_CHECKLIST_TEST_FILE'"
+            f"No se encontró ningún archivo Excel de Dynamic Checklist en {base_path}. "
+            f"Busca archivos con 'DynamicChecklist' o 'SubPM' en el nombre. "
+            f"Ejecuta primero el stractor de Dynamic Checklist o especifica un archivo mediante Variable 'DYNAMIC_CHECKLIST_TEST_FILE'"
         )
         
     except Exception as e:
