@@ -8,9 +8,9 @@ API pública:
     - setup_logging: configuración de logging.
 """
 
-from energiafacilities.core import setup_logging
-from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde, run_gde
-from energiafacilities.sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist, run_dynamic_checklist
+from .core import setup_logging
+from .sources.autin_gde.stractor import GDEConfig, extraer_gde, run_gde
+from .sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist, run_dynamic_checklist
 
 __all__ = [
     "GDEConfig",
