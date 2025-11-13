@@ -140,7 +140,7 @@ def make_table_loader(tabla_sql: str, nombre_pestana: str):
 
 
 with DAG(
-    "dag_dynamic_checklist_teleows",
+    "dag_autin_checklist",
     default_args=default_args,
     description="ETL completo para Dynamic Checklist - Ejecución manual",
     schedule=None,

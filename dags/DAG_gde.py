@@ -83,7 +83,7 @@ def procesar_load_gde(**kwargs):
 
 
 with DAG(
-    "dag_gde_teleows",
+    "dag_autin_gde",
     default_args=default_args,
     description="Scraper y carga de datos GDE - Ejecución manual",
     schedule=None,
