@@ -472,7 +472,19 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
     _robust_click(driver, cont)
     sleep(DELAY_MEDIUM)
 
-    # 3) Click en el input "Seleccionar fecha" y setear valor
+    # 3) Esperar explícitamente a que el popover del selector de fecha aparezca
+    #    Esto es crítico en entornos headless donde el renderizado puede ser más lento
+    try:
+        # Esperar a que aparezca el popover (puede estar en un contenedor flotante)
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]'))
+        )
+        sleep(DELAY_SHORT)  # Pequeña espera adicional para estabilización
+    except TimeoutException:
+        logger.debug("Popover no apareció inmediatamente, intentando con espera extendida...")
+        sleep(DELAY_LONG)  # Espera más larga como fallback
+
+    # 4) Click en el input "Seleccionar fecha" y setear valor
     #    Puede haber varios; elegimos el visible y habilitado
     target = None
     inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
@@ -486,6 +498,16 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
             target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
         except Exception:
             pass
+
+    # Segundo fallback: esperar un poco más y buscar de nuevo
+    if target is None:
+        logger.debug("Input no encontrado en primer intento, esperando y reintentando...")
+        sleep(DELAY_LONG)
+        inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+        for el in inputs:
+            if el.is_displayed() and el.is_enabled():
+                target = el
+                break
 
     logger.debug("Buscando input 'Seleccionar fecha'...")
     require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
