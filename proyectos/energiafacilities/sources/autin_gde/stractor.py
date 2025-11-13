@@ -431,22 +431,57 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
     _robust_click(driver, cont)
     sleep(DELAY_MEDIUM)
 
-    # 3) Click en el input "Seleccionar fecha" y setear valor
-    #    Puede haber varios; elegimos el visible y habilitado
+    # 3) Esperar a que aparezca el input "Seleccionar fecha" en el popover
+    #    El popover puede tardar en aparecer después del click
     target = None
-    inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-    for el in inputs:
-        if el.is_displayed() and el.is_enabled():
-            target = el  # suele ser el del popover activo
-
-    # fallback: buscar dentro del propio contenedor
-    if target is None:
-        try:
-            target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-        except Exception:
-            pass
-
-    logger.debug("Buscando input 'Seleccionar fecha'...")
+    try:
+        # Intentar múltiples placeholders (puede variar según la versión de Element UI)
+        placeholders = [
+            "Seleccionar fecha",
+            "seleccionar fecha", 
+            "Seleccionar",
+            "seleccionar",
+            "Select date",
+            "select date"
+        ]
+        
+        for placeholder in placeholders:
+            try:
+                # Esperar explícitamente a que aparezca el input visible y habilitado
+                # Usar una condición personalizada que verifique visibilidad y habilitación
+                def input_is_visible_and_enabled(driver):
+                    elements = driver.find_elements(
+                        By.CSS_SELECTOR, f'input.el-input__inner[placeholder="{placeholder}"]'
+                    )
+                    for el in elements:
+                        try:
+                            if el.is_displayed() and el.is_enabled():
+                                return el
+                        except Exception:
+                            continue
+                    return False
+                
+                target = wait.until(input_is_visible_and_enabled)
+                logger.debug("Input encontrado con placeholder: %s", placeholder)
+                break
+            except TimeoutException:
+                continue
+        
+        # Fallback: buscar dentro del contenedor si no se encontró en el popover
+        if target is None:
+            try:
+                inner_inputs = cont.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder]')
+                for element in inner_inputs:
+                    if element.is_displayed() and element.is_enabled():
+                        target = element
+                        logger.debug("Input encontrado dentro del contenedor")
+                        break
+            except Exception:
+                pass
+                
+    except Exception as e:
+        logger.debug("Error buscando input de fecha: %s", e)
+    
     require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
 
     # Escribir la fecha de forma robusta
