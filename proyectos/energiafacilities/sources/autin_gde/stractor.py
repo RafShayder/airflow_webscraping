@@ -431,56 +431,18 @@ def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fec
     _robust_click(driver, cont)
     sleep(DELAY_MEDIUM)
 
-    # 3) Esperar a que el picker panel aparezca (específico para headless/Airflow)
-    # En headless, el popover puede tardar más en renderizarse o estar fuera del viewport
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".el-picker-panel, .el-date-picker"))
-        )
-        logger.debug("Picker panel detectado")
-        sleep(DELAY_SHORT)  # Dar tiempo adicional para que se renderice completamente
-    except TimeoutException:
-        logger.debug("Picker panel no apareció explícitamente, continuando de todas formas")
-
-    # 4) Click en el input "Seleccionar fecha" y setear valor
-    # En headless/Airflow: NO depender de is_displayed() - el elemento puede existir pero no estar "visible"
+    # 3) Click en el input "Seleccionar fecha" y setear valor
+    #    Puede haber varios; elegimos el visible y habilitado
     target = None
-    
-    # Estrategia 1: Buscar todos los inputs y usar JavaScript para verificar visibilidad real
     inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
     for el in inputs:
-        try:
-            # Usar JavaScript para verificar si el elemento está realmente renderizado
-            # (más confiable que is_displayed() en headless)
-            is_actually_visible = driver.execute_script("""
-                var el = arguments[0];
-                var rect = el.getBoundingClientRect();
-                var style = window.getComputedStyle(el);
-                return rect.width > 0 && rect.height > 0 && 
-                       style.display !== 'none' && 
-                       style.visibility !== 'hidden' &&
-                       style.opacity !== '0';
-            """, el)
-            
-            if is_actually_visible:
-                target = el
-                logger.debug("Input encontrado usando verificación JavaScript")
-                break
-        except Exception:
-            # Si falla la verificación JS, usar el elemento de todas formas
-            if target is None:
-                target = el
+        if el.is_displayed() and el.is_enabled():
+            target = el  # suele ser el del popover activo
 
-    # Estrategia 2: Si no encontramos ninguno "visible", tomar el último (suele ser el del popover)
-    if target is None and inputs:
-        target = inputs[-1]
-        logger.debug("Usando último input encontrado (fallback para headless)")
-
-    # Estrategia 3: Buscar dentro del propio contenedor
+    # fallback: buscar dentro del propio contenedor
     if target is None:
         try:
             target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-            logger.debug("Input encontrado dentro del contenedor")
         except Exception:
             pass
 

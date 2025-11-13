@@ -118,7 +118,7 @@ class BaseLoaderPostgres:
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
                 try:
                     df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
-                    origen = f"Excel ({data})"
+                origen = f"Excel ({data})"
                 except ValueError as e:
                     # Si falla por nombre de hoja, listar las hojas disponibles
                     if "Worksheet named" in str(e) or "not found" in str(e).lower():
@@ -230,7 +230,7 @@ class BaseLoaderPostgres:
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
                 try:
-                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
                 except ValueError as e:
                     # Si falla por nombre de hoja, listar las hojas disponibles
                     if "Worksheet named" in str(e) or "not found" in str(e).lower():
