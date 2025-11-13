@@ -28,6 +28,7 @@ class BrowserManager:
         wait_timeout: int = 20,
         headless: bool = False,
         extra_args: Optional[Iterable[str]] = None,
+        proxy: Optional[str] = None,
     ) -> None:
         self.download_path = download_path
         self.wait_timeout = wait_timeout
@@ -35,7 +36,7 @@ class BrowserManager:
         self.extra_args = list(extra_args or [])
         self.driver = None
         self.wait = None
-        self.proxy: Optional[str] = None
+        self.proxy: Optional[str] = proxy
 
     def setup_chrome_options(self) -> Options:
         """Prepara la instancia de ``Options`` respetando la configuración del entorno."""
@@ -167,28 +168,14 @@ def setup_browser_with_proxy(
         "extra_args": chrome_extra_args,
     }
     
-    # Intentar crear BrowserManager con proxy si está disponible
+    # Agregar proxy a kwargs si está disponible
     if proxy:
         browser_kwargs["proxy"] = proxy
     
-    try:
-        browser_manager = BrowserManager(**browser_kwargs)
-    except TypeError as exc:
-        message = str(exc)
-        if "unexpected keyword argument 'proxy'" in message and "proxy" in browser_kwargs:
-            browser_kwargs.pop("proxy", None)
-            logger.warning(
-                "BrowserManager no admite argumento 'proxy' (versión antigua). "
-                "Continuando sin proxy en kwargs..."
-            )
-            browser_manager = BrowserManager(**browser_kwargs)
-        else:
-            raise
+    browser_manager = BrowserManager(**browser_kwargs)
     
-    # Configurar proxy manualmente si está disponible (común para ambos casos)
+    # Configurar variable de entorno PROXY para compatibilidad
     if proxy:
-        if not hasattr(browser_manager, "proxy"):
-            browser_manager.proxy = proxy  # type: ignore[attr-defined]
         os.environ["PROXY"] = proxy
     else:
         # Eliminar variable de entorno si proxy es None para evitar usar proxy del sistema
