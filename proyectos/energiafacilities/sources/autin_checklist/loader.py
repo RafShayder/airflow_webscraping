@@ -68,7 +68,7 @@ def load_dynamic_checklist(filepath: Optional[PathLike] = None, env: str = None)
     
     Procesa 11 pestañas del Excel y las carga en sus respectivas tablas:
     - Cada pestaña corresponde a una tabla en raw.*
-    - Usa el mapeo de columnas desde columns_map.json
+    - Usa el mapeo de columnas desde columns_map_checklist.json
     - Carga todas las pestañas en orden
 
     Args:
@@ -174,7 +174,7 @@ def _process_table(
     columnas = None
     try:
         columnas = traerjson(
-            archivo="config/columnas/columns_map.json",
+            archivo="config/columnas/columns_map_checklist.json",
             valor=tabla_sql,
         )
     except Exception:

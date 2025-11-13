@@ -32,11 +32,17 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, Optional
+
+# Configurar path para imports cuando se ejecuta directamente
+current_path = Path(__file__).resolve()
+sys.path.insert(0, str(current_path.parents[3]))  # /.../proyectos
+sys.path.insert(0, str(current_path.parents[4]))  # repo root for other imports
 
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
@@ -77,19 +83,12 @@ from energiafacilities.common.dynamic_checklist_constants import (
     XPATH_LOADING_MASK,
     XPATH_SUBMENU_SUB_PM_QUERY,
 )
-from energiafacilities.core.utils import load_config
+from energiafacilities.core.utils import load_config, default_download_path
 
 logger = logging.getLogger(__name__)
 
 # Alternativas de texto para botones (español/inglés)
 BUTTON_ALTERNATIVES = {"Filtrar": "Filter", "Filter": "Filtrar"}
-
-
-def _default_download_path() -> str:
-    """Retorna el path de descarga por defecto según el entorno."""
-    if Path("/opt/airflow").exists():
-        return "/opt/airflow/proyectos/energiafacilities/temp"
-    return str(Path.home() / "Downloads" / "scraper_downloads")
 
 
 @dataclass
@@ -131,7 +130,7 @@ class DynamicChecklistConfig:
             combined.update(overrides)
 
         # Asegurar que download_path existe
-        download_path = combined.get("download_path") or combined.get("local_dir") or _default_download_path()
+        download_path = combined.get("download_path") or combined.get("local_dir") or default_download_path()
         download_path_obj = Path(download_path).expanduser().resolve()
         download_path_obj.mkdir(parents=True, exist_ok=True)
 
@@ -293,6 +292,9 @@ class DynamicChecklistWorkflow:
             if not hasattr(browser_manager, "proxy"):
                 browser_manager.proxy = self.config.proxy  # type: ignore[attr-defined]
             os.environ["PROXY"] = self.config.proxy
+        else:
+            # Eliminar variable de entorno si proxy es None para evitar usar proxy del sistema
+            os.environ.pop("PROXY", None)
 
         return browser_manager
 
@@ -515,3 +517,13 @@ def extraer_dynamic_checklist(
     )
     logger.info("Extracción Dynamic Checklist finalizada. Archivo: %s", path)
     return str(path)
+
+
+# Ejecución local (desarrollo/testing)
+# Para producción, usar los DAGs de Airflow en dags/DAG_dynamic_checklist.py
+# El entorno se determina automáticamente desde ENV_MODE o usa "dev" por defecto
+if __name__ == "__main__":
+    extraer_dynamic_checklist(
+        headless=False,
+        overrides={"proxy": None},
+    )

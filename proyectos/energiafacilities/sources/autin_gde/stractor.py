@@ -24,6 +24,7 @@ Workflow GDE: automatiza la descarga del reporte Console GDE Export.
 
 Los DAGs y scripts externos deben invocar ``extraer_gde()`` para mantener un
 único punto de entrada, el cual carga automáticamente desde config YAML.
+
 """
 
 from __future__ import annotations
@@ -47,24 +48,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.remote.webelement import WebElement
 
 from energiafacilities.clients import AuthManager, BrowserManager, DateFilterManager, FilterManager, IframeManager
 from energiafacilities.common import require, wait_for_download
-from energiafacilities.core.utils import load_config
+from energiafacilities.core.utils import load_config, default_download_path
 
 logger = logging.getLogger(__name__)
 
 FILTER_BUTTON_XPATH = "//span[.//i[contains(@class,'el-icon-caret-right')] and contains(normalize-space(),'Filtrar')]"
 CREATETIME_FROM_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[1]"
 CREATETIME_TO_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[2]"
-
-
-def _default_download_path() -> str:
-    """Retorna el path de descarga por defecto según el entorno."""
-    if Path("/opt/airflow").exists():
-        return "/opt/airflow/proyectos/energiafacilities/temp"
-    return str(Path.home() / "Downloads" / "scraper_downloads")
 
 
 @dataclass
@@ -112,7 +105,7 @@ class GDEConfig:
             options = [opt.strip() for opt in options.split(",")]
 
         # Asegurar que download_path existe
-        download_path = combined.get("download_path") or combined.get("local_dir") or _default_download_path()
+        download_path = combined.get("download_path") or combined.get("local_dir") or default_download_path()
         download_path_obj = Path(download_path).expanduser().resolve()
         download_path_obj.mkdir(parents=True, exist_ok=True)
 

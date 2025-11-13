@@ -26,7 +26,7 @@ def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     loader.validar_conexion()
 
     columnas = traerjson(
-        archivo="config/columnas/columns_map.json",
+        archivo="config/columnas/columns_map_gde.json",
         valor="gde_tasks",
     )
 

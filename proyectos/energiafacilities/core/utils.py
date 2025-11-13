@@ -260,5 +260,12 @@ def crearcarpeta(local_dir: str):
         raise
 
 
+def default_download_path() -> str:
+    """Retorna el path de descarga por defecto según el entorno."""
+    if Path("/opt/airflow").exists():
+        return "/opt/airflow/proyectos/energiafacilities/temp"
+    return str(Path.home() / "Downloads" / "scraper_downloads")
+
+
 
 
