@@ -57,17 +57,17 @@ def run_gde_scraper() -> str:
         variable_prefix="TELEOWS_",
     )
 
-    logger.info("🚀 Iniciando scraper de GDE...")
-    logger.info("🔍 Entorno: %s", env)
-    logger.info("🔍 Overrides aplicados: %s", list(overrides.keys()))
+    logger.info("Iniciando scraper de GDE")
+    logger.debug("Entorno: %s", env)
+    logger.debug("Overrides aplicados: %s", list(overrides.keys()))
 
     try:
         # extraer_gde() internamente carga GDEConfig con env y overrides
         file_path = extraer_gde(env=env, overrides=overrides)
-        logger.info("✅ Scraper GDE completado. Archivo: %s", file_path)
+        logger.info("Scraper GDE completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:
-        logger.error("❌ Error en scraper GDE: %s", exc)
+        logger.error("Error en scraper GDE: %s", exc)
         raise
 
 
@@ -78,7 +78,7 @@ def procesar_load_gde(**kwargs):
     """
     ti = kwargs['ti']
     linkdata = ti.xcom_pull(task_ids='scrape_gde_report')
-    logger.info(f"📁 Archivo recibido desde extract: {linkdata}")
+    logger.debug("Archivo recibido desde extract: %s", linkdata)
     return load_gde(filepath=linkdata)
 
 

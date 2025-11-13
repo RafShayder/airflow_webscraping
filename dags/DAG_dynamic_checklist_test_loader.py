@@ -146,7 +146,7 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         from datetime import datetime
         fecha_carga = datetime.fromisoformat(fecha_carga_str)
     
-    logger.info("Cargando tabla '%s' desde: %s", tabla_sql, file_path)
+    logger.debug("Cargando tabla '%s' desde: %s", tabla_sql, file_path)
     
     try:
         resultado = load_single_table(

@@ -60,17 +60,17 @@ def run_dynamic_checklist_scraper() -> str:
         variable_prefix="TELEOWS_",
     )
 
-    logger.info("🚀 Iniciando scraper de Dynamic Checklist...")
-    logger.info("🔍 Entorno: %s", env)
-    logger.info("🔍 Overrides aplicados: %s", list(overrides.keys()))
+    logger.info("Iniciando scraper de Dynamic Checklist")
+    logger.debug("Entorno: %s", env)
+    logger.debug("Overrides aplicados: %s", list(overrides.keys()))
 
     try:
         # extraer_dynamic_checklist() internamente carga DynamicChecklistConfig con env y overrides
         file_path = extraer_dynamic_checklist(env=env, overrides=overrides)
-        logger.info("✅ Scraper Dynamic Checklist completado. Archivo: %s", file_path)
+        logger.info("Scraper Dynamic Checklist completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:
-        logger.error("❌ Error en scraper Dynamic Checklist: %s", exc)
+        logger.error("Error en scraper Dynamic Checklist: %s", exc)
         raise
 
 
@@ -82,7 +82,7 @@ def set_fecha_carga(**kwargs) -> str:
     from datetime import datetime
     fecha_carga = datetime.now()
     fecha_carga_str = fecha_carga.isoformat()
-    logger.info("📅 Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
+    logger.debug("Fecha de carga establecida para todas las tablas: %s", fecha_carga_str)
     return fecha_carga_str
 
 
@@ -108,7 +108,7 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         from datetime import datetime
         fecha_carga = datetime.fromisoformat(fecha_carga_str)
     
-    logger.info("📥 Cargando tabla '%s' desde: %s", tabla_sql, file_path)
+    logger.debug("Cargando tabla '%s' desde: %s", tabla_sql, file_path)
     
     try:
         resultado = load_single_table(
@@ -119,13 +119,13 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         )
         
         if resultado.get('status') == 'success':
-            logger.info("✅ Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
+            logger.info("Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
         else:
-            logger.error("❌ Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
+            logger.error("Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
         
         return resultado
     except Exception as exc:
-        logger.error("❌ Error en loader de tabla '%s': %s", tabla_sql, exc)
+        logger.error("Error en loader de tabla '%s': %s", tabla_sql, exc)
         raise
 
 
