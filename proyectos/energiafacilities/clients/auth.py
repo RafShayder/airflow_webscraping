@@ -40,7 +40,7 @@ class AuthManager:
     def login(self, username: str, password: str) -> bool:
         """Ejecuta el login y valida la redirección al homepage."""
         try:
-            logger.info("🔐 Iniciando proceso de login...")
+            logger.debug("Iniciando proceso de login")
             self.driver.get(self.LOGIN_URL)
 
             username_field = self.wait.until(

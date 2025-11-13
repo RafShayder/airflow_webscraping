@@ -5,6 +5,7 @@ Copiado de ``teleows.core.browser_manager`` y alojado ahora dentro de
 ``teleows.clients`` para mantener juntos los componentes que envuelven Selenium.
 """
 
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -14,6 +15,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
+
+logger = logging.getLogger(__name__)
 
 
 class BrowserManager:
@@ -57,7 +60,7 @@ class BrowserManager:
         if self.download_path:
             abs_download_path = str(Path(self.download_path).resolve())
             Path(abs_download_path).mkdir(parents=True, exist_ok=True)
-            print(f"📁 Configurando descargas en: {abs_download_path}")
+            logger.debug("Configurando descargas en: %s", abs_download_path)
             prefs = {
                 "download.default_directory": abs_download_path,
                 "download.prompt_for_download": False,
@@ -68,7 +71,7 @@ class BrowserManager:
             }
             options.add_experimental_option("prefs", prefs)
         else:
-            print("⚠️ No se especificó ruta de descarga - usando carpeta por defecto del sistema")
+            logger.debug("No se especificó ruta de descarga - usando carpeta por defecto del sistema")
 
         return options
 
@@ -87,23 +90,23 @@ class BrowserManager:
             options.add_argument("--disable-setuid-sandbox")
             options.add_argument("--disable-extensions")
             options.binary_location = "/usr/bin/chromium"
-            print("🐳 Configuración Docker/Chromium aplicada")
+            logger.debug("Configuración Docker/Chromium aplicada")
 
         chromedriver_path = None
         if os.path.exists("/usr/bin/chromedriver"):
             chromedriver_path = "/usr/bin/chromedriver"
-            print(f"🐳 Docker detectado - usando ChromeDriver del sistema: {chromedriver_path}")
+            logger.debug("Docker detectado - usando ChromeDriver del sistema: %s", chromedriver_path)
         elif os.path.exists("/usr/local/bin/chromedriver") and os.path.islink("/usr/local/bin/chromedriver"):
             real_path = os.path.realpath("/usr/local/bin/chromedriver")
             if os.path.exists(real_path):
                 chromedriver_path = real_path
-                print(f"🔗 Usando archivo real del symlink: {chromedriver_path}")
+                logger.debug("Usando archivo real del symlink: %s", chromedriver_path)
             else:
                 chromedriver_path = "/usr/local/bin/chromedriver"
-                print(f"✓ ChromeDriver encontrado en local: {chromedriver_path}")
+                logger.debug("ChromeDriver encontrado en local: %s", chromedriver_path)
         elif shutil.which("chromedriver"):
             chromedriver_path = shutil.which("chromedriver")
-            print(f"✓ ChromeDriver encontrado en PATH: {chromedriver_path}")
+            logger.debug("ChromeDriver encontrado en PATH: %s", chromedriver_path)
 
         service = Service(chromedriver_path) if chromedriver_path else Service()
 
