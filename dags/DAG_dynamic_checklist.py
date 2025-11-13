@@ -51,7 +51,7 @@ def run_dynamic_checklist_scraper() -> str:
     Construye la configuración desde Airflow y ejecuta la extracción Dynamic Checklist.
     """
     # Obtener entorno desde variable de entorno o Airflow Variable
-    env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default_var="dev")
+    env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
 
     # Cargar overrides desde Airflow usando función compartida
     overrides = load_overrides_from_airflow(

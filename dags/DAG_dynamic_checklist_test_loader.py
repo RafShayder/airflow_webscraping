@@ -104,7 +104,7 @@ def get_filepath(**kwargs) -> str:
     
     # Opción 1: Variable de Airflow (máxima prioridad)
     try:
-        file_path = Variable.get("DYNAMIC_CHECKLIST_TEST_FILE", default_var=None)
+        file_path = Variable.get("DYNAMIC_CHECKLIST_TEST_FILE", default=None)
         if file_path:
             logger.info("Usando archivo desde Variable: %s", file_path)
             file_path = str(file_path).strip()
