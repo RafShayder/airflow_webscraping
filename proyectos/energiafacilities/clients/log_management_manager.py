@@ -19,7 +19,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from ..common.dynamic_checklist_constants import (
+from energiafacilities.common import navigate_to_menu_item, navigate_to_submenu, require
+from energiafacilities.common.dynamic_checklist_constants import (
     MENU_INDEX_LOG_MANAGEMENT,
     MENU_LOG_MANAGEMENT,
     SUBMENU_DATA_EXPORT_LOGS,
@@ -29,6 +30,10 @@ from ..common.dynamic_checklist_constants import (
     XPATH_EXPORT_STATUS_CELL,
     XPATH_DOWNLOAD_BUTTON,
     XPATH_CLOSE_PROMPT_BUTTON,
+    XPATH_PAGINATION_TOTAL,
+    CSS_SPLITBUTTON_TEXT,
+    XPATH_SPLITBUTTON_BY_TEXT,
+    BUTTON_REFRESH,
     EXPORT_END_STATES,
     EXPORT_SUCCESS_STATE,
     EXPORT_RUNNING_STATE,
@@ -44,38 +49,26 @@ class LogManagementManager:
     """Maneja el flujo de Log Management para descargas asíncronas."""
 
     def __init__(
-        self, 
-        driver: WebDriver, 
+        self,
+        driver: WebDriver,
         wait: WebDriverWait,
         iframe_manager: Any,
-        navigate_to_menu_with_submenu: Any,
-        switch_to_last_iframe: Any,
-        wait_for_list: Any,
-        click_splitbutton: Any,
         status_timeout: int = 300,
         status_poll_interval: int = 30,
     ):
         """
         Inicializa el manager de Log Management.
-        
+
         Args:
             driver: Instancia de WebDriver
             wait: Instancia de WebDriverWait
             iframe_manager: Manager de iframes para cambiar contexto
-            navigate_to_menu_with_submenu: Función para navegar a menús
-            switch_to_last_iframe: Función para cambiar a último iframe
-            wait_for_list: Función para esperar carga de lista
-            click_splitbutton: Función para hacer clic en splitbuttons
             status_timeout: Timeout máximo para monitorear estado (segundos)
             status_poll_interval: Intervalo entre verificaciones de estado (segundos)
         """
         self.driver = driver
         self.wait = wait
         self.iframe_manager = iframe_manager
-        self.navigate_to_menu_with_submenu = navigate_to_menu_with_submenu
-        self.switch_to_last_iframe = switch_to_last_iframe
-        self.wait_for_list = wait_for_list
-        self.click_splitbutton = click_splitbutton
         self.status_timeout = status_timeout
         self.status_poll_interval = status_poll_interval
 
@@ -84,16 +77,36 @@ class LogManagementManager:
         self.close_export_prompt()
         self.iframe_manager.switch_to_default_content()
         logger.info("📋 Navegando a Log Management...")
-        self.navigate_to_menu_with_submenu(
-            menu_index=MENU_INDEX_LOG_MANAGEMENT,
-            menu_title=MENU_LOG_MANAGEMENT,
-            menu_name=MENU_LOG_MANAGEMENT,
-            submenu_xpath=XPATH_SUBMENU_DATA_EXPORT_LOGS,
-            submenu_name=SUBMENU_DATA_EXPORT_LOGS,
+
+        # Navegar a menú de Log Management
+        require(
+            navigate_to_menu_item(
+                self.driver,
+                self.wait,
+                MENU_INDEX_LOG_MANAGEMENT,
+                MENU_LOG_MANAGEMENT,
+                MENU_LOG_MANAGEMENT,
+                logger=logger,
+            ),
+            f"No se pudo navegar al menú {MENU_LOG_MANAGEMENT}",
         )
+        require(
+            navigate_to_submenu(
+                self.wait,
+                XPATH_SUBMENU_DATA_EXPORT_LOGS,
+                SUBMENU_DATA_EXPORT_LOGS,
+                logger=logger,
+            ),
+            f"No se pudo navegar al submenú {SUBMENU_DATA_EXPORT_LOGS}",
+        )
+
         logger.info("⏳ Cambiando al iframe de Data Export Logs...")
-        self.switch_to_last_iframe(LABEL_DATA_EXPORT_LOGS)
-        self.wait_for_list()
+        require(
+            self.iframe_manager.switch_to_last_iframe(),
+            f"No se pudo encontrar iframe para {LABEL_DATA_EXPORT_LOGS}",
+        )
+
+        self._wait_for_list()
         # Una vez en la tabla de logs, monitorizamos el estado hasta poder descargar.
         self.monitor_log_management()
 
@@ -154,11 +167,38 @@ class LogManagementManager:
     def refresh_export_status(self) -> None:
         """Refresca el estado de la exportación en la tabla."""
         try:
-            from ..common.dynamic_checklist_constants import BUTTON_REFRESH
-            self.click_splitbutton(BUTTON_REFRESH, pause=0)
+            self._click_splitbutton(BUTTON_REFRESH, pause=0)
         except Exception:
             logger.warning("⚠ Error al presionar Refresh", exc_info=True)
         sleep(SLEEP_AFTER_REFRESH)
+
+    def _wait_for_list(self) -> None:
+        """Confirma que la tabla principal esté disponible tras navegar."""
+        logger.info("⏳ Esperando a que cargue la lista...")
+        total_element = self.wait.until(
+            EC.presence_of_element_located((By.XPATH, XPATH_PAGINATION_TOTAL))
+        )
+        logger.info("✓ Lista cargada: %s", total_element.text)
+
+    def _click_splitbutton(self, label: str, pause: int = 2) -> None:
+        """Hace click en un splitbutton por su texto visible."""
+        try:
+            # Intentar selector primario con texto del botón
+            button = self.wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, XPATH_SPLITBUTTON_BY_TEXT.format(label=label))
+                )
+            )
+        except Exception:
+            # Fallback a selector CSS general
+            button = self.wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, CSS_SPLITBUTTON_TEXT))
+            )
+
+        button.click()
+        logger.info("✓ Botón '%s' presionado", label)
+        if pause:
+            sleep(pause)
 
     def find_export_row(self) -> WebElement:
         """Encuentra la fila de la tabla correspondiente a la exportación de Dynamic Checklist."""

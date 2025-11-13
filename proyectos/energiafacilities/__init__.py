@@ -2,22 +2,22 @@
 Paquete energiafacilities: herramientas para automatizar reportes y scraping en Integratel.
 
 API pública:
-    - TeleowsSettings: objeto de configuración unificado (teleows_config.py).
-    - run_gde, run_dynamic_checklist: workflows listos para Airflow/scripts.
+    - GDEConfig, DynamicChecklistConfig: configuración desde config YAML.
     - extraer_gde, extraer_dynamic_checklist: funciones de extracción principales.
+    - run_gde, run_dynamic_checklist: workflows internos (llamados por extraer_*).
+    - setup_logging: configuración de logging.
 """
 
-from .config.teleows_config import TeleowsSettings
-from .core import load_settings, setup_logging
-from .sources.gde.stractor import extraer_gde, run_gde
-from .sources.dynamic_checklist.stractor import extraer_dynamic_checklist, run_dynamic_checklist
+from .core import setup_logging
+from .sources.autin_gde.stractor import GDEConfig, extraer_gde, run_gde
+from .sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist, run_dynamic_checklist
 
 __all__ = [
+    "GDEConfig",
+    "DynamicChecklistConfig",
     "run_gde",
     "run_dynamic_checklist",
     "extraer_gde",
     "extraer_dynamic_checklist",
-    "TeleowsSettings",
-    "load_settings",
     "setup_logging",
 ]

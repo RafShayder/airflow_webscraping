@@ -127,15 +127,13 @@ gde:
   specific_filename: "Console_GDE_export.xlsx"
 
   # Configuración de fechas específica para GDE
-  date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
   last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"
-  table: "web_mm_autin_infogeneral"
-  sheet_name: "Export All Custom"  # Nombre de la pestaña en el Excel
+  table: "gde_tasks"
   if_exists: "replace"         # 'append' | 'replace' | 'fail'
-  page_size: 1000
   chunksize: 10000
   sp_carga: "ods.sp_cargar_gde_tasks"
 
@@ -153,7 +151,7 @@ dynamic_checklist:
   specific_filename: "DynamicChecklist_SubPM.xlsx"
 
   # Configuración de fechas específica para Dynamic Checklist
-  date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
   last_n_days: 60  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD

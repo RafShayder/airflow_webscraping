@@ -113,7 +113,7 @@ teleows:
   download_path: "tmp/teleows"
   max_iframe_attempts: 60
   max_status_attempts: 60
-  options_to_select: "CM,OPM"
+  options_to_select: "CM,OPM" #CM PM PLM // 
   export_overwrite_files: true
   proxy: "${PROXY}"
   headless: true
@@ -125,8 +125,8 @@ gde:
   specific_filename: "Console_GDE_export.xlsx"
 
   # Configuración de fechas específica para GDE
-  date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
-  last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
+  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  last_n_days: 2  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"
@@ -152,7 +152,7 @@ dynamic_checklist:
 
   # Configuración de fechas específica para Dynamic Checklist
   date_mode: 2  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
-  last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
+  last_n_days: 5  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"

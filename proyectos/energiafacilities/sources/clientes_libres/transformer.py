@@ -1,5 +1,5 @@
-from .help.transform_helpers import ejecutar_transformacion
-from core.utils import traerjson,load_config
+from energiafacilities.sources.clientes_libres.help.transform_helpers import ejecutar_transformacion
+from energiafacilities.core.utils import traerjson, load_config
 
 def transformer_clienteslibres(filepath=None):
     

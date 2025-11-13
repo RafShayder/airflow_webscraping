@@ -3,24 +3,27 @@ DAG para ejecutar el scraper de Dynamic Checklist (ejecución manual).
 """
 
 import logging
+import os
 import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
-from airflow.sdk.bases.hook import BaseHook  # type: ignore
 from airflow.sdk import Variable  # type: ignore
 
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities import TeleowsSettings, extraer_dynamic_checklist
-from energiafacilities.sources.dynamic_checklist.loader import (
+from energiafacilities import DynamicChecklistConfig, extraer_dynamic_checklist
+from energiafacilities.core import setup_logging, load_overrides_from_airflow
+from energiafacilities.sources.autin_checklist.loader import (
     load_dynamic_checklist,
     load_single_table,
     TABLAS_DYNAMIC_CHECKLIST
 )
+
+setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 
@@ -34,104 +37,36 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-_SETTINGS_FIELDS = {
-    "username",
-    "password",
-    "download_path",
-    "max_iframe_attempts",
-    "max_status_attempts",
-    "options_to_select",
-    "date_mode",
-    "date_from",
-    "date_to",
-    "last_n_days",
-    "gde_output_filename",
-    "dynamic_checklist_output_filename",
-    "export_overwrite_files",
-    "proxy",
-    "headless",
-}
-
-
-def load_settings_from_airflow(
-    conn_id: str = "teleows_portal",
-    variable_prefix: str = "TELEOWS_",
-    scraper_type: str = "dynamic_checklist",
-) -> TeleowsSettings:
-    overrides: Dict[str, Any] = {}
-    overrides.update(_load_variable_overrides(variable_prefix))
-    conn_overrides = _load_connection_overrides(conn_id)
-    overrides.update(conn_overrides)
-
-    logger.info(
-        "🧩 Generando TeleowsSettings (conn_id=%s, prefix=%s, scraper_type=%s, overrides=%s)",
-        conn_id,
-        variable_prefix,
-        scraper_type,
-        sorted(overrides.keys()),
-    )
-
-    return TeleowsSettings.load_with_overrides(overrides, scraper_type=scraper_type)
-
-
-def _load_connection_overrides(conn_id: str) -> Dict[str, Any]:
-    if not conn_id:
-        return {}
-
-    try:
-        conn = BaseHook.get_connection(conn_id)
-    except Exception as exc:
-        logger.warning("⚠ No se pudo obtener la conexión '%s': %s", conn_id, exc)
-        return {}
-
-    overrides: Dict[str, Any] = {}
-
-    if conn.login:
-        overrides["username"] = conn.login
-    if conn.password:
-        overrides["password"] = conn.password
-
-    extras = getattr(conn, "extra_dejson", {}) or {}
-    if isinstance(extras, dict):
-        for field in _SETTINGS_FIELDS:
-            value = extras.get(field)
-            if value is not None:
-                overrides[field] = value
-
-    return overrides
-
-
-def _load_variable_overrides(prefix: str) -> Dict[str, Any]:
-    if not prefix:
-        return {}
-
-    overrides: Dict[str, Any] = {}
-
-    for field in _SETTINGS_FIELDS:
-        var_name = f"{prefix}{field.upper()}"
-        try:
-            value = Variable.get(var_name)
-        except KeyError:
-            continue
-        except Exception as exc:
-            logger.debug("⚠ No se pudo leer la Variable '%s': %s", var_name, exc)
-            continue
-        overrides[field] = value
-
-    return overrides
+# Campos de configuración específicos de Dynamic Checklist
+DYNAMIC_CHECKLIST_CONFIG_FIELDS = [
+    "username", "password", "download_path", "proxy", "headless",
+    "max_iframe_attempts", "max_status_attempts",
+    "date_mode", "date_from", "date_to", "last_n_days",
+    "dynamic_checklist_output_filename", "export_overwrite_files",
+]
 
 
 def run_dynamic_checklist_scraper() -> str:
     """
     Construye la configuración desde Airflow y ejecuta la extracción Dynamic Checklist.
     """
-    settings = load_settings_from_airflow()
+    # Obtener entorno desde variable de entorno o Airflow Variable
+    env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default_var="dev")
+
+    # Cargar overrides desde Airflow usando función compartida
+    overrides = load_overrides_from_airflow(
+        fields=DYNAMIC_CHECKLIST_CONFIG_FIELDS,
+        conn_id="teleows_portal",
+        variable_prefix="TELEOWS_",
+    )
+
     logger.info("🚀 Iniciando scraper de Dynamic Checklist...")
-    logger.info("🔍 [DEBUG] Settings cargados: date_mode=%s, last_n_days=%s, date_from=%s, date_to=%s",
-               settings.date_mode, settings.last_n_days, settings.date_from, settings.date_to)
+    logger.info("🔍 Entorno: %s", env)
+    logger.info("🔍 Overrides aplicados: %s", list(overrides.keys()))
 
     try:
-        file_path = extraer_dynamic_checklist(settings=settings)
+        # extraer_dynamic_checklist() internamente carga DynamicChecklistConfig con env y overrides
+        file_path = extraer_dynamic_checklist(env=env, overrides=overrides)
         logger.info("✅ Scraper Dynamic Checklist completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:

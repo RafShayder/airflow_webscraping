@@ -32,6 +32,7 @@ class BrowserManager:
         self.extra_args = list(extra_args or [])
         self.driver = None
         self.wait = None
+        self.proxy: Optional[str] = None
 
     def setup_chrome_options(self) -> Options:
         """Prepara la instancia de ``Options`` respetando la configuración del entorno."""
