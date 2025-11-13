@@ -559,6 +559,10 @@ def _apply_gde_manual_dates(
     _confirmar_selector_fecha(driver)
 
     logger.debug("Fechas manuales aplicadas: %s → %s", date_from, date_to)
+    
+    # Asegurar que seguimos en el iframe correcto después de aplicar fechas
+    _switch_to_frame_with(driver, ".ows_filter_title")
+    sleep(DELAY_SHORT)
 
 
 # ========================================================================
