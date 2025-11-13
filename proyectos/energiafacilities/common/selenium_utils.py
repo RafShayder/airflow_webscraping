@@ -142,7 +142,7 @@ def navigate_to_submenu(
 ) -> bool:
     """Selecciona un submenú dentro del panel lateral."""
     wait.until(EC.element_to_be_clickable((By.XPATH, submenu_xpath))).click()
-    logger.info("✓ %s seleccionado", submenu_name)
+    logger.debug("%s seleccionado", submenu_name)
     time.sleep(click_pause)
     return True
 
