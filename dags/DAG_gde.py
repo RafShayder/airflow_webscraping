@@ -16,7 +16,7 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
-from energiafacilities import GDEConfig, extraer_gde
+from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
 from energiafacilities.core import setup_logging, load_overrides_from_airflow
 from energiafacilities.sources.autin_gde.loader import load_gde
 

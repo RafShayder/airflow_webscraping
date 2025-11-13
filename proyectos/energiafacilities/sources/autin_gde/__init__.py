@@ -1,2 +1,0 @@
-# Paquete autin_gde
-

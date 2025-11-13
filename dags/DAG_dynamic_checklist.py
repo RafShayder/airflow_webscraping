@@ -15,7 +15,7 @@ from airflow.sdk import Variable  # type: ignore
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities import DynamicChecklistConfig, extraer_dynamic_checklist
+from energiafacilities.sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist
 from energiafacilities.core import setup_logging, load_overrides_from_airflow
 from energiafacilities.sources.autin_checklist.loader import (
     load_dynamic_checklist,
