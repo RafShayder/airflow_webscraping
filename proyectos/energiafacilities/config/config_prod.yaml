@@ -28,37 +28,34 @@ sftp_energia:
   specific_filename: "reporte-consumo-energia-PD"
   specific_filename2: "reporte-consumo-energia-DA"
   schema: "RAW"
-  table: "SFTP_MM_CONSUMO_SUMINISTRO" # Old not functional
   table_DA: "SFTP_MM_CONSUMO_SUMINISTRO_DA"
   table_PD: "SFTP_MM_CONSUMO_SUMINISTRO_PD"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
-  sp_carga: "ods.sp_cargar_sftp_hm_consumo_suministro" #Old not functional
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   sp_carga_DA: "ods.sp_cargar_sftp_hm_consumo_suministro_da"
   sp_carga_PD: "ods.sp_cargar_sftp_hm_consumo_suministro_pd"
-  errorconfig: {
-    schema: "PUBLIC",
-    table : "error_energia_ultimo_lote",
-    limmit: 100,
-    remote_dir: "/daas/dev/energy-facilities/"
-  }
+  errorconfig:
+    schema: "PUBLIC"
+    table: "error_energia_ultimo_lote"
+    limmit: 100
+    remote_dir: "/daas/prod/energy-facilities/"
 
 #------------Base de sitios-------------------------------------
 
 sftp_base_sitios:
-  remote_dir: "/daas/dev/energy-facilities/base-sitios/input"
+  remote_dir: "/daas/prod/energy-facilities/base-sitios/input"
   local_dir: "tmp/sftp_base_sitios"
   schema: "raw"
   table: "FS_MM_BASE_DE_SITIOS"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   specific_filename: "BASE_SITIOS"
   sp_carga: "ods.sp_cargar_fs_hm_base_de_sitios"
-  
+
 sftp_base_sitios_bitacora:
-  remote_dir: "/daas/dev/energy-facilities/base-sitios/input"
+  remote_dir: "/daas/prod/energy-facilities/base-sitios/input"
   local_dir: "tmp/sftp_base_sitios"
   schema: "RAW"
   table: "FS_MM_BITACORA_BASE_SITIOS"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   specific_filename: "BASE_SITIOS"
   sp_carga: "ods.sp_cargar_fs_hm_bitacora_base_sitios"
 
@@ -66,17 +63,7 @@ sftp_base_sitios_bitacora:
 #--------------web indra--------------------------
 
 webindra_energia:
-  specific_filename: "recibos_energia_indra.xlsx"
-  schema: "raw"
-  table: "web_mm_indra_energia"
-  local_dir: "tmp/web_indra"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
-  errorconfig: {
-    schema: "PUBLIC",
-    table : "error_energia_ultimo_lote",
-    limmit: 100,
-    remote_dir: "/daas/dev/energy-facilities/errors"
-  }
+  # Configuración de scraping
   BASE_URL: "https://recibosttr.com/sistema"
   LOGIN_PATH: "/"
   EXPORT_TMPL: "/sisReportes/exportarRecibosSpoutConsumo/{start}/{end}"
@@ -85,24 +72,41 @@ webindra_energia:
   PERIOD_MONTHS: 2
   TIMEOUT: 120
   MAX_RETRIES: 3
-  PROXY: "${PROXY}"  # Proxy desde variable de entorno (ej: telefonica01.gp.inet:8080)
-  HEADERS: {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "*/*",
-            "Connection": "keep-alive",
-        }
+  PROXY: "${PROXY}"  # Proxy desde variable de entorno
+  HEADERS:
+    User-Agent: "Mozilla/5.0"
+    Accept: "*/*"
+    Connection: "keep-alive"
+
+  # Configuración de archivos
+  local_dir: "tmp/web_indra"
+  specific_filename: "recibos_energia_indra.xlsx"
+
+  # Configuración de carga a BD
+  schema: "raw"
+  table: "web_mm_indra_energia"
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   sp_carga: "ods.sp_cargar_web_hm_indra_energia"
 
-#------Clientes libres-------------------------- -----------------
+  # Configuración de errores
+  errorconfig:
+    schema: "PUBLIC"
+    table: "error_energia_ultimo_lote"
+    limmit: 100
+    remote_dir: "/daas/prod/energy-facilities/errors"
 
+#------Clientes libres-------------------------------------------
 clientes_libres:
-  local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
-  specific_filename: "F-TELEFONICA"
-  remote_dir: "/daas/dev/energy-facilities/recibos-manuales/input/"
+  # Configuración de SFTP
+  remote_dir: "/daas/prod/energy-facilities/recibos-manuales/input/"
   local_dir: "tmp/sftp_clientes_libres"
+  specific_filename: "F-TELEFONICA"
+  local_destination_dir: "tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
+
+  # Configuración de carga a BD
   schema: "raw"
   table: "sftp_mm_clientes_libres"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   sp_carga: "ods.sp_cargar_sftp_hm_clientes_libres"
 
 #------Teleows / Integratel Portal-------------------------------------------
@@ -115,7 +119,7 @@ teleows:
   download_path: "tmp/teleows"
   max_iframe_attempts: 60
   max_status_attempts: 60
-  options_to_select: "CM,OPM"
+  options_to_select: "CM,OPM"  # Opciones para GDE: CM, OPM, PM, PLM
   export_overwrite_files: true
   proxy: "${PROXY}"
   headless: true
@@ -126,14 +130,14 @@ gde:
   local_dir: "tmp/teleows"
   specific_filename: "Console_GDE_export.xlsx"
 
-  # Configuración de fechas específica para GDE
-  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  # Configuración de fechas
+  date_mode: 1  # 1=rango manual (usa last_n_days), 2=último mes automático
   last_n_days: 45  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"
   table: "gde_tasks"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail'
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
   chunksize: 10000
   sp_carga: "ods.sp_cargar_gde_tasks"
 
@@ -150,15 +154,14 @@ dynamic_checklist:
   local_dir: "tmp/teleows"
   specific_filename: "DynamicChecklist_SubPM.xlsx"
 
-  # Configuración de fechas específica para Dynamic Checklist
-  date_mode: 1  # 1=rango manual (usa last_n_days si está configurado), 2=último mes automático
+  # Configuración de fechas
+  date_mode: 1  # 1=rango manual (usa last_n_days), 2=último mes automático
   last_n_days: 60  # Últimos N días desde hoy (solo funciona con date_mode=1)
 
   # Configuración de carga a BD
   schema: "raw"
   table: "dynamic_checklist_tasks"
-  if_exists: "replace"         # 'append' | 'replace' | 'fail' (mantenido para compatibilidad con otros módulos)
-  load_mode: "append"          # Modo específico para dynamic_checklist (siempre append para histórico)
+  load_mode: "append"  # Siempre append para histórico
   chunksize: 10000
   sp_carga: "ods.sp_cargar_dynamic_checklist_tasks"
 
