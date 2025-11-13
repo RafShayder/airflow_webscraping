@@ -76,7 +76,7 @@ class LogManagementManager:
         """Sigue el flujo de Log Management cuando la exportación corre en segundo plano."""
         self.close_export_prompt()
         self.iframe_manager.switch_to_default_content()
-        logger.info("📋 Navegando a Log Management...")
+        logger.info("Navegando a Log Management")
 
         # Navegar a menú de Log Management
         require(
@@ -100,7 +100,7 @@ class LogManagementManager:
             f"No se pudo navegar al submenú {SUBMENU_DATA_EXPORT_LOGS}",
         )
 
-        logger.info("⏳ Cambiando al iframe de Data Export Logs...")
+        logger.debug("Cambiando al iframe de Data Export Logs")
         require(
             self.iframe_manager.switch_to_last_iframe(),
             f"No se pudo encontrar iframe para {LABEL_DATA_EXPORT_LOGS}",
@@ -117,15 +117,15 @@ class LogManagementManager:
                 EC.element_to_be_clickable((By.XPATH, XPATH_CLOSE_PROMPT_BUTTON))
             )
             close_button.click()
-            logger.info("✓ Mensaje de información cerrado")
+            logger.debug("Mensaje de información cerrado")
             sleep(SLEEP_AFTER_PROMPT_CLOSE)
         except Exception:
             # El cierre no es crítico, pero dejamos registro si falla.
-            logger.warning("⚠ No se pudo cerrar el mensaje", exc_info=True)
+            logger.debug("No se pudo cerrar el mensaje", exc_info=True)
 
     def monitor_log_management(self) -> None:
         """Revisa repetidamente el estado de la exportación y dispara la descarga final."""
-        logger.info("🔍 Buscando exportación en progreso...")
+        logger.debug("Buscando exportación en progreso")
         deadline = time.time() + self.status_timeout
         attempt = 0
 
@@ -137,8 +137,8 @@ class LogManagementManager:
                 target_row = self.find_export_row()
                 status = self.get_export_status(target_row)
                 
-                logger.info(
-                    "📊 Status de exportación: %s (intento %s, quedan %.0f s)",
+                logger.debug(
+                    "Status de exportación: %s (intento %s, quedan %.0f s)",
                     status,
                     attempt,
                     max(0, deadline - time.time()),
@@ -151,17 +151,17 @@ class LogManagementManager:
                     raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
 
                 if status != EXPORT_RUNNING_STATE:
-                    logger.warning("⚠ Status inesperado: %s", status)
+                    logger.warning("Status inesperado: %s", status)
 
             except RuntimeError:
                 raise
             except Exception:
-                logger.exception("❌ Error al revisar exportación (intento %s)", attempt)
+                logger.exception("Error al revisar exportación (intento %s)", attempt)
 
             sleep(self.status_poll_interval)
 
         message = "Tiempo máximo de espera alcanzado para la exportación"
-        logger.error("⏱️ %s", message)
+        logger.error("%s", message)
         raise RuntimeError(message)
 
     def refresh_export_status(self) -> None:
@@ -169,16 +169,16 @@ class LogManagementManager:
         try:
             self._click_splitbutton(BUTTON_REFRESH, pause=0)
         except Exception:
-            logger.warning("⚠ Error al presionar Refresh", exc_info=True)
+            logger.debug("Error al presionar Refresh", exc_info=True)
         sleep(SLEEP_AFTER_REFRESH)
 
     def _wait_for_list(self) -> None:
         """Confirma que la tabla principal esté disponible tras navegar."""
-        logger.info("⏳ Esperando a que cargue la lista...")
+        logger.debug("Esperando a que cargue la lista")
         total_element = self.wait.until(
             EC.presence_of_element_located((By.XPATH, XPATH_PAGINATION_TOTAL))
         )
-        logger.info("✓ Lista cargada: %s", total_element.text)
+        logger.debug("Lista cargada: %s", total_element.text)
 
     def _click_splitbutton(self, label: str, pause: int = 2) -> None:
         """Hace click en un splitbutton por su texto visible."""
@@ -196,7 +196,7 @@ class LogManagementManager:
             )
 
         button.click()
-        logger.info("✓ Botón '%s' presionado", label)
+        logger.debug("Botón '%s' presionado", label)
         if pause:
             sleep(pause)
 
@@ -210,9 +210,9 @@ class LogManagementManager:
 
     def download_from_log_table(self, target_row: WebElement) -> None:
         """Descarga el archivo desde la tabla de logs cuando la exportación está completa."""
-        logger.info("✅ Exportación completada exitosamente!")
+        logger.info("Exportación completada exitosamente")
         download_button = target_row.find_element(By.XPATH, XPATH_DOWNLOAD_BUTTON)
         download_button.click()
-        logger.info("✓ Click en 'Download' - archivo descargándose...")
+        logger.debug("Click en 'Download' - archivo descargándose")
         sleep(SLEEP_AFTER_DOWNLOAD_CLICK)
 

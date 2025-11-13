@@ -65,16 +65,16 @@ class DateFilterManager:
                 date_from = date_to - timedelta(days=last_n_days)
                 date_from_str = date_from.strftime('%Y-%m-%d')
                 date_to_str = date_to.strftime('%Y-%m-%d')
-                logger.info("📅 Aplicando últimos %s días: %s → %s",
+                logger.debug("Aplicando últimos %s días: %s → %s",
                            last_n_days, date_from_str, date_to_str)
             else:
                 date_from_str = getattr(settings, 'date_from', None)
                 date_to_str = getattr(settings, 'date_to', None)
                 if not date_from_str or not date_to_str:
-                    logger.warning("⚠️ date_mode=1 pero no hay last_n_days ni date_from/date_to, usando fallback")
+                    logger.warning("date_mode=1 pero no hay last_n_days ni date_from/date_to, usando fallback")
                     self.select_last_month_radio()
                     return
-                logger.info("📅 Aplicando fechas manuales: %s → %s", date_from_str, date_to_str)
+                logger.debug("Aplicando fechas manuales: %s → %s", date_from_str, date_to_str)
 
             # Aplicar fechas usando Create Time (botón + y inputs DESDE/HASTA)
             self.apply_create_time_dates(date_from_str, date_to_str)
@@ -90,49 +90,49 @@ class DateFilterManager:
             date_from_str: Fecha inicial en formato 'YYYY-MM-DD'
             date_to_str: Fecha final en formato 'YYYY-MM-DD'
         """
-        logger.info("🔍 Buscando grupo de radio Create Time y botón '+'...")
+        logger.debug("Buscando grupo de radio Create Time y botón '+'...")
 
         if self._apply_dates_via_createtime_row(date_from_str, date_to_str):
-            logger.info("✅ Fechas aplicadas mediante contenedores de Create Time")
+            logger.debug("Fechas aplicadas mediante contenedores de Create Time")
             return
-        logger.info("⚠️ No se pudo usar contenedores directos, intentando método alternativo")
+        logger.debug("No se pudo usar contenedores directos, intentando método alternativo")
         create_time_row = self._find_createtime_row()
         if not create_time_row:
-            logger.warning("⚠️ No se encontró fila de Create Time, usando fallback a radio button")
+            logger.debug("No se encontró fila de Create Time, usando fallback a radio button")
             self.select_last_month_radio()
             return
 
         if not self._click_createtime_plus_button(create_time_row):
-            logger.warning("⚠️ No se encontró botón '+', usando fallback a radio button")
+            logger.debug("No se encontró botón '+', usando fallback a radio button")
             self.select_last_month_radio()
             return
 
         try:
             date_inputs = self._wait_for_manual_date_inputs(create_time_row)
         except TimeoutException:
-            logger.warning("⚠️ No aparecieron inputs DESDE/HASTA después de abrir Create Time, usando fallback")
+            logger.debug("No aparecieron inputs DESDE/HASTA después de abrir Create Time, usando fallback")
             self.select_last_month_radio()
             return
 
         if len(date_inputs) < 2:
-            logger.warning("⚠️ No se encontraron suficientes inputs de fecha después de hacer clic en '+', usando fallback")
+            logger.debug("No se encontraron suficientes inputs de fecha después de hacer clic en '+', usando fallback")
             self.select_last_month_radio()
             return
 
         input_from, input_to = date_inputs[:2]
 
-        logger.info("📅 Aplicando fecha DESDE: %s", date_from_str)
+        logger.debug("Aplicando fecha DESDE: %s", date_from_str)
         from_ok = self.apply_date_to_input(input_from, f"{date_from_str} 00:00:00", date_from_str, "DESDE")
 
-        logger.info("📅 Aplicando fecha HASTA: %s", date_to_str)
+        logger.debug("Aplicando fecha HASTA: %s", date_to_str)
         to_ok = self.apply_date_to_input(input_to, f"{date_to_str} 23:59:59", date_to_str, "HASTA")
 
         if not (from_ok and to_ok):
-            logger.warning("⚠️ Al menos una fecha no se aplicó correctamente, usando fallback a 'Último mes'")
+            logger.warning("Al menos una fecha no se aplicó correctamente, usando fallback a 'Último mes'")
             self.select_last_month_radio()
             return
 
-        logger.info("✅ Fechas aplicadas exitosamente")
+        logger.info("Fechas aplicadas exitosamente")
 
     def apply_date_to_input(
         self, 
@@ -230,12 +230,12 @@ class DateFilterManager:
             return False
 
         except Exception as error:
-            logger.error("❌ Error al aplicar fecha %s: %s", field_name, error)
+            logger.error("Error al aplicar fecha %s: %s", field_name, error)
             return False
 
     def select_last_month_radio(self) -> None:
         """Marca la opción de rango 'Último mes' dentro del panel de filtros."""
-        logger.info("📅 Seleccionando rango rápido: Último mes")
+        logger.debug("Seleccionando rango rápido: Último mes")
         preferred_labels = ("último mes", "ultimo mes", "last month")
 
         candidate_selectors = [
@@ -273,7 +273,7 @@ class DateFilterManager:
                 target_element = radio_elements[-1]
 
         self._click_radio_element(target_element)
-        logger.info("✓ Rango 'Último mes' seleccionado")
+        logger.debug("Rango 'Último mes' seleccionado")
         sleep(SLEEP_AFTER_RADIO_CLICK)
 
     def _click_radio_element(self, element: WebElement) -> None:
@@ -312,7 +312,7 @@ class DateFilterManager:
             if ("create" in row_text or "create" in row_html) and (
                 "time" in row_text or "time" in row_html
             ):
-                logger.info("✓ Encontrado grupo de radio de Create Time")
+                logger.debug("Encontrado grupo de radio de Create Time")
                 return parent_row
         return None
 
@@ -363,7 +363,7 @@ class DateFilterManager:
             return False
 
         if not self._click_createtime_plus_button(row):
-            logger.warning("⚠️ No se pudo abrir el modo personalizado con el botón '+' fijo")
+            logger.debug("No se pudo abrir el modo personalizado con el botón '+' fijo")
             return False
 
         from_ok = self._set_date_in_createtime_container(
@@ -428,7 +428,7 @@ class DateFilterManager:
                 EC.element_to_be_clickable((By.XPATH, container_xpath))
             )
         except Exception:
-            logger.warning("⚠️ No se encontró contenedor %s para Create Time", label)
+            logger.debug("No se encontró contenedor %s para Create Time", label)
             return False
 
         self._robust_click(container)
@@ -436,14 +436,14 @@ class DateFilterManager:
 
         input_element = self._find_visible_date_input(container)
         if not input_element:
-            logger.warning("⚠️ No se encontró input visible para %s", label)
+            logger.debug("No se encontró input visible para %s", label)
             return False
 
         if not self._fill_date_input(input_element, date_value):
-            logger.warning("⚠️ No se pudo escribir la fecha %s en %s", date_value, label)
+            logger.debug("No se pudo escribir la fecha %s en %s", date_value, label)
             return False
 
-        logger.info("📅 %s aplicado: %s", label, date_value)
+        logger.debug("%s aplicado: %s", label, date_value)
         return True
 
     def _find_visible_date_input(
@@ -503,7 +503,7 @@ class DateFilterManager:
             sleep(0.2)
             return True
         except Exception as exc:
-            logger.error("❌ Error al llenar input de fecha: %s", exc)
+            logger.error("Error al llenar input de fecha: %s", exc)
             return False
 
     def _robust_click(self, element: WebElement) -> bool:

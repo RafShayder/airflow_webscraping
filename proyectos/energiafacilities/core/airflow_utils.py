@@ -55,9 +55,9 @@ def load_overrides_from_airflow(
                 overrides.update(extras)
 
         except ImportError:
-            logger.warning("⚠ Airflow no disponible, omitiendo carga desde Connection")
+            logger.debug("Airflow no disponible, omitiendo carga desde Connection")
         except Exception as exc:
-            logger.warning("⚠ No se pudo obtener la conexión '%s': %s", conn_id, exc)
+            logger.debug("No se pudo obtener la conexión '%s': %s", conn_id, exc)
 
     # Cargar desde Variables de Airflow (sobrescriben connection)
     if variable_prefix and fields:
@@ -72,10 +72,10 @@ def load_overrides_from_airflow(
                 except KeyError:
                     continue
                 except Exception as exc:
-                    logger.debug("⚠ No se pudo leer la Variable '%s': %s", var_name, exc)
+                    logger.debug("No se pudo leer la Variable '%s': %s", var_name, exc)
 
         except ImportError:
-            logger.warning("⚠ Airflow no disponible, omitiendo carga desde Variables")
+            logger.debug("Airflow no disponible, omitiendo carga desde Variables")
 
     logger.info("🧩 Overrides cargados desde Airflow: %s", sorted(overrides.keys()))
     return overrides

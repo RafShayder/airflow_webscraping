@@ -67,21 +67,21 @@ class AuthManager:
                 second_button.click()
 
             if self.verify_login_success():
-                logger.info("✅ Login realizado exitosamente.")
+                logger.info("Login realizado exitosamente")
                 time.sleep(5)
                 return True
 
             lock_message = self._extract_portal_message()
             if lock_message:
-                logger.error("🚫 Login rechazado por el portal: %s", lock_message)
+                logger.error("Login rechazado por el portal: %s", lock_message)
                 raise RuntimeError(lock_message)
 
             message = "Login falló: no se alcanzó la URL de destino."
-            logger.error("❌ %s", message)
+            logger.error("%s", message)
             raise RuntimeError(message)
         except Exception as exc:  # pragma: no cover - captura defensiva
             message = f"Error durante el login: {exc}"
-            logger.error("❌ %s", message, exc_info=True)
+            logger.error("%s", message, exc_info=True)
             raise RuntimeError(message) from exc
 
     def verify_login_success(self, max_wait_seconds: int = 60) -> bool:
@@ -95,24 +95,24 @@ class AuthManager:
             time.sleep(2)
             
             current = self.driver.current_url
-            logger.info("🔍 URL actual después del login: %s", current)
+            logger.debug("URL actual después del login: %s", current)
             
             if "dspcas/login" in current:
-                logger.warning("⚠️ Aún en página de login, el login puede haber fallado")
+                logger.warning("Aún en página de login, el login puede haber fallado")
                 return False
             
             if self.SUCCESS_URL in current:
-                logger.info("✅ URL de éxito confirmada: %s", current)
+                logger.debug("URL de éxito confirmada: %s", current)
                 return True
             
-            logger.warning("⚠️ URL no coincide con el patrón esperado")
+            logger.warning("URL no coincide con el patrón esperado")
             return False
         except TimeoutException:
             current_url = self.driver.current_url
-            logger.error("❌ Timeout esperando redirección. URL actual: %s", current_url)
+            logger.error("Timeout esperando redirección. URL actual: %s", current_url)
             return False
         except Exception as exc:
-            logger.error("❌ Error verificando login: %s", exc, exc_info=True)
+            logger.error("Error verificando login: %s", exc, exc_info=True)
             return False
 
     def _extract_portal_message(self) -> str | None:

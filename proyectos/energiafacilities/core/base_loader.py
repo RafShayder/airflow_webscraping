@@ -284,7 +284,7 @@ class BaseLoaderPostgres:
                     logger.debug(f"Mapeo invertido aplicado (DB ➜ Excel): {len(cols_existentes)} columnas mapeadas")
                     if len(cols_existentes) < len(columnas_originales):
                         cols_no_mapeadas = set(columnas_originales) - set(cols_existentes)
-                        logger.warning(f"⚠️  {len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas: {list(cols_no_mapeadas)[:5]}{'...' if len(cols_no_mapeadas) > 5 else ''}")
+                        logger.warning(f"{len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas: {list(cols_no_mapeadas)[:5]}{'...' if len(cols_no_mapeadas) > 5 else ''}")
                 else:
                     logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
                     raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
@@ -333,7 +333,7 @@ class BaseLoaderPostgres:
                         col_sin_comillas = col_exacta.strip('"')
                         columnas_tabla_exactas[col_sin_comillas.lower()] = col_exacta
             
-            logger.info(f"📊 Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
+            logger.debug(f"Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
             
             # Crear mapeo: nombre del DataFrame (sin comillas) -> nombre exacto en tabla
             # Solo incluir columnas que existan en la tabla
@@ -359,12 +359,12 @@ class BaseLoaderPostgres:
                         cols_para_insert.append(col_tabla_sin_comillas)
                 else:
                     # Columna no encontrada en tabla - omitirla (no intentar insertarla)
-                    logger.warning(f"⚠️  Columna '{col_df_sin_comillas}' del DataFrame no existe en tabla '{validated_table}', será omitida")
+                    logger.debug(f"Columna '{col_df_sin_comillas}' del DataFrame no existe en tabla '{validated_table}', será omitida")
             
             # Filtrar DataFrame para incluir solo columnas que existen en la tabla
             if len(columnas_df_filtradas) < len(df.columns):
                 columnas_omitidas = set(df.columns) - set(columnas_df_filtradas)
-                logger.warning(f"📋 Se omitirán {len(columnas_omitidas)} columnas que no existen en la tabla: {list(columnas_omitidas)[:5]}{'...' if len(columnas_omitidas) > 5 else ''}")
+                logger.debug(f"Se omitirán {len(columnas_omitidas)} columnas que no existen en la tabla: {list(columnas_omitidas)[:5]}{'...' if len(columnas_omitidas) > 5 else ''}")
                 df = df[columnas_df_filtradas]
             
             # Agregar columna fechacarga si se proporciona fecha_carga y la columna existe en la tabla
@@ -380,9 +380,9 @@ class BaseLoaderPostgres:
                         cols_para_insert.append(f'"{col_fechacarga_sin_comillas}"')
                     else:
                         cols_para_insert.append(col_fechacarga_sin_comillas)
-                    logger.info(f"📅 Columna 'fechacarga' agregada con valor: {fecha_carga}")
+                    logger.debug(f"Columna 'fechacarga' agregada con valor: {fecha_carga}")
                 else:
-                    logger.warning(f"⚠️  Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
+                    logger.warning(f"Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
             
             if not cols_para_insert:
                 raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'")
