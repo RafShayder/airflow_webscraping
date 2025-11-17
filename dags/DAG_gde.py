@@ -79,7 +79,11 @@ def procesar_load_gde(**kwargs):
     ti = kwargs['ti']
     linkdata = ti.xcom_pull(task_ids='scrape_gde_report')
     logger.debug("Archivo recibido desde extract: %s", linkdata)
-    return load_gde(filepath=linkdata)
+
+    # Obtener el mismo entorno que se usó en el extract
+    env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
+
+    return load_gde(filepath=linkdata, env=env)
 
 
 with DAG(

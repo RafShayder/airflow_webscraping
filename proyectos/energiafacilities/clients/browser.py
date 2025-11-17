@@ -55,31 +55,57 @@ class BrowserManager:
             proxy_arg = proxy if "://" in proxy else f"http://{proxy}"
             options.add_argument(f"--proxy-server={proxy_arg}")
 
+        # Aplicar extra_args primero, pero filtrar cualquier --lang para evitar conflictos
         for arg in self.extra_args:
+            # Filtrar argumentos de idioma de extra_args para que no sobrescriban nuestro idioma español
+            if arg.startswith("--lang="):
+                logger.debug("Ignorando argumento de idioma de extra_args: %s (usando es-ES)", arg)
+                continue
             options.add_argument(arg)
+
+        # === IDIOMA DEL NAVEGADOR A ESPAÑOL ===
+        # Configurar EXACTAMENTE igual que scraper.py líneas 152-157
+        # SOLO --lang=es-ES (igual que scraper.py línea 152)
+        options.add_argument("--lang=es-ES")
+
+        # Preparar preferencias (igual que scraper.py línea 157)
+        base_prefs = {
+            "intl.accept_languages": "es-ES,es",
+        }
 
         if self.download_path:
             abs_download_path = str(Path(self.download_path).resolve())
             Path(abs_download_path).mkdir(parents=True, exist_ok=True)
             logger.debug("Configurando descargas en: %s", abs_download_path)
-            prefs = {
+            prefs = base_prefs.copy()
+            prefs.update({
+                # Preferencias de descarga
                 "download.default_directory": abs_download_path,
                 "download.prompt_for_download": False,
                 "download.directory_upgrade": True,
                 "safebrowsing.enabled": True,
                 "profile.default_content_settings.popups": 0,
                 "profile.default_content_setting_values.automatic_downloads": 1,
-            }
+            })
             options.add_experimental_option("prefs", prefs)
+            logger.debug("Preferencias configuradas (incluyendo idioma español)")
         else:
-            logger.debug("No se especificó ruta de descarga - usando carpeta por defecto del sistema")
+            # Aún sin download_path, configurar idioma en preferencias
+            options.add_experimental_option("prefs", base_prefs)
+            logger.debug("Preferencias de idioma configuradas")
 
+        logger.info("Idioma del navegador configurado a español (es-ES) - EXACTAMENTE igual que scraper.py")
         return options
 
     def create_driver(self):
         """Devuelve ``(driver, wait)`` configurados según las opciones indicadas."""
         if self.driver is not None:
             return self.driver, self.wait
+
+        # Configurar variables de entorno ANTES de crear el driver para que Chrome las herede
+        os.environ["LANG"] = "es_ES.UTF-8"
+        os.environ["LC_ALL"] = "es_ES.UTF-8"
+        logger.debug("Variables de entorno de idioma configuradas: LANG=es_ES.UTF-8, LC_ALL=es_ES.UTF-8")
 
         options = self.setup_chrome_options()
 

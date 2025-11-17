@@ -118,7 +118,7 @@ class BaseLoaderPostgres:
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
                 try:
                     df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
-                origen = f"Excel ({data})"
+                    origen = f"Excel ({data})"
                 except ValueError as e:
                     # Si falla por nombre de hoja, listar las hojas disponibles
                     if "Worksheet named" in str(e) or "not found" in str(e).lower():
@@ -166,8 +166,8 @@ class BaseLoaderPostgres:
                         FROM pg_catalog.pg_attribute a
                         JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
                         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-                        WHERE n.nspname = %s
-                          AND c.relname = %s
+                        WHERE LOWER(n.nspname) = LOWER(%s)
+                          AND LOWER(c.relname) = LOWER(%s)
                           AND a.attnum > 0
                           AND NOT a.attisdropped
                         ORDER BY a.attnum;
@@ -230,7 +230,7 @@ class BaseLoaderPostgres:
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
                 try:
-                df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
                 except ValueError as e:
                     # Si falla por nombre de hoja, listar las hojas disponibles
                     if "Worksheet named" in str(e) or "not found" in str(e).lower():
@@ -320,8 +320,8 @@ class BaseLoaderPostgres:
                         FROM pg_catalog.pg_attribute a
                         JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
                         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-                        WHERE n.nspname = %s
-                          AND c.relname = %s
+                        WHERE LOWER(n.nspname) = LOWER(%s)
+                          AND LOWER(c.relname) = LOWER(%s)
                           AND a.attnum > 0
                           AND NOT a.attisdropped
                         ORDER BY a.attnum;
@@ -334,6 +334,8 @@ class BaseLoaderPostgres:
                         columnas_tabla_exactas[col_sin_comillas.lower()] = col_exacta
             
             logger.debug(f"Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
+            logger.info(f"Columnas del DataFrame después del mapeo: {list(df.columns)[:10]}{'...' if len(df.columns) > 10 else ''}")
+            logger.info(f"Columnas en la tabla PostgreSQL (primeras 10): {list(columnas_tabla_exactas.keys())[:10]}{'...' if len(columnas_tabla_exactas) > 10 else ''}")
             
             # Crear mapeo: nombre del DataFrame (sin comillas) -> nombre exacto en tabla
             # Solo incluir columnas que existan en la tabla
@@ -385,7 +387,9 @@ class BaseLoaderPostgres:
                     logger.warning(f"Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
             
             if not cols_para_insert:
-                raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'")
+                logger.error(f"Columnas del DataFrame: {list(df.columns)}")
+                logger.error(f"Columnas en la tabla: {list(columnas_tabla_exactas.keys())}")
+                raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'. Columnas del DataFrame: {list(df.columns)[:5]}. Columnas en tabla: {list(columnas_tabla_exactas.keys())[:5]}")
             
             cols = ', '.join(cols_para_insert)
 

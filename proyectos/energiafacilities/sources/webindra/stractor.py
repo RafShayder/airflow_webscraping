@@ -71,15 +71,15 @@ def run_scraper(cfg: dict) -> Path:
             "http": proxy_url,
             "https": proxy_url,
         }
-        logger.info(f"Configurando proxy: {proxy_url}")
+        logger.debug(f"Configurando proxy: {proxy_url}")
 
     # 🔹 Verificar conectividad
     try:
-        logger.info(f"Verificando conectividad con {cfg['BASE_URL']}")
+        logger.debug(f"Verificando conectividad con {cfg['BASE_URL']}")
         resp = session.head(cfg["BASE_URL"], timeout=10, proxies=proxies, verify=False)
         if resp.status_code >= 400:
             raise ConnectionError(f"Conectividad fallida (HTTP {resp.status_code})")
-        logger.info("Conectividad verificada correctamente")
+        logger.debug("Conectividad verificada correctamente")
     except Exception as e:
         logger.error(f"Error de conexión a {cfg['BASE_URL']}: {e}")
         raise
@@ -87,7 +87,7 @@ def run_scraper(cfg: dict) -> Path:
     # 🔹 Login
     try:
         login_url = f"{cfg['BASE_URL'].rstrip('/')}{cfg['LOGIN_PATH']}"
-        logger.info(f"Iniciando sesión en {login_url}")
+        logger.debug(f"Iniciando sesión en {login_url}")
         r = session.get(login_url, timeout=cfg["TIMEOUT"], proxies=proxies, verify=False)
         r.raise_for_status()
 
@@ -113,7 +113,7 @@ def run_scraper(cfg: dict) -> Path:
     data = None
     for attempt in range(1, cfg.get("MAX_RETRIES", 3) + 1):
         try:
-            logger.info(f"Descargando archivo (intento {attempt}) desde {url}")
+            logger.debug(f"Descargando archivo (intento {attempt}) desde {url}")
             r = session.get(url, timeout=cfg["TIMEOUT"], stream=True, proxies=proxies, verify=False)
             r.raise_for_status()
 

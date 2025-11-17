@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from time import sleep
 from datetime import datetime, timedelta
-from typing import Optional, Any, List, Tuple
+from typing import Any, List
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -19,9 +19,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import TimeoutException
 
-from energiafacilities.common.vue_helpers import inject_date_via_javascript
 from energiafacilities.common.dynamic_checklist_constants import (
     RADIO_BUTTON_LAST_MONTH_INDEX,
     CSS_RADIO_BUTTON,
@@ -30,12 +28,11 @@ from energiafacilities.common.dynamic_checklist_constants import (
 
 logger = logging.getLogger(__name__)
 
-CREATETIME_ROW_ID = "createtimeRow"
 CREATETIME_FROM_CONTAINER_XPATH = (
-    "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[1]"
+    "//*[@id='nf1']/div[2]/div[2]/div[1]/div[2]/div[1]/div[1]"
 )
 CREATETIME_TO_CONTAINER_XPATH = (
-    "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[2]"
+    "//*[@id='nf1']/div[2]/div[2]/div[1]/div[2]/div[1]/div[2]"
 )
 
 class DateFilterManager:
@@ -61,10 +58,13 @@ class DateFilterManager:
             # Calcular fechas dinámicamente si last_n_days está configurado
             last_n_days = getattr(settings, 'last_n_days', None)
             if last_n_days is not None:
-                date_to = datetime.now()
-                date_from = date_to - timedelta(days=last_n_days)
-                date_from_str = date_from.strftime('%Y-%m-%d')
-                date_to_str = date_to.strftime('%Y-%m-%d')
+                # fecha_hasta = ayer (igual que scraper.py)
+                hoy = datetime.now().date()
+                date_to_date = hoy - timedelta(days=1)
+                # fecha_desde = N días antes de fecha_hasta
+                date_from_date = date_to_date - timedelta(days=last_n_days)
+                date_from_str = date_from_date.strftime('%Y-%m-%d')
+                date_to_str = date_to_date.strftime('%Y-%m-%d')
                 logger.debug("Aplicando últimos %s días: %s → %s",
                            last_n_days, date_from_str, date_to_str)
             else:
@@ -84,154 +84,392 @@ class DateFilterManager:
 
     def apply_create_time_dates(self, date_from_str: str, date_to_str: str) -> None:
         """
-        Aplica fechas usando Create Time: busca el botón +, abre los inputs y aplica las fechas.
+        Aplica fechas usando Create Time: replica exactamente la lógica de scraper.py.
+        Establece fecha y hora para DESDE, luego fecha y hora para HASTA.
         
         Args:
             date_from_str: Fecha inicial en formato 'YYYY-MM-DD'
             date_to_str: Fecha final en formato 'YYYY-MM-DD'
         """
-        logger.debug("Buscando grupo de radio Create Time y botón '+'...")
-
-        if self._apply_dates_via_createtime_row(date_from_str, date_to_str):
-            logger.debug("Fechas aplicadas mediante contenedores de Create Time")
-            return
-        logger.debug("No se pudo usar contenedores directos, intentando método alternativo")
-        create_time_row = self._find_createtime_row()
-        if not create_time_row:
-            logger.debug("No se encontró fila de Create Time, usando fallback a radio button")
-            self.select_last_month_radio()
-            return
-
-        if not self._click_createtime_plus_button(create_time_row):
-            logger.debug("No se encontró botón '+', usando fallback a radio button")
-            self.select_last_month_radio()
-            return
-
         try:
-            date_inputs = self._wait_for_manual_date_inputs(create_time_row)
-        except TimeoutException:
-            logger.debug("No aparecieron inputs DESDE/HASTA después de abrir Create Time, usando fallback")
+            # Horas por defecto (igual que scraper.py)
+            hora_desde = "00:00:00"
+            hora_hasta = "23:59:59"
+            
+            logger.debug("Aplicando fechas manuales: DESDE %s %s → HASTA %s %s", 
+                         date_from_str, hora_desde, date_to_str, hora_hasta)
+
+            # === DESDE ===
+            logger.debug("Iniciando escritura de fecha DESDE: %s %s", date_from_str, hora_desde)
+            self._click_y_setear_fecha_y_hora(
+                CREATETIME_FROM_CONTAINER_XPATH, 
+                date_from_str, 
+                hora_desde
+            )
+            logger.debug("Fecha DESDE aplicada: %s %s", date_from_str, hora_desde)
+            sleep(1.5)  # Esperar un poco más para que el popper se cierre completamente
+
+            # Verificar que no haya poppers abiertos antes de continuar con HASTA
+            for _ in range(10):
+                open_pickers = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    '.el-picker-panel.el-date-picker.has-time'
+                )
+                all_closed = True
+                for p in open_pickers:
+                    style = p.get_attribute('style') or ''
+                    if 'display: none' not in style and p.is_displayed():
+                        all_closed = False
+                        break
+                if all_closed:
+                    break
+                sleep(0.2)
+
+            # === HASTA ===
+            logger.debug("Iniciando escritura de fecha HASTA: %s %s", date_to_str, hora_hasta)
+            self._click_y_setear_fecha_y_hora(
+                CREATETIME_TO_CONTAINER_XPATH, 
+                date_to_str, 
+                hora_hasta
+            )
+            logger.debug("Fecha HASTA aplicada: %s %s", date_to_str, hora_hasta)
+            sleep(1)  # Igual que scraper.py línea 581: time.sleep(1)
+
+            logger.info("Fechas aplicadas exitosamente: %s %s → %s %s", 
+                       date_from_str, hora_desde, date_to_str, hora_hasta)
+        except Exception as e:
+            logger.warning("Error al aplicar fechas manuales: %s, usando fallback a 'Último mes'", e)
             self.select_last_month_radio()
-            return
 
-        if len(date_inputs) < 2:
-            logger.debug("No se encontraron suficientes inputs de fecha después de hacer clic en '+', usando fallback")
-            self.select_last_month_radio()
-            return
-
-        input_from, input_to = date_inputs[:2]
-
-        logger.debug("Aplicando fecha DESDE: %s", date_from_str)
-        from_ok = self.apply_date_to_input(input_from, f"{date_from_str} 00:00:00", date_from_str, "DESDE")
-
-        logger.debug("Aplicando fecha HASTA: %s", date_to_str)
-        to_ok = self.apply_date_to_input(input_to, f"{date_to_str} 23:59:59", date_to_str, "HASTA")
-
-        if not (from_ok and to_ok):
-            logger.warning("Al menos una fecha no se aplicó correctamente, usando fallback a 'Último mes'")
-            self.select_last_month_radio()
-            return
-
-        logger.info("Fechas aplicadas exitosamente")
-
-    def apply_date_to_input(
-        self, 
-        input_element: WebElement, 
-        date_value: str, 
-        date_display: str, 
-        field_name: str
-    ) -> bool:
+    def _click_y_setear_fecha_y_hora(self, container_xpath: str, fecha: str, hora: str) -> None:
         """
-        Aplica una fecha a un input usando JavaScript y Vue.
+        Replica exactamente la lógica de scraper.py para establecer fecha y hora en el selector.
+        Primero establece la fecha, luego la hora, ambos con sus respectivos inputs.
         
         Args:
-            input_element: Elemento input del date picker
-            date_value: Valor completo con hora (ej: '2025-09-27 00:00:00')
-            date_display: Valor de fecha sin hora (ej: '2025-09-27')
-            field_name: Nombre del campo ('DESDE' o 'HASTA')
+            container_xpath: XPATH del contenedor (DESDE o HASTA) - usado como fallback
+            fecha: Fecha en formato string (YYYY-MM-DD)
+            hora: Hora en formato string (HH:MM:SS)
             
-        Returns:
-            True si la fecha se aplicó correctamente, False en caso contrario
+        Raises:
+            RuntimeError: Si no se encuentra el input de fecha o hora, o no se puede escribir
+        """
+        # 1) Buscar el row de Create time específicamente (no Complete time)
+        create_time_row = None
+        try:
+            all_rows = self.driver.find_elements(By.CSS_SELECTOR, '.el-row.ows_filter_row, .ows_filter_row')
+            for row in all_rows:
+                row_text = row.text or ""
+                if "Create time" in row_text or "Create Time" in row_text:
+                    create_time_row = row
+                    break
+        except Exception:
+            pass
+
+        if create_time_row is None:
+            raise RuntimeError("No se encontró el row de Create time.")
+
+        # 2) Intenta abrir el modo "intervalo personalizado" con el botón + dentro de Create time
+        try:
+            # Buscar el botón + específicamente dentro del row de Create time
+            plus = create_time_row.find_element(
+                By.CSS_SELECTOR,
+                ".ows_datetime_interval_customer_text.el-icon-circle-plus"
+            )
+            if plus.is_displayed():
+                self._robust_click_element(plus)
+                sleep(1)
+        except Exception:
+            # Si no existe el botón + (ya está abierto con el-icon-remove), continuar
+            pass
+
+        # 3) Buscar el contenedor de fechas personalizadas dentro de Create time y el input base
+        input_base = None
+        try:
+            # Buscar el contenedor específicamente dentro del row de Create time
+            customer_container = create_time_row.find_element(
+                By.CSS_SELECTOR,
+                ".ows_datetime_interval_customer"
+            )
+            # Buscar el input DESDE (primero) o HASTA (segundo) según el container_xpath
+            # Verificar el ÚLTIMO div del XPath, no si contiene div[1] en cualquier parte
+            inputs = customer_container.find_elements(By.CSS_SELECTOR, 'input.el-input__inner')
+            # El XPath termina en div[1] para DESDE o div[2] para HASTA
+            if container_xpath.endswith("div[1]"):
+                # Es DESDE (primer input)
+                input_base = inputs[0] if len(inputs) > 0 else None
+                logger.debug("Identificado como DESDE (primer input)")
+            elif container_xpath.endswith("div[2]"):
+                # Es HASTA (segundo input)
+                input_base = inputs[1] if len(inputs) > 1 else inputs[0] if len(inputs) > 0 else None
+                logger.debug("Identificado como HASTA (segundo input)")
+            else:
+                # Fallback: usar el primer input
+                input_base = inputs[0] if len(inputs) > 0 else None
+                logger.warning(f"No se pudo identificar DESDE/HASTA del XPath: {container_xpath}")
+        except Exception:
+            # Fallback: usar XPath original
+            try:
+                cont = self.wait.until(
+                    EC.element_to_be_clickable((By.XPATH, container_xpath))
+                )
+                input_base = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner')
+            except Exception:
+                pass
+
+        if input_base is None:
+            raise RuntimeError("No se encontró el input base para fecha/hora.")
+
+        # 4) Cerrar cualquier popper abierto antes de abrir uno nuevo
+        try:
+            # Cerrar poppers abiertos presionando ESC o click fuera
+            open_pickers = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                '.el-picker-panel.el-date-picker.has-time'
+            )
+            for picker in open_pickers:
+                style = picker.get_attribute('style') or ''
+                if 'display: none' not in style and picker.is_displayed():
+                    # Cerrar el popper presionando ESC
+                    self.driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    sleep(0.3)
+                    break
+        except Exception:
+            pass
+
+        # 5) Hacer click en el input base para abrir el popper
+        self._robust_click_element(input_base)
+        sleep(1)
+
+        # 6) Esperar a que el popper sea visible (el que tiene has-time y no tiene display: none)
+        picker = None
+        for _ in range(30):  # Esperar hasta 3 segundos (30 * 0.1s)
+            try:
+                all_pickers = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    '.el-picker-panel.el-date-picker.has-time'
+                )
+                for p in all_pickers:
+                    style = p.get_attribute('style') or ''
+                    if p.is_displayed() and 'display: none' not in style:
+                        # Verificar que tenga los inputs que necesitamos
+                        fecha_inputs = p.find_elements(
+                            By.CSS_SELECTOR,
+                            'input[placeholder="Seleccionar fecha"]'
+                        )
+                        if len(fecha_inputs) > 0:
+                            picker = p
+                            break
+                if picker:
+                    break
+            except Exception:
+                pass
+            sleep(0.1)
+
+        if picker is None:
+            raise RuntimeError("El popper de fecha no se hizo visible después de hacer click.")
+
+        # 7) Buscar input "Seleccionar fecha" dentro del popper visible
+        target = None
+        try:
+            inputs_fecha = picker.find_elements(
+                By.CSS_SELECTOR,
+                'input.el-input__inner[placeholder="Seleccionar fecha"]'
+            )
+            for el in inputs_fecha:
+                if el.is_displayed() and el.is_enabled():
+                    target = el
+                    break
+        except Exception:
+            pass
+
+        if target is None:
+            raise RuntimeError("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
+
+        # Escribir la FECHA de forma robusta
+        try:
+            # Asegurarse de que el input esté enfocado
+            target.click()
+            sleep(0.5)
+            # Limpiar el input
+            target.send_keys(Keys.CONTROL, 'a')
+            target.send_keys(Keys.DELETE)
+            sleep(0.2)
+            # Escribir la fecha
+            target.send_keys(fecha)
+            sleep(0.3)
+            # Disparar eventos para que el framework detecte el cambio
+            self.driver.execute_script(
+                "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+                "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+                target
+            )
+            sleep(0.3)
+            # Presionar ENTER para confirmar la fecha
+            target.send_keys(Keys.ENTER)
+            sleep(0.5)
+            
+            # Verificar que la fecha se escribió correctamente
+            fecha_escrita = target.get_attribute('value') or ''
+            if fecha not in fecha_escrita and fecha_escrita:
+                logger.warning(f"Fecha escrita no coincide. Esperado: {fecha}, Obtenido: {fecha_escrita}")
+        except Exception as e:
+            raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
+
+        # 8) Buscar input "Seleccionar hora" dentro del mismo popper visible
+        time_input = None
+        # Esperar a que el input de hora esté disponible
+        for _ in range(20):  # Esperar hasta 2 segundos
+            try:
+                inputs_hora = picker.find_elements(
+                    By.CSS_SELECTOR,
+                    'input.el-input__inner[placeholder="Seleccionar hora"]'
+                )
+                for el in inputs_hora:
+                    if el.is_displayed() and el.is_enabled():
+                        time_input = el
+                        break
+                if time_input:
+                    break
+            except Exception:
+                pass
+            sleep(0.1)
+
+        if time_input is None:
+            raise RuntimeError("No se encontró el input 'Seleccionar hora' o no está visible.")
+
+        try:
+            # Hacer scroll y click en el input de hora (igual que scraper.py línea 550)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", time_input
+            )
+            sleep(0.2)
+            time_input.click()
+            sleep(0.5)  # Igual que scraper.py línea 551
+            
+            # Limpiar el input de forma más agresiva (la hora actual puede estar pre-llenada)
+            # Intentar borrar múltiples veces para asegurar que se borre la hora por defecto
+            for _ in range(3):
+                time_input.send_keys(Keys.CONTROL, 'a')
+                time_input.send_keys(Keys.DELETE)
+                # También intentar con COMMAND en Mac
+                try:
+                    time_input.send_keys(Keys.COMMAND, 'a')
+                    time_input.send_keys(Keys.DELETE)
+                except Exception:
+                    pass
+                sleep(0.1)
+            
+            # Verificar que esté vacío antes de escribir (usar JavaScript si es necesario)
+            valor_antes = time_input.get_attribute('value') or ''
+            if valor_antes:
+                # Si aún tiene valor, usar JavaScript para limpiarlo directamente
+                self.driver.execute_script("arguments[0].value = '';", time_input)
+                sleep(0.2)
+            
+            # Escribir la hora completa HH:MM:SS (igual que scraper.py línea 554)
+            # scraper.py escribe la hora completa, no solo HH:MM
+            time_input.send_keys(hora)
+            sleep(0.3)
+            
+            # Disparar eventos (igual que scraper.py línea 555-559)
+            self.driver.execute_script(
+                "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+                "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+                time_input
+            )
+            sleep(0.3)
+            
+            # Presionar ENTER (igual que scraper.py línea 560)
+            time_input.send_keys(Keys.ENTER)
+            sleep(1)  # Igual que scraper.py línea 561: time.sleep(1)
+            
+            # Verificar que la hora se escribió
+            hora_escrita = time_input.get_attribute('value') or ''
+            logger.debug(f"Hora escrita: {hora_escrita}")
+            
+            # Si la hora no se aplicó correctamente, intentar confirmar con el botón del time panel
+            if hora not in hora_escrita and hora_escrita:
+                try:
+                    # Buscar el botón "Confirmar" del time panel si está visible
+                    time_panel = picker.find_element(By.CSS_SELECTOR, '.el-time-panel')
+                    if time_panel and time_panel.is_displayed():
+                        confirm_btn = time_panel.find_element(
+                            By.CSS_SELECTOR,
+                            'button.el-time-panel__btn.confirm'
+                        )
+                        if confirm_btn and confirm_btn.is_displayed():
+                            confirm_btn.click()
+                            sleep(0.5)
+                except Exception:
+                    pass
+        except Exception as e:
+            raise RuntimeError(f"No se pudo escribir la hora '{hora}': {e}")
+
+        # 9) Cerrar el popper de forma más agresiva
+        try:
+            # Intentar encontrar y presionar el botón "Confirmar"
+            confirm_buttons = picker.find_elements(
+                By.CSS_SELECTOR,
+                'button.el-picker-panel__link-btn'
+            )
+            for btn in confirm_buttons:
+                btn_text = btn.text or ""
+                if btn.is_displayed() and ('Confirmar' in btn_text or 'Confirm' in btn_text):
+                    btn.click()
+                    sleep(0.5)
+                    break
+        except Exception:
+            pass
+        
+        # Asegurarse de que el popper se cierre (múltiples intentos)
+        for _ in range(3):
+            try:
+                # Verificar si el popper sigue abierto
+                open_pickers = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    '.el-picker-panel.el-date-picker.has-time'
+                )
+                still_open = False
+                for p in open_pickers:
+                    style = p.get_attribute('style') or ''
+                    if 'display: none' not in style and p.is_displayed():
+                        still_open = True
+                        break
+                
+                if still_open:
+                    # Presionar ESC
+                    self.driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    sleep(0.3)
+                else:
+                    break
+            except Exception:
+                break
+        
+        # Esperar un poco más para asegurar que el popper se cerró completamente
+        sleep(0.5)
+
+    def _robust_click_element(self, element: WebElement) -> bool:
+        """
+        Intenta click con varias estrategias (igual que robust_click de scraper.py).
         """
         try:
-            # Hacer scroll y abrir date picker
+            element.click()
+            return True
+        except Exception:
             try:
                 self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});", input_element
+                    "arguments[0].scrollIntoView({block:'center'});", element
                 )
-                wait = WebDriverWait(self.driver, 5)
-                wait.until(EC.element_to_be_clickable(input_element))
-                try:
-                    input_element.click()
-                except Exception:
-                    self.driver.execute_script("arguments[0].click();", input_element)
-            except Exception:
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});", input_element
-                )
-                self.driver.execute_script("arguments[0].click();", input_element)
-
-            sleep(0.3)  # Esperar a que se abra el date picker
-
-            expected_date_str, expected_date_with_time = self._build_expected_date_values(
-                date_display, field_name
-            )
-
-            # Usar helper de vue_helpers
-            inject_date_via_javascript(
-                self.driver, input_element, date_value, date_display
-            )
-
-            sleep(0.2)  # Esperar a que se procese
-
-            picker_visible = self._is_picker_visible()
-            confirm_clicked = False
-
-            if not picker_visible:
-                input_value_after_enter = input_element.get_attribute("value") or ""
-                if self._value_matches_expected(
-                    input_value_after_enter,
-                    date_display,
-                    expected_date_str,
-                    expected_date_with_time,
-                ):
-                    confirm_clicked = True
-                else:
-                    # Volver a abrir el picker para confirmar
-                    try:
-                        input_element.click()
-                        sleep(0.3)
-                        picker_visible = self._is_picker_visible()
-                    except Exception:
-                        pass
-
-            if picker_visible and not confirm_clicked:
-                confirm_clicked = self._confirm_picker_value(
-                    input_element,
-                    date_display,
-                    expected_date_str,
-                    expected_date_with_time,
-                )
-
-            sleep(0.3)  # Esperar para que se procese
-
-            final_value = input_element.get_attribute("value") or ""
-            if self._value_matches_expected(
-                final_value, date_display, expected_date_str, expected_date_with_time
-            ):
+                sleep(0.2)
+                element.click()
                 return True
-
-            logger.warning(
-                "⚠️ La fecha no se aplicó correctamente para %s. Esperado: '%s', Obtenido: '%s'",
-                field_name,
-                date_display,
-                final_value,
-            )
-            return False
-
-        except Exception as error:
-            logger.error("Error al aplicar fecha %s: %s", field_name, error)
-            return False
+            except Exception:
+                try:
+                    self.driver.execute_script("arguments[0].click();", element)
+                    return True
+                except Exception:
+                    return False
 
     def select_last_month_radio(self) -> None:
         """Marca la opción de rango 'Último mes' dentro del panel de filtros."""
@@ -295,351 +533,3 @@ class DateFilterManager:
             pass
 
         self.driver.execute_script("arguments[0].click();", element)
-
-    def _find_createtime_row(self) -> Optional[WebElement]:
-        """Localiza la fila que contiene los radios de Create Time."""
-        radio_groups = self.driver.find_elements(By.CSS_SELECTOR, ".el-radio-group")
-        for group in radio_groups:
-            try:
-                parent_row = group.find_element(
-                    By.XPATH, "./ancestor::div[contains(@class, 'el-row')]"
-                )
-            except Exception:
-                continue
-
-            row_text = (parent_row.text or "").strip().lower()
-            row_html = (parent_row.get_attribute("outerHTML") or "").lower()
-            if ("create" in row_text or "create" in row_html) and (
-                "time" in row_text or "time" in row_html
-            ):
-                logger.debug("Encontrado grupo de radio de Create Time")
-                return parent_row
-        return None
-
-    def _wait_for_manual_date_inputs(
-        self, container: Optional[WebElement], timeout: int = 5
-    ) -> List[WebElement]:
-        """Espera a que aparezcan los inputs personalizados DESDE/HASTA."""
-        if container is None:
-            return []
-
-        wait = WebDriverWait(self.driver, timeout)
-        wait.until(lambda _: len(self._locate_manual_date_inputs(container)) >= 2)
-        return self._locate_manual_date_inputs(container)
-
-    def _locate_manual_date_inputs(self, container: Optional[WebElement]) -> List[WebElement]:
-        """Devuelve los inputs de texto asociados al row Create Time."""
-        if container is None:
-            return []
-
-        try:
-            inputs = container.find_elements(
-                By.CSS_SELECTOR, "input.el-input__inner[placeholder]"
-            )
-        except Exception:
-            return []
-
-        placeholders = ("seleccionar fecha", "seleccionar", "select date", "fecha", "date")
-        visible_inputs: List[WebElement] = []
-        for element in inputs:
-            try:
-                if not element.is_displayed() or not element.is_enabled():
-                    continue
-                placeholder = (element.get_attribute("placeholder") or "").strip().lower()
-                if any(word in placeholder for word in placeholders):
-                    visible_inputs.append(element)
-            except Exception:
-                continue
-
-        return visible_inputs
-
-    def _apply_dates_via_createtime_row(
-        self, date_from: str, date_to: str
-    ) -> bool:
-        """Intenta aplicar fechas usando los contenedores fijos del row Create Time."""
-        try:
-            row = self.driver.find_element(By.ID, CREATETIME_ROW_ID)
-        except Exception:
-            return False
-
-        if not self._click_createtime_plus_button(row):
-            logger.debug("No se pudo abrir el modo personalizado con el botón '+' fijo")
-            return False
-
-        from_ok = self._set_date_in_createtime_container(
-            CREATETIME_FROM_CONTAINER_XPATH, date_from, "DESDE", row
-        )
-        to_ok = self._set_date_in_createtime_container(
-            CREATETIME_TO_CONTAINER_XPATH, date_to, "HASTA", row
-        )
-        self._ensure_picker_closed()
-        return from_ok and to_ok
-
-    def _click_createtime_plus_button(self, context: Optional[WebElement]) -> bool:
-        """Intenta abrir el selector personalizado haciendo clic en el botón '+'."""
-        selectors = [
-            ".ows_datetime_interval_customer_text.el-icon-circle-plus",
-            ".ows_datetime_interval_customer_container .el-icon-circle-plus",
-            ".el-icon-circle-plus",
-        ]
-
-        scopes: List[Any] = []
-        if context is not None:
-            scopes.append(context)
-        scopes.append(self.driver)
-
-        for scope in scopes:
-            for selector in selectors:
-                try:
-                    button = scope.find_element(By.CSS_SELECTOR, selector)  # type: ignore[attr-defined]
-                except AttributeError:
-                    button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                except Exception:
-                    continue
-
-                try:
-                    displayed = button.is_displayed()
-                    enabled = button.is_enabled()
-                except Exception:
-                    continue
-
-                if displayed and enabled:
-                    try:
-                        button.click()
-                    except Exception:
-                        self.driver.execute_script("arguments[0].click();", button)
-                    sleep(0.2)
-                    return True
-        return False
-
-    def _set_date_in_createtime_container(
-        self,
-        container_xpath: str,
-        date_value: str,
-        label: str,
-        context_row: Optional[WebElement] = None,
-    ) -> bool:
-        """Selecciona el contenedor indicado y aplica la fecha provista."""
-        if context_row is not None:
-            self._click_createtime_plus_button(context_row)
-
-        try:
-            container = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, container_xpath))
-            )
-        except Exception:
-            logger.debug("No se encontró contenedor %s para Create Time", label)
-            return False
-
-        self._robust_click(container)
-        sleep(0.2)
-
-        input_element = self._find_visible_date_input(container)
-        if not input_element:
-            logger.debug("No se encontró input visible para %s", label)
-            return False
-
-        if not self._fill_date_input(input_element, date_value):
-            logger.debug("No se pudo escribir la fecha %s en %s", date_value, label)
-            return False
-
-        logger.debug("%s aplicado: %s", label, date_value)
-        return True
-
-    def _find_visible_date_input(
-        self, container: Optional[WebElement]
-    ) -> Optional[WebElement]:
-        """Devuelve el input visible de fecha, priorizando el contenedor activo."""
-        placeholders = ("seleccionar fecha", "seleccionar", "select date", "select", "fecha", "date")
-
-        if container is not None:
-            try:
-                inner_inputs = container.find_elements(
-                    By.CSS_SELECTOR, "input.el-input__inner[placeholder]"
-                )
-                for element in inner_inputs:
-                    try:
-                        if element.is_displayed() and element.is_enabled():
-                            return element
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-
-        inputs = self.driver.find_elements(
-            By.CSS_SELECTOR, "input.el-input__inner[placeholder]"
-        )
-        for element in inputs:
-            try:
-                if not element.is_displayed() or not element.is_enabled():
-                    continue
-            except Exception:
-                continue
-            placeholder = (element.get_attribute("placeholder") or "").lower()
-            if any(word in placeholder for word in placeholders):
-                return element
-
-        return None
-
-    def _fill_date_input(self, input_element: WebElement, date_value: str) -> bool:
-        """Escribe la fecha en el input usando eventos compatibles con Element UI."""
-        try:
-            input_element.click()
-            sleep(0.1)
-            input_element.send_keys(Keys.CONTROL, "a")
-            input_element.send_keys(Keys.DELETE)
-            try:
-                input_element.send_keys(Keys.COMMAND, "a")
-                input_element.send_keys(Keys.DELETE)
-            except Exception:
-                pass
-            input_element.send_keys(date_value)
-            self.driver.execute_script(
-                "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
-                "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
-                input_element,
-            )
-            input_element.send_keys(Keys.ENTER)
-            sleep(0.2)
-            return True
-        except Exception as exc:
-            logger.error("Error al llenar input de fecha: %s", exc)
-            return False
-
-    def _robust_click(self, element: WebElement) -> bool:
-        """Replica el click resiliente del script original."""
-        try:
-            element.click()
-            return True
-        except Exception:
-            pass
-
-        try:
-            self.driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'});", element
-            )
-            sleep(0.2)
-            element.click()
-            return True
-        except Exception:
-            pass
-
-        try:
-            self.driver.execute_script("arguments[0].click();", element)
-            return True
-        except Exception:
-            return False
-
-    def _ensure_picker_closed(self) -> None:
-        """Cierra paneles de fecha abiertos para liberar el botón de filtros."""
-        for _ in range(3):
-            try:
-                panels = self.driver.find_elements(
-                    By.CSS_SELECTOR, ".el-picker-panel, .el-date-picker"
-                )
-                visible = [panel for panel in panels if panel.is_displayed()]
-                if not visible:
-                    return
-                body = self.driver.find_element(By.TAG_NAME, "body")
-                body.send_keys(Keys.ESCAPE)
-                sleep(0.2)
-            except Exception:
-                try:
-                    self.driver.execute_script("document.body.click();")
-                    sleep(0.2)
-                except Exception:
-                    break
-
-    def _build_expected_date_values(self, date_display: str, field_name: str) -> Tuple[str, str]:
-        """Genera pares esperados (fecha simple, fecha con hora) para validar inputs."""
-        date_parts = date_display.split("-")
-        if len(date_parts) == 3:
-            target_year = int(date_parts[0].strip())
-            target_month = int(date_parts[1].strip())
-            day_part = date_parts[2].strip().split()[0]
-            target_day = int(day_part)
-            expected_date_str = f"{target_year}-{target_month:02d}-{target_day:02d}"
-            expected_date_with_time = (
-                f"{expected_date_str} 00:00:00"
-                if field_name == "DESDE"
-                else f"{expected_date_str} 23:59:59"
-            )
-        else:
-            expected_date_str = date_display
-            expected_date_with_time = date_display
-
-        return expected_date_str, expected_date_with_time
-
-    def _value_matches_expected(
-        self,
-        value: str,
-        date_display: str,
-        expected_date_str: str,
-        expected_date_with_time: str,
-    ) -> bool:
-        """Verifica si el valor del input coincide con alguna de las combinaciones esperadas."""
-        normalized_value = value or ""
-        alt_display = date_display.replace("-", "/")
-        patterns = [
-            date_display,
-            alt_display if alt_display != date_display else "",
-            expected_date_str,
-            expected_date_with_time,
-        ]
-        return any(pattern and pattern in normalized_value for pattern in patterns)
-
-    def _confirm_picker_value(
-        self,
-        input_element: WebElement,
-        date_display: str,
-        expected_date_str: str,
-        expected_date_with_time: str,
-    ) -> bool:
-        """Busca y presiona el botón Confirmar cuando el picker está visible."""
-        confirm_selectors = [
-            ".el-picker-panel__footer button.el-picker-panel__link-btn",
-            ".el-picker-panel__footer button",
-        ]
-
-        input_value_before = input_element.get_attribute("value") or ""
-        if not self._value_matches_expected(
-            input_value_before, date_display, expected_date_str, expected_date_with_time
-        ):
-            return False
-
-        for selector in confirm_selectors:
-            try:
-                confirm_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-            except Exception:
-                continue
-
-            for btn in confirm_buttons:
-                try:
-                    btn_text = btn.text.strip()
-                except Exception:
-                    continue
-                if btn.is_displayed() and btn.is_enabled() and btn_text == "Confirmar":
-                    try:
-                        btn.click()
-                    except Exception:
-                        self.driver.execute_script("arguments[0].click();", btn)
-                    sleep(0.3)
-                    return True
-        return False
-
-    def _is_picker_visible(self) -> bool:
-        """Indica si alguno de los paneles de fecha está visible actualmente."""
-        try:
-            picker_panels = self.driver.find_elements(
-                By.CSS_SELECTOR, ".el-picker-panel, .el-date-picker"
-            )
-        except Exception:
-            return False
-
-        for panel in picker_panels:
-            try:
-                if panel.is_displayed():
-                    return True
-            except Exception:
-                continue
-        return False

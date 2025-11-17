@@ -63,7 +63,8 @@ from energiafacilities.core.utils import load_config, default_download_path
 logger = logging.getLogger(__name__)
 
 # Constantes de selectores XPATH
-FILTER_BUTTON_XPATH = "//span[.//i[contains(@class,'el-icon-caret-right')] and contains(normalize-space(),'Filtrar')]"
+# Igual que scraper.py línea 597
+FILTER_BUTTON_XPATH = "//span[contains(@class,'sdm_splitbutton_text') and normalize-space()='Filtrar']"
 CREATETIME_FROM_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[1]"
 CREATETIME_TO_XPATH = "//*[@id='createtimeRow']/div[2]/div[2]/div/div[2]/div/div[2]"
 
@@ -86,6 +87,8 @@ class GDEConfig:
     date_from: Optional[str] = None
     date_to: Optional[str] = None
     last_n_days: Optional[int] = None
+    hora_desde: str = "00:00:00"
+    hora_hasta: str = "23:59:59"
     gde_output_filename: Optional[str] = None
     max_iframe_attempts: int = 60
     max_status_attempts: int = 60
@@ -133,6 +136,8 @@ class GDEConfig:
             date_from=combined.get("date_from"),
             date_to=combined.get("date_to"),
             last_n_days=int(combined["last_n_days"]) if combined.get("last_n_days") else None,
+            hora_desde=combined.get("hora_desde", "00:00:00"),
+            hora_hasta=combined.get("hora_hasta", "23:59:59"),
             gde_output_filename=combined.get("specific_filename") or combined.get("gde_output_filename"),
             max_iframe_attempts=int(combined.get("max_iframe_attempts", 60)),
             max_status_attempts=int(combined.get("max_status_attempts", 60)),
@@ -229,6 +234,7 @@ class GDEWorkflow:
             self.date_filter_manager.apply_date_filters(self.config)
         
         _apply_filters(self.driver)
+        sleep(DELAY_VERY_LONG)  # Igual que scraper.py línea 605: sleep(2)
     
     def _export_and_download(self) -> Path:
         """Ejecuta la exportación y maneja la descarga del archivo."""
@@ -395,94 +401,118 @@ def _wait_for_filters_to_apply(driver, wait: WebDriverWait) -> None:
 # ========================================================================
 
 def _resolve_manual_date_range(config: GDEConfig) -> tuple[Optional[str], Optional[str]]:
-    """Resuelve el rango de fechas desde la configuración."""
+    """Resuelve el rango de fechas desde la configuración.
+    
+    Calcula desde AYER hacia atrás (igual que scraper.py), no desde hoy.
+    """
     if config.last_n_days:
-        date_to = datetime.now()
-        date_from = date_to - timedelta(days=config.last_n_days)
-        return date_from.strftime("%Y-%m-%d"), date_to.strftime("%Y-%m-%d")
+        hoy = datetime.now().date()
+        date_to_date = hoy - timedelta(days=1)  # AYER
+        date_from_date = date_to_date - timedelta(days=config.last_n_days)
+        return date_from_date.strftime("%Y-%m-%d"), date_to_date.strftime("%Y-%m-%d")
     return config.date_from, config.date_to
 
 
-def _click_y_setear_fecha(driver, wait: WebDriverWait, container_xpath: str, fecha: str) -> None:
-    """Abre el selector de fecha y establece el valor (extraído de función anidada).
+def _click_y_setear_fecha_y_hora(driver, wait: WebDriverWait, container_xpath: str, fecha: str, hora: str) -> None:
+    """Abre el selector de fecha/hora y establece ambos valores.
     
-    Replica exactamente la lógica de test.py para establecer fechas en el selector.
+    Replica exactamente la lógica de scraper.py para establecer fecha y hora en el selector.
+    Primero establece la fecha, luego la hora, ambos con sus respectivos inputs.
     
     Args:
         driver: Instancia de WebDriver
         wait: WebDriverWait para esperas explícitas
         container_xpath: XPATH del contenedor (DESDE o HASTA)
         fecha: Fecha en formato string (YYYY-MM-DD)
+        hora: Hora en formato string (HH:MM:SS)
         
     Raises:
-        RuntimeError: Si no se encuentra el input o no se puede escribir la fecha
+        RuntimeError: Si no se encuentra el input de fecha o hora, o no se puede escribir
     """
     # 1) Intenta abrir el modo "intervalo personalizado" con el botón +
     try:
         plus = driver.find_element(By.CSS_SELECTOR, ".ows_datetime_interval_customer_text.el-icon-circle-plus")
         if plus.is_displayed():
             _robust_click(driver, plus)
-            sleep(DELAY_MEDIUM)
+            sleep(DELAY_LONG)
     except Exception:
         pass  # si no existe, seguimos
 
     # 2) Click en el contenedor (DESDE o HASTA)
     cont = wait.until(EC.element_to_be_clickable((By.XPATH, container_xpath)))
     _robust_click(driver, cont)
-    sleep(DELAY_MEDIUM)
+    sleep(DELAY_LONG)
 
-    # 3) Click en el input "Seleccionar fecha" y setear valor
-    #    Puede haber varios; elegimos el visible y habilitado
+    # 3) Buscar input "Seleccionar fecha" y setear valor
     target = None
-    inputs = driver.find_elements(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
-    for el in inputs:
+    inputs_fecha = driver.find_elements(
+        By.CSS_SELECTOR,
+        'input.el-input__inner[placeholder="Seleccionar fecha"]'
+    )
+    for el in inputs_fecha:
         if el.is_displayed() and el.is_enabled():
             target = el  # suele ser el del popover activo
 
     # fallback: buscar dentro del propio contenedor
     if target is None:
         try:
-            target = cont.find_element(By.CSS_SELECTOR, 'input.el-input__inner[placeholder="Seleccionar fecha"]')
+            target = cont.find_element(
+                By.CSS_SELECTOR,
+                'input.el-input__inner[placeholder="Seleccionar fecha"]'
+            )
         except Exception:
             pass
 
-    logger.debug("Buscando input 'Seleccionar fecha'...")
-    require(target is not None, "No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
+    if target is None:
+        raise RuntimeError("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
 
-    # Escribir la fecha de forma robusta
+    # Escribir la FECHA de forma robusta
     try:
         target.click()
-        sleep(DELAY_SHORT)
+        sleep(DELAY_LONG)
         target.send_keys(Keys.CONTROL, 'a')
         target.send_keys(Keys.DELETE)
         target.send_keys(fecha)
-        # Disparar eventos para que el framework (Element UI) detecte el cambio
+        # Disparar eventos para que el framework detecte el cambio
         driver.execute_script(
             "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
             "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
             target
         )
-        target.send_keys(Keys.ENTER)  # confirma/cierra el popover
-        sleep(DELAY_MEDIUM)
+        target.send_keys(Keys.ENTER)  # confirma/cierra el popover de fecha
+        sleep(DELAY_LONG)
     except Exception as e:
-        logger.debug("No se pudo escribir la fecha '%s': %s", fecha, e)
         raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
 
+    # 4) Buscar input "Seleccionar hora" y setear valor
+    time_input = None
+    inputs_hora = driver.find_elements(
+        By.CSS_SELECTOR,
+        'input.el-input__inner[placeholder="Seleccionar hora"]'
+    )
+    for el in inputs_hora:
+        if el.is_displayed() and el.is_enabled():
+            time_input = el
+            break
 
-def _confirmar_selector_fecha(driver) -> None:
-    """Confirma el selector de fecha enviando ENTER al elemento activo.
-    
-    Función helper extraída para mejorar legibilidad y testabilidad.
-    
-    Args:
-        driver: Instancia de WebDriver
-    """
+    if time_input is None:
+        raise RuntimeError("No se encontró el input 'Seleccionar hora'.")
+
     try:
-        active_input = driver.switch_to.active_element
-        active_input.send_keys(Keys.ENTER)
-        sleep(DELAY_MEDIUM)
-    except Exception:
-        pass
+        time_input.click()
+        sleep(0.5)  # Igual que scraper.py línea 551
+        time_input.send_keys(Keys.CONTROL, 'a')
+        time_input.send_keys(Keys.DELETE)
+        time_input.send_keys(hora)
+        driver.execute_script(
+            "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+            time_input
+        )
+        time_input.send_keys(Keys.ENTER)
+        sleep(DELAY_LONG)
+    except Exception as e:
+        raise RuntimeError(f"No se pudo escribir la hora '{hora}': {e}")
 
 
 def _apply_gde_manual_dates(
@@ -490,34 +520,38 @@ def _apply_gde_manual_dates(
     wait: WebDriverWait,
     config: GDEConfig,
 ) -> None:
-    """Aplica fechas manuales para Create Time usando la lógica de test.py.
+    """Aplica fechas manuales para Create Time usando la lógica de scraper.py.
     
-    Replica exactamente la lógica de test.py para Create Time (sin verificaciones extras).
-    Primero establece la fecha DESDE, luego HASTA.
+    Replica exactamente la lógica de scraper.py para Create Time.
+    Establece fecha y hora para DESDE, luego fecha y hora para HASTA.
     
     Args:
         driver: Instancia de WebDriver
         wait: WebDriverWait para esperas explícitas
-        config: Configuración GDE con fechas
+        config: Configuración GDE con fechas y horas
     """
-    # Asegúrate de estar en el iframe de filtros (igual que test.py)
+    # Asegúrate de estar en el iframe de filtros (igual que scraper.py)
     _switch_to_frame_with(driver, ".ows_filter_title")
     
     date_from, date_to = _resolve_manual_date_range(config)
-    logger.debug("Aplicando fechas manuales: DESDE %s → HASTA %s", date_from, date_to)
+    hora_desde = config.hora_desde
+    hora_hasta = config.hora_hasta
+    
+    logger.debug("Aplicando fechas manuales: DESDE %s %s → HASTA %s %s", 
+                 date_from, hora_desde, date_to, hora_hasta)
 
     # === DESDE ===
-    _click_y_setear_fecha(driver, wait, CREATETIME_FROM_XPATH, date_from)
-    logger.debug("Fecha DESDE aplicada: %s", date_from)
-    sleep(DELAY_NORMAL)
+    _click_y_setear_fecha_y_hora(driver, wait, CREATETIME_FROM_XPATH, date_from, hora_desde)
+    logger.debug("Fecha DESDE aplicada: %s %s", date_from, hora_desde)
+    sleep(DELAY_LONG)  # Igual que scraper.py línea 572: time.sleep(1)
 
     # === HASTA ===
-    _click_y_setear_fecha(driver, wait, CREATETIME_TO_XPATH, date_to)
-    logger.debug("Fecha HASTA aplicada: %s", date_to)
-    sleep(DELAY_NORMAL)
-    _confirmar_selector_fecha(driver)
+    _click_y_setear_fecha_y_hora(driver, wait, CREATETIME_TO_XPATH, date_to, hora_hasta)
+    logger.debug("Fecha HASTA aplicada: %s %s", date_to, hora_hasta)
+    sleep(DELAY_LONG)  # Igual que scraper.py línea 581: time.sleep(1)
 
-    logger.debug("Fechas manuales aplicadas: %s → %s", date_from, date_to)
+    logger.debug("Fechas manuales aplicadas: %s %s → %s %s", 
+                 date_from, hora_desde, date_to, hora_hasta)
 
 
 # ========================================================================
