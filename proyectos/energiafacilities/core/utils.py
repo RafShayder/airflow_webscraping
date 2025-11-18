@@ -99,10 +99,41 @@ def _load_airflow_connection(conn_id: str, env: str = None) -> Dict[str, Any]:
                 if conn.password:
                     values["password"] = conn.password
                 
+                # Para conexiones PostgreSQL, incluir campos específicos
+                if conn.conn_type == "postgres":
+                    if conn.host:
+                        values["host"] = conn.host
+                    if conn.port:
+                        values["port"] = conn.port
+                    if conn.schema:
+                        # En conexiones PostgreSQL, schema puede ser el nombre de la base de datos
+                        # Si no hay un campo 'database' explícito, usar schema como database
+                        values["schema"] = conn.schema
+                        if "database" not in values:
+                            values["database"] = conn.schema
+                    # Mapear login a user para PostgreSQL
+                    if conn.login:
+                        values["user"] = conn.login
+                
+                # Para conexiones SFTP y HTTP, incluir host y port si están disponibles
+                elif conn.conn_type in ("sftp", "http", "https"):
+                    if conn.host:
+                        values["host"] = conn.host
+                    if conn.port:
+                        values["port"] = conn.port
+                
                 # Cargar extras del connection (puede contener más configuraciones)
                 extras = getattr(conn, "extra_dejson", {}) or {}
                 if isinstance(extras, dict):
                     values.update(extras)
+                    # Mapear campos con prefijo "default_" a nombres estándar para compatibilidad
+                    if "default_remote_dir" in extras and "remote_dir" not in values:
+                        values["remote_dir"] = extras["default_remote_dir"]
+                    if "default_local_dir" in extras and "local_dir" not in values:
+                        values["local_dir"] = extras["default_local_dir"]
+                    # Mapear processed_destination a local_destination_dir para clientes_libres
+                    if "processed_destination" in extras and "local_destination_dir" not in values:
+                        values["local_destination_dir"] = extras["processed_destination"]
                     
                 logger.debug(f"Valores cargados desde Connection '{conn_id_to_try}': {list(values.keys())}")
                 break  # Si encontramos la Connection, salir del loop
@@ -236,17 +267,18 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
         return config
     
     # Mapeo de secciones YAML a Connections y prefijos de Variables
+    # Los conn_id se resuelven automáticamente con sufijo de entorno (ej: postgres_siom -> postgres_siom_dev)
     section_mapping = {
         "teleows": {
-            "conn_id": "teleows_portal",
+            "conn_id": "generic_autin_shared",  # Se resuelve a generic_autin_shared_{env}
             "var_prefix": "TELEOWS_"
         },
         "postgress": {
-            "conn_id": "postgres_default",
+            "conn_id": "postgres_siom",  # Se resuelve a postgres_siom_{env}
             "var_prefix": "POSTGRES_"
         },
         "sftp_energia_c": {
-            "conn_id": "sftp_energia",
+            "conn_id": "sftp_energia",  # Se resuelve a sftp_energia_{env}
             "var_prefix": "SFTP_ENERGIA_"
         },
         "sftp_energia": {
@@ -254,31 +286,31 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
             "var_prefix": "SFTP_ENERGIA_"
         },
         "sftp_daas_c": {
-            "conn_id": "sftp_daas",
+            "conn_id": "sftp_daas",  # Se resuelve a sftp_daas_{env}
             "var_prefix": "SFTP_DAAS_"
         },
         "sftp_base_sitios": {
-            "conn_id": "sftp_daas",  # Usa la misma conexión que sftp_daas_c
+            "conn_id": "sftp_base_sitios",  # Se resuelve a sftp_base_sitios_{env}
             "var_prefix": "SFTP_BASE_SITIOS_"
         },
         "sftp_base_sitios_bitacora": {
-            "conn_id": "sftp_daas",  # Usa la misma conexión que sftp_daas_c
+            "conn_id": "sftp_base_sitios_bitacora",  # Se resuelve a sftp_base_sitios_bitacora_{env}
             "var_prefix": "SFTP_BASE_SITIOS_BITACORA_"
         },
         "webindra_energia": {
-            "conn_id": None,  # No tiene Connection
+            "conn_id": "http_webindra",  # Se resuelve a http_webindra_{env}
             "var_prefix": "WEBINDRA_ENERGIA_"
         },
         "clientes_libres": {
-            "conn_id": "sftp_daas",  # Usa la misma conexión que sftp_daas_c
+            "conn_id": "sftp_clientes_libres",  # Se resuelve a sftp_clientes_libres_{env}
             "var_prefix": "CLIENTES_LIBRES_"
         },
         "gde": {
-            "conn_id": "teleows_portal",  # Comparte conexión con teleows
+            "conn_id": "generic_autin_gde",  # Se resuelve a generic_autin_gde_{env}
             "var_prefix": "TELEOWS_GDE_"  # Prefijo específico para GDE
         },
         "dynamic_checklist": {
-            "conn_id": "teleows_portal",  # Comparte conexión con teleows
+            "conn_id": "generic_autin_dc",  # Se resuelve a generic_autin_dc_{env}
             "var_prefix": "TELEOWS_DC_"  # Prefijo específico para Dynamic Checklist
         },
     }

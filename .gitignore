@@ -8,6 +8,7 @@
 !env.airflow.example
 !env.example
 config_local.py
+airflow_connections_import_dict.json
 
 # Archivos de Chrome para Docker offline
 chrome_*.deb

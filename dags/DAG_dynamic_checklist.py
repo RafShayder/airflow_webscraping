@@ -16,7 +16,7 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist
-from energiafacilities.core import setup_logging, load_overrides_from_airflow
+from energiafacilities.core import setup_logging
 from energiafacilities.sources.autin_checklist.loader import (
     load_dynamic_checklist,
     load_single_table,
@@ -37,36 +37,23 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-# Campos de configuración específicos de Dynamic Checklist
-DYNAMIC_CHECKLIST_CONFIG_FIELDS = [
-    "username", "password", "download_path", "proxy", "headless",
-    "max_iframe_attempts", "max_status_attempts",
-    "date_mode", "date_from", "date_to", "last_n_days",
-    "dynamic_checklist_output_filename", "export_overwrite_files",
-]
+
 
 
 def run_dynamic_checklist_scraper() -> str:
     """
-    Construye la configuración desde Airflow y ejecuta la extracción Dynamic Checklist.
+    Ejecuta la extracción Dynamic Checklist.
+    La configuración se carga automáticamente desde Airflow Connection generic_autin_dc_{env}.
     """
     # Obtener entorno desde variable de entorno o Airflow Variable
     env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
 
-    # Cargar overrides desde Airflow usando función compartida
-    overrides = load_overrides_from_airflow(
-        fields=DYNAMIC_CHECKLIST_CONFIG_FIELDS,
-        conn_id="teleows_portal",
-        variable_prefix="TELEOWS_",
-    )
-
-    logger.info("Iniciando scraper de Dynamic Checklist")
-    logger.debug("Entorno: %s", env)
-    logger.debug("Overrides aplicados: %s", list(overrides.keys()))
+    logger.info("Iniciando scraper de Dynamic Checklist (entorno: %s)", env)
 
     try:
-        # extraer_dynamic_checklist() internamente carga DynamicChecklistConfig con env y overrides
-        file_path = extraer_dynamic_checklist(env=env, overrides=overrides)
+        # extraer_dynamic_checklist() carga automáticamente la configuración desde Airflow
+        # usando generic_autin_dc_{env} connection
+        file_path = extraer_dynamic_checklist(env=env)
         logger.info("Scraper Dynamic Checklist completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:

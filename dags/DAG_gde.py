@@ -17,7 +17,7 @@ sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
 from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
-from energiafacilities.core import setup_logging, load_overrides_from_airflow
+from energiafacilities.core import setup_logging
 from energiafacilities.sources.autin_gde.loader import load_gde
 
 setup_logging("INFO")
@@ -34,36 +34,23 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-# Campos de configuración específicos de GDE
-GDE_CONFIG_FIELDS = [
-    "username", "password", "download_path", "proxy", "headless",
-    "max_iframe_attempts", "max_status_attempts", "options_to_select",
-    "date_mode", "date_from", "date_to", "last_n_days",
-    "gde_output_filename", "export_overwrite_files",
-]
+
 
 
 def run_gde_scraper() -> str:
     """
-    Construye la configuración desde Airflow y ejecuta la extracción GDE.
+    Ejecuta la extracción GDE.
+    La configuración se carga automáticamente desde Airflow Connection generic_autin_gde_{env}.
     """
     # Obtener entorno desde variable de entorno o Airflow Variable
     env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
 
-    # Cargar overrides desde Airflow usando función compartida
-    overrides = load_overrides_from_airflow(
-        fields=GDE_CONFIG_FIELDS,
-        conn_id="teleows_portal",
-        variable_prefix="TELEOWS_",
-    )
-
-    logger.info("Iniciando scraper de GDE")
-    logger.debug("Entorno: %s", env)
-    logger.debug("Overrides aplicados: %s", list(overrides.keys()))
+    logger.info("Iniciando scraper de GDE (entorno: %s)", env)
 
     try:
-        # extraer_gde() internamente carga GDEConfig con env y overrides
-        file_path = extraer_gde(env=env, overrides=overrides)
+        # extraer_gde() carga automáticamente la configuración desde Airflow
+        # usando generic_autin_gde_{env} connection
+        file_path = extraer_gde(env=env)
         logger.info("Scraper GDE completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:
