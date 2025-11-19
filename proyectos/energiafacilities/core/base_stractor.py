@@ -1,11 +1,16 @@
 from __future__ import annotations
+from tkinter import N
 from typing import Any, Dict, List
 import os
+import io
+import pandas as pd
 import paramiko
 from types import SimpleNamespace
 from energiafacilities.core.helpers import asegurar_directorio_sftp
 import logging
 from datetime import datetime
+import stat
+
 logger = logging.getLogger(__name__)
 
 class BaseExtractorSFTP:
@@ -48,7 +53,6 @@ class BaseExtractorSFTP:
 
         missing_conn = [k for k in required_conn if k not in conn or not conn[k]]
         missing_paths = [k for k in required_paths if k not in paths or not paths[k]]
-
         if missing_conn or missing_paths:
             msg = f"Faltan campos: conexión={missing_conn}, rutas={missing_paths}"
             logger.error(msg)
@@ -119,13 +123,25 @@ class BaseExtractorSFTP:
     # ----------
     # LISTAR ARCHIVOS EN DIRECTORIO REMOTO
     # ----------
-    def listar_archivos(self, ruta_remota: str | None = None) -> List[str]:
+    def listar_archivos(self, ruta_remota: str | None = None, only_files: bool = True) -> List[str]:
         ruta = ruta_remota or self.paths.remote_dir
         sftp = None
         try:
             sftp = self.conectar_sftp()
-            archivos = sftp.listdir(ruta)
+            archivos = sftp.listdir_attr(ruta)
+            if only_files:
+                archivos=[
+                item.filename
+                for item in archivos
+                if stat.S_ISREG(item.st_mode)
+            ]
+
+            else:
+                archivos = [item.filename for item in archivos]
+                
+                
             logger.debug(f"Archivos encontrados en {ruta}: {archivos}")
+            
             return archivos
         except Exception as e:
             logger.error(f"Error al listar archivos en {ruta}: {e}")
@@ -170,7 +186,8 @@ class BaseExtractorSFTP:
             archivo = specific_file or getattr(self.paths, "specific_filename", None)
 
             if not archivo:
-                raise ValueError("Debe especificarse un archivo para la extracción.")
+                logger.error("Debe especificarse un archivo para la extracción.")
+                raise 
 
             if remotetransfere:
                 asegurar_directorio_sftp(sftp, local_dir)
@@ -207,6 +224,119 @@ class BaseExtractorSFTP:
             }
             logger.error(retornoinfo["etl_msg"])
             raise
+        finally:
+            if sftp:
+                sftp.close()
+                
+
+
+    def estract_archivos_excel(
+        self,
+        archivos: List[str] | str,
+        nombre_salida_local: str,
+        hoja: str = None,
+        fila_inicio: int = None,
+        local_dir: str=None,
+        subsetname: str = None
+        
+    ) -> Dict[str, Any]:
+        """
+        Lee uno o varios archivos Excel desde SFTP, los unifica, agrega columna 'archivo',
+        mueve procesados a processed_dir y con errores a error_dir,
+        y guarda un Excel final en local_dir.
+        """
+
+        # Normalizar parámetro a lista
+        if isinstance(archivos, str):
+            archivos = [archivos]
+
+        sftp = None
+        dfs = []
+
+        def rename_overwrite(sftp, origen, destino):
+            """Elimina destino si existe y luego renombra."""
+            # crear carpeta si no existe
+            carpeta = os.path.dirname(destino)
+            try:
+                sftp.stat(carpeta)
+            except IOError:
+                sftp.mkdir(carpeta, 0o775)
+                sftp.chmod(carpeta, 0o775)
+
+            # borrar destino si existe
+            try:
+                sftp.stat(destino)
+                sftp.remove(destino)
+            except IOError:
+                pass  # No existe, OK
+
+            sftp.rename(origen, destino)
+
+        try:
+            sftp = self.conectar_sftp()
+
+            # Crear carpetas si no existen (solo si se quiere)
+            asegurar_directorio_sftp(sftp, self.paths.processed_dir)
+            asegurar_directorio_sftp(sftp, self.paths.error_dir)
+
+            for archivo in archivos:
+                ruta_remota = f"{self.paths.remote_dir}/{archivo}"
+
+                try:
+                    # Descargar a memoria
+                    buffer = io.BytesIO()
+                    sftp.getfo(ruta_remota, buffer)
+                    buffer.seek(0)
+
+                    # Leer Excel
+                    df = pd.read_excel(
+                        buffer,
+                        sheet_name = hoja or self.paths.default_sheet,
+                        header     = fila_inicio or self.paths.fila_inicial
+                    )
+                    subsetname =subsetname or  self.paths.subsetna
+                    df = df.dropna(subset=[subsetname])
+                    
+                    df["archivo"] = archivo
+                    dfs.append(df)
+                    #borramos las filas que sean vacias
+                    # MOVIMIENTO A PROCESSED → CON OVERWRITE
+                    destino_ok = f"{self.paths.processed_dir}/{archivo}"
+                    rename_overwrite(sftp, ruta_remota, destino_ok)
+
+                    logger.info(f"Archivo procesado con éxito: {archivo}")
+
+                except Exception as e:
+                    try:
+                        destino_error = f"{self.paths.error_dir}/{archivo}"
+                        rename_overwrite(sftp, ruta_remota, destino_error)
+                    except Exception:
+                        logger.error(f"No se pudo mover {archivo} a carpeta de errores")
+
+                    logger.error(f"Error procesando {archivo}: {e}")
+                    continue
+
+            if not dfs:
+                raise Exception("Ningún archivo pudo ser procesado correctamente.")
+
+            # Unificar
+            df_final = pd.concat(dfs, ignore_index=True)
+
+            # Guardar salida local
+            salida_local = f"{local_dir or self.paths.local_dir}/{nombre_salida_local}"
+            os.makedirs(os.path.dirname(salida_local), exist_ok=True)
+
+            df_final.to_excel(salida_local, index=False)
+
+            logger.info(f"Archivo consolidado guardado en {salida_local}")
+
+            return {
+                "status": "success",
+                "code": 200,
+                "etl_msg": "Archivos procesados y consolidados correctamente",
+                "ruta_local": salida_local,
+            }
+
         finally:
             if sftp:
                 sftp.close()

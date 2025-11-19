@@ -1,0 +1,13 @@
+{
+    "tablarpagoenergia": {
+        "nota_al_aprobador_char_40": "Nota al Aprobador CHAR(40)",
+        "concesionario": "CONCESIONARIO",
+        "ruc_concesionario": "RUC CONCESIONARIO",
+        "numero_suministro": "NUMERO_SUMINISTRO",
+        "recibo": "RECIBO",
+        "total_pagado": "TOTAL_PAGADO",
+        "fecha_emision": "FECHA_EMISION",
+        "fecha_vencimiento": "FECHA_VENCIMIENTO",
+        "periodo_consumo": "Periodo Consumo"
+    }
+}

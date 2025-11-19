@@ -184,3 +184,27 @@ dynamic_checklist:
     table: "error_dynamic_checklist_ultimo_lote"
     limmit: 100
     remote_dir: "/daas/dev/energy-facilities/dynamic_checklist/errors"
+
+#------SFTP Pago Energia DA-------------------------------------------
+sftp_pago_energia:
+  remote_dir: "/PAGOS_ENERGY_ANALYTICS"
+  default_sheet: "LIQ. Recibos de Luz"
+  fila_inicial: 6
+  subsetna: "RECIBO"
+  local_dir: "tmp/sftp_pago_energia"
+  processed_dir: "/PAGOS_ENERGY_ANALYTICS/historico"
+  error_dir: "/PAGOS_ENERGY_ANALYTICS/error"
+  nombre_salida_local: "Consolidado_PagoEnergia.xlsx"
+  schema: "raw"
+  table: "sftp_mm_pago_energia"
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
+  sp_carga: "ods.sp_cargar_sftp_hm_pago_energia"
+  # Configuración de errores
+  errorconfig:
+    errorconfig:
+    schema: "public"
+    table: "error_pago_energia"
+    limmit: 100
+    remote_dir: "/PAGOS_ENERGY_ANALYTICS/error"
+#------SFTP Pago Energia PD-------------------------------------------
+
