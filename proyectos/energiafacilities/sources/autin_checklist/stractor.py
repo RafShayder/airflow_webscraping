@@ -257,7 +257,7 @@ class DynamicChecklistWorkflow:
             desired_name=self.desired_filename,
             logger=logger,
         )
-        logger.info("Script completado exitosamente")
+        logger.debug("Script completado exitosamente")
         return downloaded
 
     def close(self) -> None:

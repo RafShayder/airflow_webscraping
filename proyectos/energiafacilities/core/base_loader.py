@@ -81,7 +81,7 @@ class BaseLoaderPostgres:
     # CONEXIÓN
     # ----------
     def _connect(self):
-        logger.info("Verificando conectividad a PostgreSQL...")
+        logger.debug("Verificando conectividad a PostgreSQL...")
         return psycopg2.connect(
             host=self._cfg.host,
             port=self._cfg.port,
@@ -110,7 +110,7 @@ class BaseLoaderPostgres:
     def verificar_datos(self, data: Any, column_mapping: Optional[Dict[str, str]] = None, sheet_name: str = 0, strictreview=True, numerofilasalto: int =0, table_name:str =None):
         """Verifica columnas entre origen y tabla destino (mapeo invertido: DB ➜ Excel)."""
         try:
-            logger.info("Verificando data y la db destino")
+            logger.debug("Verificando data y la db destino")
             # --- Leer DataFrame ---
             if isinstance(data, pd.DataFrame):
                 df = data
@@ -192,7 +192,7 @@ class BaseLoaderPostgres:
                 logger.warning(f"Columnas adicionales en origen: {', '.join(sobrantes)}")
 
             retornoinfo = {"status": "success", "code": 200, "etl_msg": "Columnas verificadas correctamente"}
-            logger.info("Verificación de columnas completada", extra=retornoinfo)
+            logger.debug("Verificación de columnas completada", extra=retornoinfo)
             return retornoinfo
 
         except Exception as e:
@@ -225,7 +225,7 @@ class BaseLoaderPostgres:
         - fecha_carga: fecha y hora de inicio del proceso de carga (opcional).
         """
         try:
-            logger.info("Iniciando validación de carga")
+            logger.debug("Iniciando validación de carga")
             if isinstance(data, pd.DataFrame):
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
@@ -334,8 +334,8 @@ class BaseLoaderPostgres:
                         columnas_tabla_exactas[col_sin_comillas.lower()] = col_exacta
             
             logger.debug(f"Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
-            logger.info(f"Columnas del DataFrame después del mapeo: {list(df.columns)[:10]}{'...' if len(df.columns) > 10 else ''}")
-            logger.info(f"Columnas en la tabla PostgreSQL (primeras 10): {list(columnas_tabla_exactas.keys())[:10]}{'...' if len(columnas_tabla_exactas) > 10 else ''}")
+            logger.debug(f"Columnas del DataFrame después del mapeo: {list(df.columns)[:10]}{'...' if len(df.columns) > 10 else ''}")
+            logger.debug(f"Columnas en la tabla PostgreSQL (primeras 10): {list(columnas_tabla_exactas.keys())[:10]}{'...' if len(columnas_tabla_exactas) > 10 else ''}")
             
             # Crear mapeo: nombre del DataFrame (sin comillas) -> nombre exacto en tabla
             # Solo incluir columnas que existan en la tabla

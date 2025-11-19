@@ -35,7 +35,7 @@ class FilterManager:
                 logger.warning(
                     "Texto 'Opciones de filtrado' no encontrado, pero el ícono de filtro sí está presente"
                 )
-            logger.info("Página lista para aplicar filtros")
+            logger.debug("Página lista para aplicar filtros")
         except Exception as exc:
             message = f"Error al preparar filtros: {exc}"
             logger.error("%s", message, exc_info=True)

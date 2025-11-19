@@ -135,7 +135,7 @@ class DateFilterManager:
             logger.debug("Fecha HASTA aplicada: %s %s", date_to_str, hora_hasta)
             sleep(1)  # Igual que scraper.py línea 581: time.sleep(1)
 
-            logger.info("Fechas aplicadas exitosamente: %s %s → %s %s", 
+            logger.debug("Fechas aplicadas exitosamente: %s %s → %s %s", 
                        date_from_str, hora_desde, date_to_str, hora_hasta)
         except Exception as e:
             logger.warning("Error al aplicar fechas manuales: %s, usando fallback a 'Último mes'", e)

@@ -256,7 +256,7 @@ class GDEWorkflow:
             output_filename=self.desired_filename,
         )
         
-        logger.info("Flujo GDE completado")
+        logger.debug("Flujo GDE completado")
         return downloaded
     
     def close(self) -> None:
@@ -698,7 +698,7 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
 
         if status in end_states:
             if status == "Succeed":
-                logger.info("Exportación completada exitosamente")
+                logger.debug("Exportación completada exitosamente")
                 return
             logger.debug("Proceso de exportación terminó con estado: %s", status)
             require(False, f"Proceso de exportación terminó con estado: {status}")

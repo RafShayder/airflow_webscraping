@@ -38,7 +38,7 @@ class IframeManager:
 
                 if not iframe_encontrado:
                     intentos += 1
-                    logger.info("Intento %s/%s - Esperando carga del iframe...", intentos, max_attempts)
+                    logger.debug("Intento %s/%s - Esperando carga del iframe...", intentos, max_attempts)
                     sleep(2)
             except Exception as exc:
                 logger.debug("Error en intento %s: %s", intentos, exc, exc_info=True)
@@ -51,7 +51,7 @@ class IframeManager:
             logger.error("%s", message)
             raise RuntimeError(message)
 
-        logger.info("Iframe cargado correctamente")
+        logger.debug("Iframe cargado correctamente")
         return True
 
     def switch_to_iframe(self, index: int) -> bool:
@@ -99,7 +99,7 @@ class IframeManager:
                     iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
                     if not iframes:
                         if intento < max_attempts - 1:
-                            logger.info("Intento %s/%s - No hay iframes aún, esperando...", intento + 1, max_attempts)
+                            logger.debug("Intento %s/%s - No hay iframes aún, esperando...", intento + 1, max_attempts)
                             sleep(1)
                             continue
                         message = "No se encontraron iframes disponibles"

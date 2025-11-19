@@ -35,9 +35,9 @@ def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     # Esta sección ya está cargada desde la Connection de Airflow por load_config()
     postgres_config = config.get("postgress", {})
 
-    logger.info(f"Configuración PostgreSQL obtenida: {list(postgres_config.keys()) if postgres_config else 'VACÍA'}")
+    logger.debug(f"Configuración PostgreSQL obtenida: {list(postgres_config.keys()) if postgres_config else 'VACÍA'}")
     if postgres_config:
-        logger.info("Campos encontrados: %s", {k: "***" if "pass" in k.lower() else v for k, v in postgres_config.items()})
+        logger.debug("Campos encontrados: %s", {k: "***" if "pass" in k.lower() else v for k, v in postgres_config.items()})
 
     if not postgres_config:
         env_value = env or "dev"
@@ -58,7 +58,7 @@ def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     if missing_fields:
         raise ValueError(f"Configuración PostgreSQL incompleta. Faltan campos: {missing_fields}")
 
-    logger.info("Configuración PostgreSQL validada: host=%s, database=%s",
+    logger.debug("Configuración PostgreSQL validada: host=%s, database=%s",
                 postgres_config.get("host"), postgres_config.get("database"))
 
     # Obtener configuración GDE

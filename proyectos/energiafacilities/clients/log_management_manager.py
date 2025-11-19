@@ -76,7 +76,7 @@ class LogManagementManager:
         """Sigue el flujo de Log Management cuando la exportación corre en segundo plano."""
         self.close_export_prompt()
         self.iframe_manager.switch_to_default_content()
-        logger.info("Navegando a Log Management")
+        logger.debug("Navegando a Log Management")
 
         # Navegar a menú de Log Management
         require(
@@ -210,7 +210,7 @@ class LogManagementManager:
 
     def download_from_log_table(self, target_row: WebElement) -> None:
         """Descarga el archivo desde la tabla de logs cuando la exportación está completa."""
-        logger.info("Exportación completada exitosamente")
+        logger.debug("Exportación completada exitosamente")
         download_button = target_row.find_element(By.XPATH, XPATH_DOWNLOAD_BUTTON)
         download_button.click()
         logger.debug("Click en 'Download' - archivo descargándose")

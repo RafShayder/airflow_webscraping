@@ -430,7 +430,7 @@ def load_config(env: str | None = None) -> dict:
         if not os.path.exists(config_path):
             if _is_airflow_available():
                 logger.warning(f"No existe el archivo de configuración: {config_path}")
-                logger.info("Construyendo configuración completamente desde Airflow Variables/Connections")
+                logger.debug("Construyendo configuración completamente desde Airflow Variables/Connections")
                 yaml_config = {}  # Config vacío, se construirá desde Airflow
             else:
                 logger.error(f"No existe el archivo de configuración: {config_path}")

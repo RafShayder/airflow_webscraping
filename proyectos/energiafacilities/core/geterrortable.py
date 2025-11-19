@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def get_save_errors(configyaml: str, table_name='table',configpostgress:str="postgress",filename="data_errors.xlsx"): #sftp_energia
     logger.debug("Generando configuracion para guardar errores de webindra energia")
-    logger.info("Buscando datos con errores")
+    logger.debug("Buscando datos con errores")
     config = load_config()
     postgres_config = config.get(configpostgress, {})
     general_config = config.get(configyaml, {})
@@ -23,9 +23,9 @@ def get_save_errors(configyaml: str, table_name='table',configpostgress:str="pos
         condigsfpt=config.get("sftp_daas_c",{})
         baseexporter.export_dataframe_to_remote(data, conn=condigsfpt, 
             remote_dir=general_config['errorconfig']["remote_dir"],filename=filename)
-        logger.info(f"Se generó archivo de erorres en {general_config['errorconfig']["remote_dir"]}" )
+        logger.debug(f"Se generó archivo de erorres en {general_config['errorconfig']["remote_dir"]}" )
 
     else:
-        logger.info(f"no hay errores{tablaorigen}.")
+        logger.debug(f"no hay errores{tablaorigen}.")
     return data
 

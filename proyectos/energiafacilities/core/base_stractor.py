@@ -202,12 +202,12 @@ class BaseExtractorSFTP:
 
                 sftp.rename(f"{remote_dir}/{archivo}", destino)
                 msg = f"Archivo movido con éxito de {remote_dir}/{archivo} a {local_dir}"
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 os.makedirs(local_dir, exist_ok=True)
                 sftp.get(f"{remote_dir}/{archivo}", f"{local_dir}/{archivo}")
                 msg = f"Archivo descargado correctamente a {local_dir}/{archivo}"
-                logger.info(msg)
+                logger.debug(msg)
 
             retornoinfo = {
                 "status": "success",
@@ -304,7 +304,7 @@ class BaseExtractorSFTP:
                     destino_ok = f"{self.paths.processed_dir}/{archivo}"
                     rename_overwrite(sftp, ruta_remota, destino_ok)
 
-                    logger.info(f"Archivo procesado con éxito: {archivo}")
+                    logger.debug(f"Archivo procesado con éxito: {archivo}")
 
                 except Exception as e:
                     try:
@@ -328,7 +328,7 @@ class BaseExtractorSFTP:
 
             df_final.to_excel(salida_local, index=False)
 
-            logger.info(f"Archivo consolidado guardado en {salida_local}")
+            logger.debug(f"Archivo consolidado guardado en {salida_local}")
 
             return {
                 "status": "success",

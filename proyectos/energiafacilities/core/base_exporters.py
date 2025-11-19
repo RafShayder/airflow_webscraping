@@ -84,7 +84,7 @@ class FileExporter:
             if not isinstance(destination_path, str):
                 logger.error("El parámetro 'destination_path' no es str.")
                 raise TypeError("El parámetro 'destination_path' debe ser un string")
-            logger.info("Iniciando el proceso de extracción")
+            logger.debug("Iniciando el proceso de extracción")
 
             # ===============================
             # Convertir datetimes tz-aware
@@ -130,7 +130,7 @@ class FileExporter:
             else:
                 raise ValueError("Formato no soportado. Usa .csv, .xlsx o .xls")
 
-            logger.info(f" Archivo exportado correctamente → {destination_path}")
+            logger.debug(f" Archivo exportado correctamente → {destination_path}")
             return destination_path
 
         except Exception as e:
@@ -162,7 +162,7 @@ class FileExporter:
                 else:
                     logger.error("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame.")
                     raise ValueError("Formato no soportado. Usa .csv o .xlsx para guardar el DataFrame") 
-                logger.info(f"DataFrame exportado localmente a {dst}")
+                logger.debug(f"DataFrame exportado localmente a {dst}")
 
             # Caso 2: archivo existente
             elif isinstance(src, str):
@@ -170,7 +170,7 @@ class FileExporter:
                     logger.error(f"No se encontró el archivo origen: {src}")
                     raise FileNotFoundError(f"No se encontró el archivo origen: {src}") 
                 shutil.move(src, dst)
-                logger.info(f"Archivo movido localmente: {src} → {dst}")
+                logger.debug(f"Archivo movido localmente: {src} → {dst}")
 
             else:
                 logger.error("El parámetro data:'src' debe ser un str (ruta) o un pandas.DataFrame.")
@@ -186,12 +186,12 @@ class FileExporter:
     def upload_to_remote(self, conn: dict, local_path: str, remote_path: str):
         """Sube un archivo local a un servidor remoto, creando directorios si no existen."""
         sftp = self._sftp_connect(conn)
-        logger.info(f"Subiendo archivos a {remote_path}")
+        logger.debug(f"Subiendo archivos a {remote_path}")
         try:
             remote_dir = os.path.dirname(remote_path)
             self._mkdirs_remote(sftp, remote_dir)
             sftp.put(local_path, remote_path)
-            logger.info(f"Archivo subido: {local_path} → {conn['host']}:{remote_path}")
+            logger.debug(f"Archivo subido: {local_path} → {conn['host']}:{remote_path}")
         except Exception as e:
             logger.error(f"Error subiendo archivo a remoto: {e}")
             raise
@@ -201,11 +201,11 @@ class FileExporter:
     def download_from_remote(self, conn: dict, remote_path: str, local_path: str):
         """Descarga un archivo remoto a local, creando carpetas locales si no existen."""
         sftp = self._sftp_connect(conn)
-        logger.info(f"Inicio de descarga en proceso {local_path}")
+        logger.debug(f"Inicio de descarga en proceso {local_path}")
         try:
             self._ensure_dir(local_path)
             sftp.get(remote_path, local_path)
-            logger.info(f"Archivo descargado: {conn['host']}:{remote_path} → {local_path}")
+            logger.debug(f"Archivo descargado: {conn['host']}:{remote_path} → {local_path}")
         except Exception as e:
             logger.error(f"Error descargando desde remoto: {e}")
             raise
@@ -229,13 +229,13 @@ class FileExporter:
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         temp_path = temp_file.name
         temp_file.close()
-        logger.info(f"Transfiriendo archivo remoto -> remoto")
+        logger.debug(f"Transfiriendo archivo remoto -> remoto")
         try:
             # 1. Descargar desde origen
             self.download_from_remote(conn_src, src_path, temp_path)
             # 2. Subir al destino (crea directorios si no existen)
             self.upload_to_remote(conn_dst, temp_path, dst_path)
-            logger.info(f"Archivo transferido entre hosts: {conn_src['host']} → {conn_dst['host']}")
+            logger.debug(f"Archivo transferido entre hosts: {conn_src['host']} → {conn_dst['host']}")
         except Exception as e:
             logger.error(f"Error al mover entre hosts: {e}")
             raise
@@ -284,7 +284,7 @@ class FileExporter:
 
             # Subir archivo
             sftp.put(temp_file.name, remote_path)
-            logger.info(f"DataFrame exportado a remoto: {conn['host']}:{remote_path}")
+            logger.debug(f"DataFrame exportado a remoto: {conn['host']}:{remote_path}")
 
         except Exception as e:
             logger.error(f"Error exportando DataFrame a remoto: {e}")

@@ -94,7 +94,7 @@ class BrowserManager:
             options.add_experimental_option("prefs", base_prefs)
             logger.debug("Preferencias de idioma configuradas")
 
-        logger.info("Idioma del navegador configurado a español (es-ES) - EXACTAMENTE igual que scraper.py")
+        logger.debug("Idioma del navegador configurado a español (es-ES) - EXACTAMENTE igual que scraper.py")
         return options
 
     def create_driver(self):

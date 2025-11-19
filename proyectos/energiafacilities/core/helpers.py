@@ -260,9 +260,9 @@ def crearcarpeta(local_dir: str):
     """
     try:
         os.makedirs(local_dir, exist_ok=True)
-        logger.info(f"Carpeta creada exitosamente: {local_dir}")
+        logger.debug(f"Carpeta creada exitosamente: {local_dir}")
     except FileExistsError:
-        logger.info("La carpeta destino ya existe, no se crea")
+        logger.debug("La carpeta destino ya existe, no se crea")
     except Exception as e:
         logger.error(f"No se puede crear la carpeta {local_dir}: {e}")
         raise

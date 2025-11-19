@@ -100,7 +100,7 @@ def run_scraper(cfg: dict) -> Path:
         if not any(c.name == "ci_session" for c in session.cookies):
             raise RuntimeError("Login fallido: no se estableció cookie de sesión")
 
-        logger.info("Login exitoso")
+        logger.debug("Login exitoso")
 
     except Exception as e:
         logger.error(f"Error en login: {e}")
@@ -121,7 +121,7 @@ def run_scraper(cfg: dict) -> Path:
             if not data:
                 raise ValueError("Archivo descargado vacío")
 
-            logger.info(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
+            logger.debug(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
             break
 
         except Exception as e:
@@ -149,7 +149,7 @@ def run_scraper(cfg: dict) -> Path:
         path = folder / name
         path.write_bytes(data)
 
-        logger.info(f"Archivo guardado correctamente: {path}")
+        logger.debug(f"Archivo guardado correctamente: {path}")
         return str(path)
 
     except Exception as e:

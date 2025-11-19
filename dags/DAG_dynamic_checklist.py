@@ -106,7 +106,7 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
         )
         
         if resultado.get('status') == 'success':
-            logger.info("Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
+            logger.debug("Tabla '%s' cargada exitosamente: %s", tabla_sql, resultado.get('etl_msg', 'OK'))
         else:
             logger.error("Error al cargar tabla '%s': %s", tabla_sql, resultado.get('etl_msg', 'Error desconocido'))
         

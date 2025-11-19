@@ -159,7 +159,7 @@ def monitor_export_loader(
     - ``'direct_download'`` si el loader desaparece sin mensaje adicional.
     """
     logger.debug("Esperando a que termine la exportación")
-    logger.info(
+    logger.debug(
         "Nota: La exportación puede tardar hasta %s segundos, por favor espere...",
         timeout,
     )
