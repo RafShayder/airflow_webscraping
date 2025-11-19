@@ -52,14 +52,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 
-from energiafacilities.clients.auth import AuthManager
-from energiafacilities.clients.browser import BrowserManager, setup_browser_with_proxy
-from energiafacilities.clients.date_filter_manager import DateFilterManager
-from energiafacilities.clients.filters import FilterManager
-from energiafacilities.clients.iframes import IframeManager
-from energiafacilities.common import require, wait_for_download
-from energiafacilities.core.utils import load_config
-from energiafacilities.core.helpers import default_download_path
+from clients.auth import AuthManager
+from clients.browser import BrowserManager, setup_browser_with_proxy
+from clients.date_filter_manager import DateFilterManager
+from clients.filters import FilterManager
+from clients.iframes import IframeManager
+from common import require, wait_for_download
+from core.utils import load_config
+from core.helpers import default_download_path
 
 logger = logging.getLogger(__name__)
 

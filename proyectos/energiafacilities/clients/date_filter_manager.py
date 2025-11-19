@@ -20,7 +20,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
-from energiafacilities.common.dynamic_checklist_constants import (
+from common.dynamic_checklist_constants import (
     RADIO_BUTTON_LAST_MONTH_INDEX,
     CSS_RADIO_BUTTON,
     SLEEP_AFTER_RADIO_CLICK,

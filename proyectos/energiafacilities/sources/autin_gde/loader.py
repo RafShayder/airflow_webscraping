@@ -12,9 +12,9 @@ sys.path.insert(0, str(current_path.parents[4]))  # repo root for other imports
 
 import os
 
-from energiafacilities.core import load_config
-from energiafacilities.core.base_loader import BaseLoaderPostgres
-from energiafacilities.core.helpers import traerjson
+from core import load_config
+from core.base_loader import BaseLoaderPostgres
+from core.helpers import traerjson
 
 logger = logging.getLogger(__name__)
 

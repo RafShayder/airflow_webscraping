@@ -1,6 +1,6 @@
 # todo ok, pero al no haber archivo con el periodo, se está usando el 202509
 from sources.sftp_energia.stractor import extraersftp_energia_PD,extraersftp_energia_DA
-from energiafacilities.core.utils import setup_logging
+from core.utils import setup_logging
 from sources.sftp_energia.loader import load_sftp_energia_DA, load_sftp_energia_PD
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD,correr_sftp_energia_DA
 from sources.sftp_energia.geterrortable import get_save_errors_PD, get_save_errors_DA

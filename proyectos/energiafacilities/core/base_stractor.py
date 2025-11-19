@@ -6,7 +6,7 @@ import io
 import pandas as pd
 import paramiko
 from types import SimpleNamespace
-from energiafacilities.core.helpers import asegurar_directorio_sftp
+from core.helpers import asegurar_directorio_sftp
 import logging
 from datetime import datetime
 import stat

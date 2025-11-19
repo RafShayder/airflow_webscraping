@@ -3,7 +3,7 @@ from sources.clientes_libres.stractor import extraersftp_clienteslibres
 from sources.clientes_libres.transformer import transformer_clienteslibres
 from sources.clientes_libres.loader import load_clienteslibres
 from sources.clientes_libres.run_sp import correr_sp_clienteslibres
-from energiafacilities.core.utils import setup_logging
+from core.utils import setup_logging
 
 
 setup_logging("INFO")
