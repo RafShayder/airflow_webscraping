@@ -197,41 +197,122 @@ Archivo de salida   : scraper-integratel-offline.tar.gz
 
 ## Configuración y credenciales
 
-El módulo `proyectos/teleows/config.py` aplica la configuración en esta cascada:
+El módulo `proyectos/energiafacilities/core/utils.py` proporciona la función `load_config()` que carga la configuración desde múltiples fuentes con la siguiente **prioridad**:
 
-1. **Variables de entorno** del proceso Airflow (definidas en `docker-compose.yml`, Variables de Airflow o Secrets).
-2. **`proyectos/teleows/.env`** (opcional).
-3. **`proyectos/teleows/env.yaml`** (opcional, perfiles por entorno).
+1. **Airflow Variables** (mayor prioridad)
+2. **Airflow Connections** 
+3. **YAML** (`config/config_{env}.yaml`)
+4. **Variables de entorno** (usadas para reemplazo en YAML con `${VAR_NAME}`)
 
-Si `.env` o `env.yaml` no existen, se omiten sin error; basta con configurar la Connection y las variables de entorno necesarias.
+### Prioridad de configuración
 
-### Connection `teleows_portal`
-Define una Connection (Admin ▸ Connections) con las credenciales del portal y los parámetros del scraper. Ejemplo completo:
-
-```json
-{
-  "download_path": "./tmp",
-  "options_to_select": "CM,OPM",
-  "date_mode": 2,
-  "date_from": "2025-09-01",
-  "date_to": "2025-09-10",
-  "max_iframe_attempts": 60,
-  "max_status_attempts": 60,
-  "download_wait_seconds": 5,
-  "poll_interval_seconds": 5,
-  "gde_output_filename": "Console_GDE_export.xlsx",
-  "dynamic_checklist_output_filename": "DynamicChecklist_SubPM.xlsx",
-  "export_overwrite_files": true,
-  "proxy": "telefonica01.gp.inet:8080",
-  "headless": true,
-}
+```
+Variables > Connection > YAML > Variables de entorno
 ```
 
-- `date_mode`: `1` aplica el rango manual definido en `date_from`/`date_to`; `2` calcula el rango automático (por ejemplo, último periodo). Deja el valor predeterminado (`2`) salvo que necesites forzar fechas específicas.
-- Las credenciales del portal se cargan desde los campos nativos de la Connection (`Login` y `Password`); no es necesario duplicarlas en `Extras`.
-- **Alternativa**: También puedes usar Variables de Airflow con el prefijo `TELEOWS_` (ej: `TELEOWS_PROXY`, `TELEOWS_HEADLESS`) en lugar de la Connection. Los DAGs cargan primero las Variables y luego las sobrescriben con la Connection.
+Si tienes el mismo valor en múltiples fuentes, siempre ganará la Variable de Airflow.
 
-Aun cuando se use la Connection, mantén `AIRFLOW_UID=50000` en el `.env` de la raíz del proyecto para evitar problemas de permisos en los volúmenes Docker.
+### Airflow Connections
+
+Las Connections almacenan credenciales y configuración de conexión. Ejemplo para PostgreSQL:
+
+**Connection en Airflow (Admin → Connections):**
+```
+Connection Id: postgres_siom_dev
+Connection Type: postgres
+Host: 10.226.17.162
+Port: 5425
+Schema: siom_dev
+Login: siom_dev
+Password: s10m#d3v
+Extra (JSON): {"application_name":"airflow","sslmode":"prefer"}
+```
+
+**En tu código:**
+```python
+from energiafacilities.core.utils import load_config
+
+config = load_config(env='dev')
+postgres_config = config.get("postgress", {})
+# postgres_config ahora contiene: host, port, database, user, password, etc.
+```
+
+### Airflow Variables
+
+Las Variables permiten sobrescribir valores específicos. Se buscan con prefijo basado en el nombre de la sección:
+
+**Variables en Airflow (Admin → Variables):**
+```
+POSTGRES_HOST_DEV = "10.226.17.162"
+POSTGRES_PORT_DEV = "5425"
+TELEOWS_USERNAME_DEV = "usuario"
+TELEOWS_PASSWORD_DEV = "contraseña"
+```
+
+### Auto-descubrimiento
+
+Para **nuevos módulos** que no estén registrados en `section_mapping`, el sistema usa **auto-descubrimiento**:
+
+1. **Connection**: Busca `{nombre_seccion}_{env}` (ej: `mi_api_dev`) o `{nombre_seccion}` (genérica)
+2. **Variables**: Busca con prefijo `{NOMBRE_SECCION}_` (ej: `MI_API_HOST_DEV`)
+
+**Ejemplo con nueva sección `mi_api_test`:**
+```python
+config = load_config(env='dev')
+mi_api_config = config.get("mi_api_test", {})
+# El sistema automáticamente busca:
+# - Connection: mi_api_test_dev
+# - Variables: MI_API_TEST_*
+```
+
+No necesitas modificar `utils.py` para agregar nuevas secciones; el auto-descubrimiento funciona automáticamente.
+
+### Configuración YAML
+
+Las configuraciones base están en `proyectos/energiafacilities/config/config_{env}.yaml`:
+
+```yaml
+postgress:
+  host: "10.226.17.162"
+  port: 5425
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASS}"
+```
+
+Las variables de entorno se reemplazan automáticamente usando `${VAR_NAME}`.
+
+### Secciones mapeadas
+
+Algunas secciones tienen mapeo explícito en `section_mapping`:
+- `postgress` → Connection: `postgres_siom_{env}`, Variables: `POSTGRES_*`
+- `teleows` → Connection: `generic_autin_shared_{env}`, Variables: `TELEOWS_*`
+- `sftp_energia` → Connection: `sftp_energia_{env}`, Variables: `SFTP_ENERGIA_*`
+- Y otras más...
+
+Las secciones no mapeadas usan auto-descubrimiento basado en convenciones.
+
+### Ejemplo completo
+
+```python
+from energiafacilities.core.utils import load_config
+
+# Carga config para entorno 'dev' (determinado automáticamente si no se especifica)
+config = load_config(env='dev')
+
+# Obtener configuración de PostgreSQL
+postgres = config.get("postgress", {})
+
+# Obtener configuración de nuevo módulo (auto-descubrimiento)
+mi_api = config.get("mi_api_test", {})
+# Busca automáticamente: mi_api_test_dev (Connection) y MI_API_TEST_* (Variables)
+```
+
+### Notas importantes
+
+- El entorno se determina automáticamente desde `ENV_MODE` (Airflow Variable o variable de entorno), o usa `"dev"` por defecto.
+- Si una Connection o Variable no existe, el sistema continúa usando los valores del YAML sin error.
+- El campo `extra` de las Connections acepta JSON para parámetros adicionales (ej: `{"api_key": "abc123", "endpoint": "/api"}`).
+- Mantén `AIRFLOW_UID=50000` en el `.env` de la raíz del proyecto para evitar problemas de permisos en los volúmenes Docker.
 
 ---
 
