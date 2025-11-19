@@ -1,7 +1,7 @@
 import logging
 
-from energiafacilities.core.base_postgress import PostgresConnector
-from energiafacilities.core.utils import load_config
+from core.base_postgress import PostgresConnector
+from core.utils import load_config
 
 logger = logging.getLogger(__name__)
 

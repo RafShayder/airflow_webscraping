@@ -19,8 +19,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from energiafacilities.common import navigate_to_menu_item, navigate_to_submenu, require
-from energiafacilities.common.dynamic_checklist_constants import (
+from common import navigate_to_menu_item, navigate_to_submenu, require
+from common.dynamic_checklist_constants import (
     MENU_INDEX_LOG_MANAGEMENT,
     MENU_LOG_MANAGEMENT,
     SUBMENU_DATA_EXPORT_LOGS,

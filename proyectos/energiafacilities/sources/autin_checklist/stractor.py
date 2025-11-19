@@ -49,13 +49,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from energiafacilities.clients.auth import AuthManager
-from energiafacilities.clients.browser import BrowserManager, setup_browser_with_proxy
-from energiafacilities.clients.filters import FilterManager
-from energiafacilities.clients.iframes import IframeManager
-from energiafacilities.clients.date_filter_manager import DateFilterManager
-from energiafacilities.clients.log_management_manager import LogManagementManager
-from energiafacilities.common import (
+from clients.auth import AuthManager
+from clients.browser import BrowserManager, setup_browser_with_proxy
+from clients.filters import FilterManager
+from clients.iframes import IframeManager
+from clients.date_filter_manager import DateFilterManager
+from clients.log_management_manager import LogManagementManager
+from common import (
     click_with_retry,
     monitor_export_loader,
     navigate_to_menu_item,
@@ -64,7 +64,7 @@ from energiafacilities.common import (
     wait_for_download,
     wait_for_notification_to_clear,
 )
-from energiafacilities.common.dynamic_checklist_constants import (
+from common.dynamic_checklist_constants import (
     MENU_INDEX_DYNAMIC_CHECKLIST,
     SPLITBUTTON_TIMEOUT,
     LOADER_TIMEOUT,
@@ -81,8 +81,8 @@ from energiafacilities.common.dynamic_checklist_constants import (
     XPATH_LOADING_MASK,
     XPATH_SUBMENU_SUB_PM_QUERY,
 )
-from energiafacilities.core.utils import load_config
-from energiafacilities.core.helpers import default_download_path
+from core.utils import load_config
+from core.helpers import default_download_path
 
 logger = logging.getLogger(__name__)
 

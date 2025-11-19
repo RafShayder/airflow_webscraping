@@ -1,7 +1,7 @@
 
-from energiafacilities.core.base_stractor import BaseExtractorSFTP
-from energiafacilities.core.utils import load_config
-from energiafacilities.core.helpers import archivoespecifico_periodo_CL
+from core.base_stractor import BaseExtractorSFTP
+from core.utils import load_config
+from core.helpers import archivoespecifico_periodo_CL
 
 
 def extraersftp_clienteslibres():

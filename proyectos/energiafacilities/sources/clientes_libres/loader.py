@@ -1,5 +1,5 @@
-from energiafacilities.core.base_loader import BaseLoaderPostgres
-from energiafacilities.core.utils import load_config
+from core.base_loader import BaseLoaderPostgres
+from core.utils import load_config
 
 def load_clienteslibres(filepath=None):
     

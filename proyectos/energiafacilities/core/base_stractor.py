@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import os
 import paramiko
 from types import SimpleNamespace
-from energiafacilities.core.helpers import asegurar_directorio_sftp
+from core.helpers import asegurar_directorio_sftp
 import logging
 from datetime import datetime
 logger = logging.getLogger(__name__)
