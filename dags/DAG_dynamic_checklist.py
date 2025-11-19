@@ -48,13 +48,10 @@ def run_dynamic_checklist_scraper() -> str:
     # Obtener entorno desde variable de entorno o Airflow Variable
     env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
 
-    logger.info("Iniciando scraper de Dynamic Checklist (entorno: %s)", env)
-
     try:
         # extraer_dynamic_checklist() carga automáticamente la configuración desde Airflow
-        # usando generic_autin_dc_{env} connection
+        # usando generic_autin_dc_{env} connection y ya incluye el logger.info de inicio/fin
         file_path = extraer_dynamic_checklist(env=env)
-        logger.info("Scraper Dynamic Checklist completado. Archivo: %s", file_path)
         return str(file_path)
     except Exception as exc:
         logger.error("Error en scraper Dynamic Checklist: %s", exc)

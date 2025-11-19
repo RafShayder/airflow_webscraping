@@ -485,11 +485,6 @@ def extraer_dynamic_checklist(
     if config is None:
         config = DynamicChecklistConfig.from_yaml_config(env=env, overrides=overrides)
 
-    logger.info(
-        "Iniciando extracción Dynamic Checklist (env=%s, overrides=%s)",
-        env or "default",
-        sorted(overrides.keys()) if overrides else "none",
-    )
     path = run_dynamic_checklist(
         config,
         headless=headless,
@@ -498,7 +493,11 @@ def extraer_dynamic_checklist(
         status_poll_interval=status_poll_interval,
         output_filename=output_filename,
     )
-    logger.info("Extracción Dynamic Checklist finalizada. Archivo: %s", path)
+    logger.info(
+        "Extracción Dynamic Checklist completada (env=%s). Archivo: %s",
+        env or "default",
+        path,
+    )
     return str(path)
 
 

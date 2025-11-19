@@ -173,7 +173,7 @@ def monitor_export_loader(
                 "or contains(text(),'60 seconds')]",
             )
             if info_message:
-                logger.info("Caso detectado: la exportación continuará en Log Management")
+                logger.debug("Caso detectado: la exportación continuará en Log Management")
                 return "log_management"
 
             loader_present = driver.find_elements(
@@ -191,11 +191,11 @@ def monitor_export_loader(
                         "or contains(text(),'60 seconds')]",
                     )
                     if info_message:
-                        logger.info("Aviso tardío detectado - ir a Log Management")
+                        logger.debug("Aviso tardío detectado - ir a Log Management")
                         return "log_management"
                     time.sleep(1)
 
-                logger.info("Loader finalizado sin aviso - descarga directa")
+                logger.debug("Loader finalizado sin aviso - descarga directa")
                 return "direct_download"
 
             time.sleep(2)

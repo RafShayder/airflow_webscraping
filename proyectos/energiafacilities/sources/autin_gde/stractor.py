@@ -826,11 +826,6 @@ def extraer_gde(
     else:
         resolved_env = env
 
-    logger.info(
-        "Iniciando extracción GDE (env=%s, overrides=%s)",
-        resolved_env or "default",
-        sorted(overrides.keys()) if overrides else "none",
-    )
     path = run_gde(
         config,
         headless=headless,
@@ -839,7 +834,11 @@ def extraer_gde(
         status_poll_interval=status_poll_interval,
         output_filename=output_filename,
     )
-    logger.info("Extracción GDE finalizada. Archivo: %s", path)
+    logger.info(
+        "Extracción GDE completada (env=%s). Archivo: %s",
+        resolved_env or "default",
+        path,
+    )
     return str(path)
 
 
