@@ -58,7 +58,8 @@ from energiafacilities.clients.date_filter_manager import DateFilterManager
 from energiafacilities.clients.filters import FilterManager
 from energiafacilities.clients.iframes import IframeManager
 from energiafacilities.common import require, wait_for_download
-from energiafacilities.core.utils import load_config, default_download_path
+from energiafacilities.core.utils import load_config
+from energiafacilities.core.helpers import default_download_path
 
 logger = logging.getLogger(__name__)
 

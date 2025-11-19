@@ -81,7 +81,8 @@ from energiafacilities.common.dynamic_checklist_constants import (
     XPATH_LOADING_MASK,
     XPATH_SUBMENU_SUB_PM_QUERY,
 )
-from energiafacilities.core.utils import load_config, default_download_path
+from energiafacilities.core.utils import load_config
+from energiafacilities.core.helpers import default_download_path
 
 logger = logging.getLogger(__name__)
 

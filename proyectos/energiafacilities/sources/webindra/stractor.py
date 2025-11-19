@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import urllib3
 
-from core.utils import  load_config 
+from energiafacilities.core.utils import load_config 
 
 # Desactivar warnings de SSL cuando se usa verify=False (necesario para proxies corporativos)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

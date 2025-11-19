@@ -8,7 +8,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.webindra.stractor import stractor_indra
 from sources.webindra.loader import load_indra
 from sources.webindra.run_sp import correr_sp_webindra

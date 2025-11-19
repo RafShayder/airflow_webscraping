@@ -1,6 +1,6 @@
 # Todo okey,
 from sources.base_sitios.stractor import extraer_basedesitios
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.base_sitios.loader import loader_basesitios,loader_bitacora_basesitios
 from sources.base_sitios.run_sp import correr_sp_basesitios ,correr_sp_bitacora
 

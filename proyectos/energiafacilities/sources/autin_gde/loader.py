@@ -14,7 +14,7 @@ import os
 
 from energiafacilities.core import load_config
 from energiafacilities.core.base_loader import BaseLoaderPostgres
-from energiafacilities.core.utils import traerjson
+from energiafacilities.core.helpers import traerjson
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def load_gde(filepath: Optional[PathLike] = None, env: str = None) -> dict:
     # Obtener configuración de PostgreSQL desde la sección "postgress" del config
     # Esta sección ya está cargada desde la Connection de Airflow por load_config()
     postgres_config = config.get("postgress", {})
-    
+
     logger.info(f"Configuración PostgreSQL obtenida: {list(postgres_config.keys()) if postgres_config else 'VACÍA'}")
     if postgres_config:
         logger.info("Campos encontrados: %s", {k: "***" if "pass" in k.lower() else v for k, v in postgres_config.items()})

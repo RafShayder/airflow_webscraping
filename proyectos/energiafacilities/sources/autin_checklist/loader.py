@@ -12,7 +12,7 @@ sys.path.insert(0, str(current_path.parents[4]))  # repo root for other imports
 
 from energiafacilities.core import load_config
 from energiafacilities.core.base_loader import BaseLoaderPostgres
-from energiafacilities.core.utils import traerjson
+from energiafacilities.core.helpers import traerjson
 
 PathLike = Union[str, Path]
 

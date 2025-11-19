@@ -4,10 +4,8 @@ from envyaml import EnvYAML
 from pathlib import Path
 from dotenv import load_dotenv
 import os
-import shutil
 import json
-from datetime import date, timedelta, datetime
-from typing import List, Optional, Dict, Any
+from typing import Dict, Any, Optional
 import sys
 
 logger = logging.getLogger(__name__)
@@ -94,33 +92,28 @@ def _load_airflow_connection(conn_id: str, env: str = None) -> Dict[str, Any]:
             try:
                 conn = BaseHook.get_connection(conn_id_to_try)
                 
+                # Mapear campos básicos comunes
                 if conn.login:
-                    values["username"] = conn.login
+                    values["username"] = conn.login  # Para SFTP/HTTP
                 if conn.password:
                     values["password"] = conn.password
                 
-                # Para conexiones PostgreSQL, incluir campos específicos
+                # Mapear campos comunes a todos los tipos de conexión
+                if conn.host:
+                    values["host"] = conn.host
+                if conn.port:
+                    values["port"] = conn.port
+                
+                # Mapear campos específicos por tipo de conexión
                 if conn.conn_type == "postgres":
-                    if conn.host:
-                        values["host"] = conn.host
-                    if conn.port:
-                        values["port"] = conn.port
                     if conn.schema:
                         # En conexiones PostgreSQL, schema puede ser el nombre de la base de datos
-                        # Si no hay un campo 'database' explícito, usar schema como database
                         values["schema"] = conn.schema
                         if "database" not in values:
                             values["database"] = conn.schema
-                    # Mapear login a user para PostgreSQL
+                    # PostgreSQL necesita "user" además de "username"
                     if conn.login:
                         values["user"] = conn.login
-                
-                # Para conexiones SFTP y HTTP, incluir host y port si están disponibles
-                elif conn.conn_type in ("sftp", "http", "https"):
-                    if conn.host:
-                        values["host"] = conn.host
-                    if conn.port:
-                        values["port"] = conn.port
                 
                 # Cargar extras del connection (puede contener más configuraciones)
                 extras = getattr(conn, "extra_dejson", {}) or {}
@@ -318,8 +311,11 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
     # Crear copia del config para no modificar el original
     merged_config = dict(config)
     
+    # Obtener todas las secciones del config (incluyendo las que no están en section_mapping)
+    all_sections = set(merged_config.keys()) | set(section_mapping.keys())
+    
     # Aplicar overrides por sección (o construir desde cero si no existe)
-    for section_name, mapping in section_mapping.items():
+    for section_name in all_sections:
         # Si la sección no existe en el config, inicializarla vacía
         if section_name not in merged_config:
             merged_config[section_name] = {}
@@ -327,20 +323,35 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
         
         section_config = dict(merged_config[section_name])
         
+        # Obtener mapeo para esta sección (si existe), o usar auto-descubrimiento
+        mapping = section_mapping.get(section_name)
+        
+        if mapping:
+            # Sección registrada: usar mapeo explícito
+            conn_id = mapping.get("conn_id")
+            var_prefix = mapping.get("var_prefix")
+        else:
+            # Sección NO registrada: auto-descubrimiento basado en convenciones
+            # Por defecto, intentar buscar Connection con el mismo nombre que la sección
+            conn_id = section_name
+            # Para Variables, usar prefijo basado en el nombre de la sección (ej: "nuevo_modulo" -> "NUEVO_MODULO_")
+            var_prefix = f"{section_name.upper()}_"
+            logger.debug(f"Sección '{section_name}' no está en mapeo, usando auto-descubrimiento (conn_id='{conn_id}', var_prefix='{var_prefix}')")
+        
         # 1. Cargar desde Connection (si existe y está configurada)
         # Intenta primero Connection específica por entorno, luego genérica
-        if mapping["conn_id"]:
-            conn_values = _load_airflow_connection(mapping["conn_id"], env)
+        if conn_id:
+            conn_values = _load_airflow_connection(conn_id, env)
             if conn_values:
                 # Merge: Connection sobrescribe YAML
                 section_config.update(conn_values)
-                logger.debug(f"Overrides desde Connection '{mapping['conn_id']}' (env={env}) aplicados a sección '{section_name}'")
+                logger.debug(f"Overrides desde Connection '{conn_id}' (env={env}) aplicados a sección '{section_name}'")
         
         # 2. Cargar desde Variables (sobrescriben Connection)
-        # Primero intentar con prefijo específico de la sección
-        var_values = _load_airflow_variables(mapping["var_prefix"], section_name, env)
+        # Si hay un mapeo específico, usar sus campos. Si no, usar solo campos genéricos
+        var_values = _load_airflow_variables(var_prefix, section_name if mapping else None, env)
         
-        # Para gde y dynamic_checklist, también cargar desde prefijo genérico TELEOWS_
+        # Para secciones especiales, también cargar desde prefijo genérico
         if section_name in ("gde", "dynamic_checklist"):
             generic_values = _load_airflow_variables("TELEOWS_", section_name, env)
             # Merge: prefijo específico sobrescribe genérico
@@ -444,207 +455,5 @@ def load_config(env: str | None = None) -> dict:
     except Exception as e:
         logger.error(f"Error al cargar configuración: {e}")
         raise
-
-
-def asegurar_directorio_sftp(sftp, ruta_completa):
-
-    partes = ruta_completa.strip('/').split('/')
-    path_actual = ''
-    for parte in partes:
-        path_actual += '/' + parte
-        try:
-            sftp.stat(path_actual)
-        except FileNotFoundError:
-            logger.debug(f"Creando carpeta: {path_actual}")
-            sftp.mkdir(path_actual)
-
-
-def traerjson(archivo='',valor=None):
-    
-    base_dir = Path(__file__).resolve().parent.parent
-    config_path = base_dir / archivo
-
-    with open(config_path, 'r',encoding='utf-8') as file:
-        datos = json.load(file)
-        # Imprimir los datos cargados
-        if (valor):
-            return datos[valor]
-        else:
-            return datos
-
-
-
-def borrar_ruta(ruta: str):
-    """
-    Borra el archivo o carpeta indicada.
-    Si se pasa la ruta de un archivo, borra ese archivo.
-    Si se pasa la ruta de una carpeta, borra la carpeta completa y su contenido.
-
-    Ejemplo:
-        borrar_ruta("tmp/sftp_recibps/indra/archivo.xlsx")  # borra solo el archivo
-        borrar_ruta("tmp/sftp_recibps/indra")              # borra toda la carpeta 'indra'
-    """
-    ruta = os.path.abspath(ruta) 
-
-    if not os.path.exists(ruta):
-        logger.warning(f"La ruta no existe: {ruta}")
-        return
-
-    try:
-        if os.path.isfile(ruta):
-            os.remove(ruta)
-            logger.debug(f"Archivo eliminado: {ruta}")
-
-        elif os.path.isdir(ruta):
-            shutil.rmtree(ruta)
-            logger.debug(f"Carpeta eliminada con todo su contenido: {ruta}")
-     
-
-        else:
-            logger.warning(f"Tipo de ruta desconocido no se eliminó ninguna carpeta temporal: {ruta}")
-         
-
-    except Exception as e:
-        logger.warning(f"Error al borrar '{ruta}': {e}")
-        
-
-
- # Funciones especificos de SFTP energia:
-def generar_archivo_especifico(
-    lista_archivos: List[Dict[str, str | datetime]],
-    basearchivo: Optional[str] = None,
-    periodo: Optional[str] = None,
-    tipo: Optional[str] = None
-) -> Optional[Dict[str, str | datetime]]:
-    """
-    Retorna el archivo más reciente según:
-      - El nombre base (`basearchivo`)
-      - El periodo especificado (ej. 202509)
-      - La fecha de modificación más reciente
-
-    Si no se pasa periodo, usa el mes anterior al actual.
-    Si no se pasa tipo, busca entre todos los tipos.
-
-    Ejemplo:
-        basearchivo = "reporte-consumo-energia-PD"
-        periodo = "202509"
-        tipo = "xlsx"
-
-    Retorna un dict con:
-        {'nombre': 'reporte-consumo-energia-PD-202509v2.xlsx', 
-         'fecha_modificacion': datetime(...), 
-         'tipo': 'xlsx'}
-    """
-    if not lista_archivos:
-        logger.warning("Lista de archivos vacía.")
-        return None
-
-    # -------------------------------
-    # Determinar el periodo (por defecto mes anterior)
-    # -------------------------------
-    if not periodo:
-        hoy = date.today()
-        ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
-        periodo = f"{ultimo_dia_mes_anterior.year}{ultimo_dia_mes_anterior.month:02d}"
-
-    # -------------------------------
-    # Filtrar por nombre base, periodo y tipo
-    # -------------------------------
-    archivos_filtrados = []
-    for f in lista_archivos:
-        nombre = f["nombre"]
-        extension = nombre.split(".")[-1].lower()
-        if (
-            (not basearchivo or nombre.startswith(basearchivo))
-            and (periodo in nombre)
-            and (not tipo or extension == tipo.lower())
-        ):
-            f["tipo"] = extension
-            archivos_filtrados.append(f)
-
-    if not archivos_filtrados:
-        logger.error(f"No se encontraron archivos que coincidan con base='{basearchivo}', periodo='{periodo}'")
-        return None
-
-    # -------------------------------
-    # Seleccionar el archivo con mayor fecha_modificacion
-    # -------------------------------
-    archivo_mas_reciente = max(archivos_filtrados, key=lambda x: x["fecha_modificacion"])
-
-    logger.debug(f"Archivo seleccionado: {archivo_mas_reciente['nombre']} (modificado {archivo_mas_reciente['fecha_modificacion']})")
-
-    return archivo_mas_reciente
-
-
-def archivoespecifico_periodo(
-    lista_archivos: List[str],
-    basearchivo: Optional[str] = None,
-    periodo: Optional[str] = None,
-    tipo: Optional[str] = None
-    ):
-    #si nos pasan un nombre, generamos el perido anterior al actual, y si nos pasan el periodo, sería con este periodo
-    if not periodo:
-        hoy = date.today()
-        ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
-        periodo = f"{ultimo_dia_mes_anterior.year}{ultimo_dia_mes_anterior.month:02d}"
-    nombre_archivo=f"{basearchivo}_{periodo}{tipo or '.xlsx'}"
-    if nombre_archivo not in lista_archivos:
-        logger.error(f"No hay archivo a extraer: {nombre_archivo}")
-        raise FileNotFoundError(f"No hay archivo a extraer: {nombre_archivo}")
-    return nombre_archivo
-
-def archivoespecifico_periodo_CL(
-    lista_archivos: List[str],
-    basearchivo: Optional[str] = None,
-    periodo: Optional[str] = None,
-    tipo: Optional[str] = None
-    ):
-    """_summary_
-
-    Args:
-        lista_archivos (List[str]): _description_
-        basearchivo (Optional[str], optional): _description_. Defaults to None.
-        periodo (Optional[str], optional): _description_. Defaults to None.
-        tipo (Optional[str], optional): _description_. Defaults to None.
-
-    Returns:
-        foramto_periodo(e).xlsx
-        ejemplo_1225(e).xslx
-    """
-    #si nos pasan un periodo generamos el perido anterior al actual formato messaño(año en dos digitos) ejem: 0225, y si nos pasan el periodo, sería con este periodo
-    if not periodo:
-        hoy = date.today()
-        ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
-        # Formato messaño con año en dos dígitos, p. ej. 0225
-        periodo = f"{ultimo_dia_mes_anterior.month:02d}{ultimo_dia_mes_anterior.year % 100:02d}"
-    # si se pasó periodo, se usa tal cual
-    nombre_archivo = f"{basearchivo}-{periodo}(e){tipo or '.xlsx'}"
-    
-    if nombre_archivo not in lista_archivos:
-        logger.error(f"No hay archivo a extraer: {nombre_archivo}")
-        raise FileNotFoundError(f"No hay archivo a extraer: {nombre_archivo}")
-    return nombre_archivo
-
-
-
-#Crea carpeta si no existe
-def crearcarpeta(local_dir: str):
-    try:
-        os.makedirs(local_dir, exist_ok=True)
-        logger.info(f"Carpeta creada exitosamente: {local_dir}")
-    except FileExistsError:
-        logger.info("La carpeta destino ya existe, no se crea")
-    except Exception as e:
-        logger.error(f"No se puede crear la carpeta {local_dir}: {e}")
-        raise
-
-
-def default_download_path() -> str:
-    """Retorna el path de descarga por defecto según el entorno."""
-    if Path("/opt/airflow").exists():
-        return "/opt/airflow/proyectos/energiafacilities/temp"
-    return str(Path.home() / "Downloads" / "scraper_downloads")
-
-
 
 

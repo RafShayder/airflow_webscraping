@@ -9,7 +9,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.clientes_libres.stractor import extraersftp_clienteslibres
 from sources.clientes_libres.transformer import transformer_clienteslibres
 from sources.clientes_libres.loader import load_clienteslibres

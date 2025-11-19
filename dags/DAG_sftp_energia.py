@@ -8,7 +8,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.sftp_energia.stractor import extraersftp_energia_PD, extraersftp_energia_DA
 from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_DA
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA

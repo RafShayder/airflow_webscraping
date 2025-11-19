@@ -1,46 +1,49 @@
-from airflow import DAG
+"""
+DAG de prueba para demostrar el auto-descubrimiento de Connections.
+
+Este DAG ejecuta la prueba de auto-descubrimiento que está definida en:
+proyectos/test/test_autodescubrimiento.py
+
+Auto-descubrimiento:
+- Busca Connection: "nombre_seccion_{env}" (ej: "mi_api_test_dev")
+"""
+
+from __future__ import annotations
+
+import sys
 from datetime import datetime, timedelta
-from airflow.operators.python import PythonOperator # type: ignore
-from proyectos.enervision.test import pruebawebscraping
 
+from airflow import DAG
+from airflow.providers.standard.operators.python import PythonOperator
 
+# Asegurar imports de proyecto
+sys.path.insert(0, "/opt/airflow/proyectos")
+sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+
+from test.test_autodescubrimiento import test_autodescubrimiento_connection
 
 
 config = {
-    'owner': 'shayder',
+    'owner': 'prueba',
     'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'retries': 0,
+    'retry_delay': timedelta(minutes=1),
 }
 
-def print_hello():
-    saludo="saludo"
-    return saludo
-
-def print_bye():
-    return 'Bye!'
-
-with DAG('test_prueba', default_args=config, schedule=timedelta(minutes=1), catchup=False, tags=["testing"]) as dag:
-    task1 = PythonOperator(
-        task_id='print_hello',
-        python_callable=print_hello
-    )
-
-    task2 = PythonOperator(
-        task_id='print_bye',
-        python_callable=print_bye
-    )
-    task3 = PythonOperator(
-        task_id='scraping',
-        python_callable=pruebawebscraping
-    )
-
-
-
-
-
-    task1 >> [task2, task3]
+with DAG(
+    'test_autodescubrimiento_connections',
+    default_args=config,
+    schedule=None,  # Manual trigger only
+    catchup=False,
+    tags=["testing", "connections"]
+) as dag:
     
+    task1 = PythonOperator(
+        task_id='test_connection',
+        python_callable=test_autodescubrimiento_connection
+    )
+    
+    task1

@@ -1,5 +1,6 @@
-from core.base_loader import BaseLoaderPostgres
-from core.utils import traerjson,load_config
+from energiafacilities.core.base_loader import BaseLoaderPostgres
+from energiafacilities.core.utils import load_config
+from energiafacilities.core.helpers import traerjson
 
 def load_sftp_energia(filepath=None, table_name=None):
     
