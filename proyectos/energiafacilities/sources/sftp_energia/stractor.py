@@ -1,11 +1,7 @@
 from core.base_stractor import BaseExtractorSFTP
-<<<<<<< HEAD
-from core.utils import  load_config , generar_archivo_especifico
-=======
 from core.utils import load_config, setup_logging
 from core.helpers import generar_archivo_especifico
 setup_logging(level="INFO")
->>>>>>> dcfbfd7a88be8b541c671eb2e11ee712e687fe6c
 
 def extraersftp_energia(specific_file_config: str ,periodo: str=None):
     config = load_config()

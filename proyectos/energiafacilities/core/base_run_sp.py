@@ -17,10 +17,10 @@ def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga
     postgres_config = config.get(configpostgress, {})
     general_config = config.get(configyaml, {})
 
-        # Usar context manager para garantizar cierre de conexión
-        with PostgresConnector(postgres_config) as postgress:
-            sp_ejecutar = sp_value or general_config[sp_name]
-            logger.debug(f"Ejecutando SP {sp_ejecutar}")
-            postgress.ejecutar(sp_ejecutar, tipo='sp')
-            data = postgress.ejecutar("public.log_sp_ultimo_fn", parametros=(f'{sp_ejecutar}()',), tipo='fn')
-            logger.debug(f"Estado SP: {data['estado'].values}, Detalle: {data['msj_error'].values}")
+    # Usar context manager para garantizar cierre de conexión
+    with PostgresConnector(postgres_config) as postgress:
+        sp_ejecutar = sp_value or general_config[sp_name]
+        logger.debug(f"Ejecutando SP {sp_ejecutar}")
+        postgress.ejecutar(sp_ejecutar, tipo='sp')
+        data = postgress.ejecutar("public.log_sp_ultimo_fn", parametros=(f'{sp_ejecutar}()',), tipo='fn')
+        logger.debug(f"Estado SP: {data['estado'].values}, Detalle: {data['msj_error'].values}")

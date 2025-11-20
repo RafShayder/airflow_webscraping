@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, Optional,List
 import sys
 import shutil
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -323,7 +323,13 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
             merged_config[section_name] = {}
             logger.debug(f"Sección '{section_name}' no existe en YAML, construyendo desde Airflow")
         
-        section_config = dict(merged_config[section_name])
+        # Asegurar que section_config sea un diccionario
+        section_value = merged_config[section_name]
+        if isinstance(section_value, dict):
+            section_config = dict(section_value)
+        else:
+            logger.warning(f"Sección '{section_name}' no es un diccionario (tipo: {type(section_value)}), inicializando como diccionario vacío")
+            section_config = {}
         
         # Obtener mapeo para esta sección (si existe), o usar auto-descubrimiento
         mapping = section_mapping.get(section_name)
@@ -344,10 +350,12 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
         # Intenta primero Connection específica por entorno, luego genérica
         if conn_id:
             conn_values = _load_airflow_connection(conn_id, env)
-            if conn_values:
+            if conn_values and isinstance(conn_values, dict):
                 # Merge: Connection sobrescribe YAML
                 section_config.update(conn_values)
                 logger.debug(f"Overrides desde Connection '{conn_id}' (env={env}) aplicados a sección '{section_name}'")
+            elif conn_values:
+                logger.warning(f"Connection '{conn_id}' devolvió un valor no-diccionario (tipo: {type(conn_values)}), ignorando")
         
         # 2. Cargar desde Variables (sobrescriben Connection)
         # Si hay un mapeo específico, usar sus campos. Si no, usar solo campos genéricos
@@ -356,13 +364,21 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
         # Para secciones especiales, también cargar desde prefijo genérico
         if section_name in ("gde", "dynamic_checklist"):
             generic_values = _load_airflow_variables("TELEOWS_", section_name, env)
-            # Merge: prefijo específico sobrescribe genérico
-            generic_values.update(var_values)
-            var_values = generic_values
+            # Asegurar que ambos sean diccionarios antes de hacer update
+            if isinstance(generic_values, dict) and isinstance(var_values, dict):
+                # Merge: prefijo específico sobrescribe genérico
+                generic_values.update(var_values)
+                var_values = generic_values
+            elif isinstance(generic_values, dict):
+                var_values = generic_values
+            elif not isinstance(var_values, dict):
+                var_values = {}
         
-        if var_values:
+        if var_values and isinstance(var_values, dict):
             # Merge: Variables sobrescriben Connection y YAML
             section_config.update(var_values)
+        elif var_values:
+            logger.warning(f"Variables para '{section_name}' devolvieron un valor no-diccionario (tipo: {type(var_values)}), ignorando")
         
         # Actualizar la sección en el config final (solo si tiene valores)
         if section_config:
