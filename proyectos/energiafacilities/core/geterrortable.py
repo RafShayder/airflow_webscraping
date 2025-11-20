@@ -11,6 +11,15 @@ def get_save_errors(configyaml: str, table_name='table',configpostgress:str="pos
     postgres_config = config.get(configpostgress, {})
     general_config = config.get(configyaml, {})
     
+    # Validar que errorconfig existe
+    if 'errorconfig' not in general_config:
+        logger.warning(f"No se encontró 'errorconfig' en la configuración de '{configyaml}'. Usando valores por defecto.")
+        general_config['errorconfig'] = {
+            "schema": "PUBLIC",
+            "table": "error_energia_ultimo_lote",
+            "remote_dir": "/daas/dev/energy-facilities/errors"
+        }
+    
     # Crear instancia de conexión
     postgress = PostgresConnector(postgres_config)
     

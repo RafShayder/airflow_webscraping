@@ -130,6 +130,35 @@ def _load_airflow_connection(conn_id: str, env: str = None) -> Dict[str, Any]:
                     if "processed_destination" in extras and "local_destination_dir" not in values:
                         values["local_destination_dir"] = extras["processed_destination"]
                     
+                    # Mapeos específicos para webindra (conexiones HTTP)
+                    if conn.conn_type == "http" and ("http_webindra" in conn_id_to_try or "webindra" in conn_id_to_try):
+                        # Mapear host a BASE_URL
+                        if conn.host and "BASE_URL" not in values:
+                            values["BASE_URL"] = conn.host
+                        # Mapear campos de extras a mayúsculas para webindra
+                        if "headers" in extras and "HEADERS" not in values:
+                            values["HEADERS"] = extras["headers"]
+                        if "export_template" in extras and "EXPORT_TMPL" not in values:
+                            values["EXPORT_TMPL"] = extras["export_template"]
+                        if "login_path" in extras and "LOGIN_PATH" not in values:
+                            values["LOGIN_PATH"] = extras["login_path"]
+                        if "period_months" in extras and "PERIOD_MONTHS" not in values:
+                            values["PERIOD_MONTHS"] = extras["period_months"]
+                        if "max_retries" in extras and "MAX_RETRIES" not in values:
+                            values["MAX_RETRIES"] = extras["max_retries"]
+                        if "timeout" in extras and "TIMEOUT" not in values:
+                            values["TIMEOUT"] = extras["timeout"]
+                        if "proxy" in extras and "PROXY" not in values:
+                            values["PROXY"] = extras["proxy"]
+                        # Mapear local_dir si está disponible
+                        if "local_dir" in extras and "local_dir" not in values:
+                            values["local_dir"] = extras["local_dir"]
+                        # Mapear login y password a USER y PASS
+                        if conn.login and "USER" not in values:
+                            values["USER"] = conn.login
+                        if conn.password and "PASS" not in values:
+                            values["PASS"] = conn.password
+                    
                 logger.debug(f"Valores cargados desde Connection '{conn_id_to_try}': {list(values.keys())}")
                 break  # Si encontramos la Connection, salir del loop
                 

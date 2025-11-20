@@ -2,13 +2,14 @@ import time
 import hashlib
 import logging
 import os
+import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
 import urllib3
 
-from core.utils import load_config 
+from core.utils import load_config, default_download_path 
 
 # Desactivar warnings de SSL cuando se usa verify=False (necesario para proxies corporativos)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -60,10 +61,27 @@ def sha12(data: bytes) -> str:
 def run_scraper(cfg: dict) -> Path:
     """Flujo principal: conectividad → login → descarga → guardado."""
     session = requests.Session()
-    session.headers.update(cfg["HEADERS"])
+    # Usar HEADERS si está disponible, sino usar headers (minúsculas), sino usar valor por defecto
+    headers = cfg.get("HEADERS") or cfg.get("headers") or {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "*/*",
+        "Connection": "keep-alive"
+    }
+    if isinstance(headers, str):
+        # Si headers es un string JSON, parsearlo
+        try:
+            headers = json.loads(headers)
+        except json.JSONDecodeError:
+            logger.warning(f"No se pudo parsear HEADERS como JSON, usando valor por defecto")
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            }
+    session.headers.update(headers)
     
     # 🔹 Configurar proxy si está disponible
-    proxy = cfg.get("PROXY") or os.getenv("PROXY")
+    proxy = cfg.get("PROXY") or cfg.get("proxy") or os.getenv("PROXY")
     proxies = None
     if proxy:
         proxy_url = proxy if "://" in proxy else f"http://{proxy}"
@@ -71,7 +89,9 @@ def run_scraper(cfg: dict) -> Path:
             "http": proxy_url,
             "https": proxy_url,
         }
-        logger.debug(f"Configurando proxy: {proxy_url}")
+        logger.info(f"✅ Proxy ACTIVO: {proxy_url}")
+    else:
+        logger.warning("⚠️  Proxy NO configurado - las peticiones se harán directamente sin proxy")
 
     # 🔹 Verificar conectividad
     try:
@@ -134,7 +154,9 @@ def run_scraper(cfg: dict) -> Path:
 
     # 🔹 Guardar archivo
     try:
-        folder = Path(cfg["local_dir"])
+        # Usar local_dir de la config, o valor por defecto
+        local_dir = cfg.get("local_dir") or default_download_path()
+        folder = Path(local_dir)
         folder.mkdir(parents=True, exist_ok=True)
 
         # Si se definió nombre específico en config
