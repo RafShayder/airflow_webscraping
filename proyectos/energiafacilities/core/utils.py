@@ -326,7 +326,7 @@ class LazyAirflowConfig(dict):
                 logger.debug(f"Valores cargados desde Variables '{var_prefix}*' para sección '{section_name}': {list(var_values.keys())}")
 
             if section_config:
-                logger.info(f"Sección '{section_name}' cargada exitosamente desde Airflow mediante autodescubrimiento")
+                logger.debug(f"Sección '{section_name}' cargada exitosamente desde Airflow mediante autodescubrimiento")
             else:
                 logger.debug(f"No se encontró configuración para sección '{section_name}' en Airflow")
 
