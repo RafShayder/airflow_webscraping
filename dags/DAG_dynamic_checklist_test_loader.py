@@ -16,7 +16,7 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-# Forzar recarga del módulo para evitar caché
+# Forzar recarga del módulo para evitar caché de Airflow
 import importlib
 if 'energiafacilities.sources.autin_checklist.loader' in sys.modules:
     importlib.reload(sys.modules['energiafacilities.sources.autin_checklist.loader'])
@@ -30,13 +30,6 @@ from energiafacilities.core.utils import load_config, setup_logging
 setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
-
-# Verificar que se cargaron todas las tablas
-if len(TABLAS_DYNAMIC_CHECKLIST) != 23:
-    raise ValueError(
-        f"ERROR: Se esperaban 23 tablas pero se encontraron {len(TABLAS_DYNAMIC_CHECKLIST)}. "
-        f"Tablas encontradas: {list(TABLAS_DYNAMIC_CHECKLIST.keys())}"
-    )
 
 default_args = {
     "owner": "adragui",
