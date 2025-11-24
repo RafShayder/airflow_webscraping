@@ -21,7 +21,13 @@ def setup_logging(level: str = "DEBUG") -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         handlers=[handler]
-    ) 
+    )
+    # Silenciar logs molestos de librerías externas
+    logging.getLogger("paramiko").setLevel(logging.CRITICAL)
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+    logging.getLogger("requests").setLevel(logging.CRITICAL)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+
 
 def _is_airflow_available() -> bool:
     """

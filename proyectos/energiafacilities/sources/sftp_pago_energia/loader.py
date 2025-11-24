@@ -1,6 +1,6 @@
 from core.base_loader import BaseLoaderPostgres
 from core.utils import traerjson,load_config
-from core.utils import setup_logging
+
 def load_sftp_base_sitos(filepath=None,): #sftp_base_sitios, tablabasedesitios, Base de Sitios
     
     config = load_config()
@@ -18,5 +18,3 @@ def load_sftp_base_sitos(filepath=None,): #sftp_base_sitios, tablabasedesitios, 
     carga=Loader.load_data(data=filedata, column_mapping=columnas)
     return carga
 
-setup_logging(level="INFO")
-load_sftp_base_sitos()
