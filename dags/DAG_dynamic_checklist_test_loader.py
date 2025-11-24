@@ -222,7 +222,7 @@ with DAG(
         """,
     )
     
-    # Crear una tarea de carga para cada tabla (11 tareas paralelas)
+    # Crear una tarea de carga para cada tabla (23 tareas paralelas: 11 originales + 12 nuevas)
     load_tasks = []
     for tabla_sql, nombre_pestana in TABLAS_DYNAMIC_CHECKLIST.items():
         # Crear task_id único para cada tabla
