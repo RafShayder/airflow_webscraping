@@ -247,7 +247,7 @@ class BaseExtractorSFTP:
         mueve procesados a processed_dir y con errores a error_dir,
         y guarda un Excel final en local_dir.
         """
-
+        logger.info("Iniciando extracción de archivos recibos...")
         # Normalizar parámetro a lista
         if isinstance(archivos, str):
             archivos = [archivos]
@@ -319,7 +319,13 @@ class BaseExtractorSFTP:
                     continue
 
             if not dfs:
-                raise Exception("Ningún archivo pudo ser procesado correctamente.")
+                logger.warning("No se encontraron archivos para procesar")
+                return {
+                    "status": "warning",
+                    "code": 204,
+                    "etl_msg": "No se encontraron archivos para procesar",
+                    "ruta": None,
+                } 
 
             # Unificar
             df_final = pd.concat(dfs, ignore_index=True)
@@ -329,14 +335,14 @@ class BaseExtractorSFTP:
             os.makedirs(os.path.dirname(salida_local), exist_ok=True)
 
             df_final.to_excel(salida_local, index=False)
-
+            logger.info(f"Archivo consolidado generado en {salida_local}")
             logger.debug(f"Archivo consolidado guardado en {salida_local}")
 
             return {
                 "status": "success",
                 "code": 200,
                 "etl_msg": "Archivos procesados y consolidados correctamente",
-                "ruta_local": salida_local,
+                "ruta": salida_local,
             }
 
         finally:

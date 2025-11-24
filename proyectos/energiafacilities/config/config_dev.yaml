@@ -214,8 +214,9 @@ sftp_pago_energia:
   errorconfig:
     errorconfig:
     schema: "public"
-    table: "error_pago_energia"
+    table: "error_energia_ultimo_lote"
     limmit: 100
-    remote_dir: "/PAGOS_ENERGY_ANALYTICS/error"
+    remote_dir: "/daas/dev/energy-facilities/errors"
+
 #------SFTP Pago Energia PD-------------------------------------------
 
