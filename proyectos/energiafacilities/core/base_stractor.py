@@ -10,6 +10,9 @@ import logging
 from datetime import datetime
 import stat
 
+# Silenciar logs INFO y DEBUG de paramiko (solo mostrar WARNING y ERROR)
+logging.getLogger("paramiko").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 class BaseExtractorSFTP:
