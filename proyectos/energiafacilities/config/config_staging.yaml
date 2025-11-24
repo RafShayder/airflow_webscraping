@@ -64,6 +64,17 @@ sftp_base_sitios_bitacora:
   specific_filename: "BASE_SITIOS"
   sp_carga: "ods.sp_cargar_fs_hm_bitacora_base_sitios"
 
+sftp_toa:
+  remote_dir: "/daas/qa/energy-facilities/toa/input"
+  local_dir: "tmp/sftp_toa"
+  schema: "raw"
+  table: "sftp_hd_toa"
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
+  specific_filename: "TOA"
+  sheet_name: 0  # índice de hoja o nombre, ej: "Hoja1" o 0
+  page_size: 1000  # tamaño de lote para inserción
+  sp_carga: "ods.sp_cargar_sftp_hd_toa"  # stored procedure opcional
+
 # ============================================================================
 # Web Indra (scraping de recibos de energía)
 # ============================================================================

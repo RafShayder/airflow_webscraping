@@ -272,17 +272,103 @@ def _load_airflow_variables(prefix: str, section_name: str = None, env: str = No
     return values
 
 
+class LazyAirflowConfig(dict):
+    """
+    Diccionario que hace lazy loading de secciones desde Airflow Connections/Variables.
+    Permite que el autodescubrimiento funcione incluso cuando no hay YAML ni mapping explícito.
+
+    Cuando se solicita una sección con .get() o [], si no existe en el diccionario,
+    automáticamente intenta cargarla desde Airflow usando autodescubrimiento.
+    """
+
+    def __init__(self, *args, env: str = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._env = env
+        self._loading = set()  # Para evitar recursión infinita
+
+    def _load_section_from_airflow(self, section_name: str) -> dict:
+        """
+        Intenta cargar una sección desde Airflow usando autodescubrimiento.
+
+        Args:
+            section_name: Nombre de la sección a cargar (ej: "sftp_toa")
+
+        Returns:
+            Diccionario con la configuración cargada, o {} si no se pudo cargar
+        """
+        if not _is_airflow_available():
+            return {}
+
+        # Evitar recursión infinita
+        if section_name in self._loading:
+            return {}
+
+        self._loading.add(section_name)
+        try:
+            # Auto-descubrimiento: usar el nombre de la sección como conn_id
+            conn_id = section_name
+            var_prefix = f"{section_name.upper()}_"
+
+            logger.debug(f"Lazy loading para sección '{section_name}' usando autodescubrimiento (conn_id='{conn_id}', var_prefix='{var_prefix}')")
+
+            section_config = {}
+
+            # 1. Cargar desde Connection
+            conn_values = _load_airflow_connection(conn_id, self._env)
+            if conn_values and isinstance(conn_values, dict):
+                section_config.update(conn_values)
+                logger.debug(f"Valores cargados desde Connection '{conn_id}_{self._env}' para sección '{section_name}': {list(conn_values.keys())}")
+
+            # 2. Cargar desde Variables
+            var_values = _load_airflow_variables(var_prefix, None, self._env)
+            if var_values and isinstance(var_values, dict):
+                section_config.update(var_values)
+                logger.debug(f"Valores cargados desde Variables '{var_prefix}*' para sección '{section_name}': {list(var_values.keys())}")
+
+            if section_config:
+                logger.info(f"Sección '{section_name}' cargada exitosamente desde Airflow mediante autodescubrimiento")
+            else:
+                logger.debug(f"No se encontró configuración para sección '{section_name}' en Airflow")
+
+            return section_config
+        finally:
+            self._loading.discard(section_name)
+
+    def __getitem__(self, key):
+        """Sobrescribe [] para hacer lazy loading."""
+        if key not in self:
+            # Intentar cargar desde Airflow
+            section_config = self._load_section_from_airflow(key)
+            if section_config:
+                super().__setitem__(key, section_config)
+                return section_config
+            # Si no se pudo cargar, dejar que KeyError se lance normalmente
+            raise KeyError(key)
+        return super().__getitem__(key)
+
+    def get(self, key, default=None):
+        """Sobrescribe get() para hacer lazy loading."""
+        if key not in self:
+            # Intentar cargar desde Airflow
+            section_config = self._load_section_from_airflow(key)
+            if section_config:
+                super().__setitem__(key, section_config)
+                return section_config
+            return default
+        return super().get(key, default)
+
+
 def _apply_airflow_overrides(config: dict, env: str) -> dict:
     """
     Aplica overrides desde Airflow Connections y Variables al config cargado desde YAML.
     Si el config está vacío o no tiene secciones, las construye desde Airflow.
-    
+
     Prioridad: Variables > Connection > YAML
-    
+
     Args:
         config: Configuración cargada desde YAML (puede estar vacío si no existe YAML)
         env: Entorno actual (dev, staging, prod)
-        
+
     Returns:
         Configuración con overrides aplicados desde Airflow
     """
@@ -490,11 +576,13 @@ def load_config(env: str | None = None) -> dict:
         # Esto sobrescribe valores del YAML con valores de Connections/Variables
         # Si el YAML está vacío, construye toda la configuración desde Airflow
         final_config = _apply_airflow_overrides(yaml_config, resolved_env)
-        
+
         logger.debug(f"Configuración cargada para entorno '{resolved_env}'. "
                     f"Airflow disponible: {_is_airflow_available()}")
-        
-        return final_config
+
+        # Devolver LazyAirflowConfig para permitir autodescubrimiento dinámico
+        # de secciones que no están en YAML ni en section_mapping
+        return LazyAirflowConfig(final_config, env=resolved_env)
 
     except FileNotFoundError as e:
         logger.error(f"No se encontró el archivo: {e}")
