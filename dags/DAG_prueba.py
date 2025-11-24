@@ -17,10 +17,12 @@ from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 # Asegurar imports de proyecto
-sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
+from energiafacilities.core.utils import setup_logging
 from test.test_autodescubrimiento import test_autodescubrimiento_connection
+
+setup_logging("INFO")
 
 
 config = {

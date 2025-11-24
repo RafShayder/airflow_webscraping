@@ -16,7 +16,7 @@ from core.helpers import traerjson
 
 PathLike = Union[str, Path]
 
-# Mapeo de tablas SQL a pestañas Excel (11 tablas según fase2.sql)
+# Mapeo de tablas SQL a pestañas Excel (23 tablas: 11 originales + 12 nuevas)
 TABLAS_DYNAMIC_CHECKLIST = {
     "cf_banco_de_baterias": "CF - BANCO DE BATERIAS",
     "cf_bastidor_distribucion": "CF - BASTIDOR DISTRIBUCION",
@@ -29,6 +29,21 @@ TABLAS_DYNAMIC_CHECKLIST = {
     "ie_suministro_de_energia": "IE - SUMINISTRO DE ENERGÍA",
     "ie_tablero_principal": "IE - TABLERO PRINCIPAL",
     "ie_tablero_secundario": "IE - TABLERO SECUNDARIO",
+    # Nuevas tablas GE (Grupo Electrógeno)
+    "ge_grupo_electrogeno": "GE - GRUPO ELECTROGENO",
+    "ge_info_general_de_tanque": "GE - INFO GENERAL DE TANQUE",
+    "ge_limp_interna_tk": "GE - LIMP INTERNA TK",
+    "ge_transferencia_con_carga": "GE - TRANSFERENCIA CON CARGA",
+    "ge_tablero_de_transferencia_a": "GE - TABLERO DE TRANSFERENCIA A",
+    # Nuevas tablas RADIO
+    "radio_6_12_18_bas_cf_bb": "RADIO - 6 12 18 BAS CF BB",
+    "radio_6_12_18_bbu": "RADIO - 6 12 18 BBU",
+    # Nuevas tablas SE (Suministro de Energía)
+    "se_banco_de_condensadores": "SE - BANCO DE CONDENSADORES",
+    "se_proteccion_y_pararrayos": "SE - PROTECCION Y PARARRAYOS",
+    "se_tablero_de_paso_de_salida": "SE - TABLERO DE PASO DE SALIDA",
+    "se_trafomix": "SE - TRAFOMIX",
+    "se_transformador_de_potencia": "SE - TRANSFORMADOR DE POTENCIA",
 }
 
 
@@ -72,7 +87,7 @@ def load_dynamic_checklist(filepath: Optional[PathLike] = None, env: str = None)
     """
     Carga los datos extraídos de Dynamic Checklist hacia PostgreSQL.
     
-    Procesa 11 pestañas del Excel y las carga en sus respectivas tablas:
+    Procesa 23 pestañas del Excel y las carga en sus respectivas tablas:
     - Cada pestaña corresponde a una tabla en raw.*
     - Usa el mapeo de columnas desde columns_map_checklist.json
     - Carga todas las pestañas en orden

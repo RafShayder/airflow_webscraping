@@ -28,14 +28,9 @@ sys.path.insert(0, "/opt/airflow/proyectos/test")
 # Importar el módulo scraper
 import scraper
 
-setup_logging = None
-try:
-    from energiafacilities.core import setup_logging
-except ImportError:
-    pass
+from energiafacilities.core.utils import setup_logging
 
-if setup_logging:
-    setup_logging("INFO")
+setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 

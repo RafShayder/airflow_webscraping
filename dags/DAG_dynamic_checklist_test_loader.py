@@ -19,7 +19,9 @@ from energiafacilities.sources.autin_checklist.loader import (
     load_single_table,
     TABLAS_DYNAMIC_CHECKLIST
 )
-from energiafacilities.core.utils import load_config
+from energiafacilities.core.utils import load_config, setup_logging
+
+setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 

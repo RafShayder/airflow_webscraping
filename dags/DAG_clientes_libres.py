@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
-sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
 from energiafacilities.core.utils import setup_logging

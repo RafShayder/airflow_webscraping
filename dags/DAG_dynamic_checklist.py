@@ -16,7 +16,7 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.sources.autin_checklist.stractor import DynamicChecklistConfig, extraer_dynamic_checklist
-from energiafacilities.core import setup_logging
+from energiafacilities.core.utils import setup_logging
 from energiafacilities.sources.autin_checklist.loader import (
     load_dynamic_checklist,
     load_single_table,

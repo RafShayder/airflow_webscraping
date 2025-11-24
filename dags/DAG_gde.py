@@ -13,11 +13,10 @@ from airflow.providers.standard.operators.python import PythonOperator  # type: 
 from airflow.sdk import Variable  # type: ignore
 
 # Asegurar imports de proyecto
-sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 
 from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
-from energiafacilities.core import setup_logging
+from energiafacilities.core.utils import setup_logging
 from energiafacilities.sources.autin_gde.loader import load_gde
 
 setup_logging("INFO")
