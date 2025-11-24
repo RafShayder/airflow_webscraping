@@ -32,16 +32,16 @@ TABLAS_DYNAMIC_CHECKLIST = {
     # Nuevas tablas GE (Grupo Electrógeno)
     "ge_grupo_electrogeno": "GE - GRUPO ELECTROGENO",
     "ge_info_general_de_tanque": "GE - INFO GENERAL DE TANQUE",
-    "ge_limp_interna_tk": "GE - LIMP INTERNA TK",
-    "ge_transferencia_con_carga": "GE - TRANSFERENCIA CON CARGA",
+    "ge_limp_interna_tk": "GE_ - LIMP INTERNA TK",
+    "ge_transferencia_con_carga": "GE_ - TRANSFERENCIA CON CARGA",
     "ge_tablero_de_transferencia_a": "GE - TABLERO DE TRANSFERENCIA A",
     # Nuevas tablas RADIO
-    "radio_6_12_18_bas_cf_bb": "RADIO - 6 12 18 BAS CF BB",
-    "radio_6_12_18_bbu": "RADIO - 6 12 18 BBU",
+    "radio_6_12_18_bas_cf_bb": "RADIO_6-12-18 BAS_CF_BB",
+    "radio_6_12_18_bbu": "RADIO_6-12-18 BBU",
     # Nuevas tablas SE (Suministro de Energía)
     "se_banco_de_condensadores": "SE - BANCO DE CONDENSADORES",
     "se_proteccion_y_pararrayos": "SE - PROTECCION Y PARARRAYOS",
-    "se_tablero_de_paso_de_salida": "SE - TABLERO DE PASO DE SALIDA",
+    "se_tablero_de_paso_de_salida": "SE - TABLERO DE PASO DE SALIDA ",
     "se_trafomix": "SE - TRAFOMIX",
     "se_transformador_de_potencia": "SE - TRANSFORMADOR DE POTENCIA",
 }
