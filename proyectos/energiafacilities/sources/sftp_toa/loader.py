@@ -56,13 +56,13 @@ def create_flexible_mapping(column_mapping: Dict[str, str], excel_columns: list)
         if excel_expected in excel_columns:
             flexible_mapping[bd_col] = excel_expected
             logger.debug(f"Mapeo exacto: {bd_col} -> {excel_expected}")
-            else:
-                # 2. Intentar coincidencia normalizada
-                expected_normalized = normalize_column_name(excel_expected)
-                if expected_normalized in excel_cols_normalized:
-                    excel_found = excel_cols_normalized[expected_normalized]
-                    flexible_mapping[bd_col] = excel_found
-                    logger.debug(f"Mapeo flexible encontrado: {bd_col} -> '{excel_found}' (esperado: '{excel_expected}')")
+        else:
+            # 2. Intentar coincidencia normalizada
+            expected_normalized = normalize_column_name(excel_expected)
+            if expected_normalized in excel_cols_normalized:
+                excel_found = excel_cols_normalized[expected_normalized]
+                flexible_mapping[bd_col] = excel_found
+                logger.debug(f"Mapeo flexible encontrado: {bd_col} -> '{excel_found}' (esperado: '{excel_expected}')")
             else:
                 # 3. No se encontró, se insertará como NULL
                 logger.debug(f"No se encontró columna para '{bd_col}' (esperado: '{excel_expected}'). Se insertará como NULL.")
