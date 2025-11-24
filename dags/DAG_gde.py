@@ -14,6 +14,7 @@ from airflow.sdk import Variable  # type: ignore
 
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
 from energiafacilities.core.utils import setup_logging

@@ -8,6 +8,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 
 # Asegura que Airflow encuentre los módulos del proyecto dentro del contenedor
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
 from sources.cargaglobal.cargamanual import load_clienteslibres

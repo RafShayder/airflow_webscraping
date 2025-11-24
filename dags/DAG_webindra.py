@@ -7,6 +7,7 @@ from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
 from sources.webindra.stractor import stractor_indra

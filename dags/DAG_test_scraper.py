@@ -22,6 +22,7 @@ else:
     load_dotenv(override=False)
 
 # Asegurar imports de proyecto
+sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 sys.path.insert(0, "/opt/airflow/proyectos/test")
 
