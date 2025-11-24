@@ -108,7 +108,7 @@ class BaseExtractorSFTP:
                 "code": 200,
                 "etl_msg": f"Conexión exitosa a {self.conn.host}"
             }
-            logger.debug(retornoinfo["etl_msg"])
+            logger.info(retornoinfo["etl_msg"])
             return retornoinfo
         except Exception as e:
             retornoinfo = {
@@ -195,7 +195,7 @@ class BaseExtractorSFTP:
                 # Validar si el archivo destino ya existe
                 try:
                     sftp.stat(destino)
-                    logger.warning(f"El archivo {destino} ya existe y será sobrescrito")
+                    logger.debug(f"El archivo {destino} ya existe y será sobrescrito")
                 except FileNotFoundError:
                     pass  # Archivo no existe, OK para mover
 

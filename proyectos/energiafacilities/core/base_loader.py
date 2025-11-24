@@ -149,7 +149,7 @@ class BaseLoaderPostgres:
             if column_mapping:
                 inverse_map = {v: k for k, v in column_mapping.items()}
                 df = df.rename(columns=inverse_map)
-                logger.debug("Mapeo de columnas aplicado (modo invertido DB ➜ Excel)")
+                logger.debug("Mapeo de columnas aplicado")
 
             # Obtener nombres de columnas sin comillas para comparación
             # (las columnas del DataFrame pueden tener comillas si empiezan con números)
@@ -185,11 +185,11 @@ class BaseLoaderPostgres:
                 raise ValueError(msg)
             elif faltantes and not strictreview:
                 msg = f"Columnas no encontradas en origen: {', '.join(faltantes)}"
-                logger.warning(msg)
+                logger.debug(msg)
             
 
             if sobrantes:
-                logger.warning(f"Columnas adicionales en origen: {', '.join(sobrantes)}")
+                logger.debug(f"Columnas adicionales en origen: {', '.join(sobrantes)}")
 
             retornoinfo = {"status": "success", "code": 200, "etl_msg": "Columnas verificadas correctamente"}
             logger.debug("Verificación de columnas completada", extra=retornoinfo)
@@ -281,10 +281,10 @@ class BaseLoaderPostgres:
                 
                 if cols_existentes:
                     df = df[cols_existentes].rename(columns=cols_mapeo)
-                    logger.debug(f"Mapeo invertido aplicado (DB ➜ Excel): {len(cols_existentes)} columnas mapeadas")
+                    logger.debug(f"Mapeo aplicado: {len(cols_existentes)} columnas mapeadas")
                     if len(cols_existentes) < len(columnas_originales):
                         cols_no_mapeadas = set(columnas_originales) - set(cols_existentes)
-                        logger.warning(f"{len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas: {list(cols_no_mapeadas)[:5]}{'...' if len(cols_no_mapeadas) > 5 else ''}")
+                        logger.debug(f"{len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas")
                 else:
                     logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
                     raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
@@ -384,7 +384,7 @@ class BaseLoaderPostgres:
                         cols_para_insert.append(col_fechacarga_sin_comillas)
                     logger.debug(f"Columna 'fechacarga' agregada con valor: {fecha_carga}")
                 else:
-                    logger.warning(f"Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
+                    logger.debug(f"Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
             
             if not cols_para_insert:
                 logger.error(f"Columnas del DataFrame: {list(df.columns)}")
