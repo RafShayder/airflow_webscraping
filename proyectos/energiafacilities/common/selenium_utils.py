@@ -118,16 +118,16 @@ def navigate_to_menu_item(
     Realiza hover y click sobre un elemento del menú lateral (índice basado en cero).
     """
     menu_items = wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, ".menu-item.sideItem"))
-    logger.info("ℹ Encontrados %s elementos del menú", len(menu_items))
+    logger.debug("Encontrados %s elementos del menú", len(menu_items))
     require(len(menu_items) > menu_index, f"No se encontró el menú {item_name}")
 
     target_menu_item = menu_items[menu_index]
     ActionChains(driver).move_to_element(target_menu_item).perform()
-    logger.info("✓ Hover realizado sobre el elemento del menú (índice %s)", menu_index)
+    logger.debug("Hover realizado sobre el elemento del menú (índice %s)", menu_index)
     time.sleep(hover_pause)
 
     wait.until(EC.element_to_be_clickable((By.XPATH, f"//span[@title='{item_title}']"))).click()
-    logger.info("✓ %s seleccionado", item_name)
+    logger.debug("%s seleccionado", item_name)
     time.sleep(click_pause)
     return True
 
@@ -142,7 +142,7 @@ def navigate_to_submenu(
 ) -> bool:
     """Selecciona un submenú dentro del panel lateral."""
     wait.until(EC.element_to_be_clickable((By.XPATH, submenu_xpath))).click()
-    logger.info("✓ %s seleccionado", submenu_name)
+    logger.debug("%s seleccionado", submenu_name)
     time.sleep(click_pause)
     return True
 
@@ -158,9 +158,9 @@ def monitor_export_loader(
     - ``'log_management'`` si aparece el mensaje de 60 segundos.
     - ``'direct_download'`` si el loader desaparece sin mensaje adicional.
     """
-    logger.info("⏳ Esperando a que termine la exportación...")
-    logger.info(
-        "ℹ Nota: La exportación puede tardar hasta %s segundos, por favor espere...",
+    logger.debug("Esperando a que termine la exportación")
+    logger.debug(
+        "Nota: La exportación puede tardar hasta %s segundos, por favor espere...",
         timeout,
     )
     start_time = time.time()
@@ -173,7 +173,7 @@ def monitor_export_loader(
                 "or contains(text(),'60 seconds')]",
             )
             if info_message:
-                logger.info("✓ Caso detectado: la exportación continuará en Log Management")
+                logger.debug("Caso detectado: la exportación continuará en Log Management")
                 return "log_management"
 
             loader_present = driver.find_elements(
@@ -182,7 +182,7 @@ def monitor_export_loader(
             )
 
             if not loader_present:
-                logger.info("ℹ Loader desapareció - esperando posible mensaje de aviso...")
+                logger.debug("Loader desapareció - esperando posible mensaje de aviso")
                 additional_start = time.time()
                 while time.time() - additional_start < 10:
                     info_message = driver.find_elements(
@@ -191,19 +191,19 @@ def monitor_export_loader(
                         "or contains(text(),'60 seconds')]",
                     )
                     if info_message:
-                        logger.info("✓ Aviso tardío detectado - ir a Log Management")
+                        logger.debug("Aviso tardío detectado - ir a Log Management")
                         return "log_management"
                     time.sleep(1)
 
-                logger.info("✓ Loader finalizado sin aviso - descarga directa")
+                logger.debug("Loader finalizado sin aviso - descarga directa")
                 return "direct_download"
 
             time.sleep(2)
         except Exception:
-            logger.exception("⚠ Error monitoreando exportación")
+            logger.exception("Error monitoreando exportación")
             time.sleep(2)
 
-    logger.warning("⏱️ Timeout monitoreando exportación (considerar caso log_management)")
+    logger.warning("Timeout monitoreando exportación (considerar caso log_management)")
     return "log_management"
 
 
@@ -222,7 +222,7 @@ def wait_for_download(
 
     ``since`` representa el timestamp a partir del cual considerar archivos válidos.
     """
-    logger.info("⏳ Verificando que el archivo se haya descargado...")
+    logger.debug("Verificando que el archivo se haya descargado")
     deadline = time.time() + timeout
     before = set(initial_snapshot or [])
 
@@ -244,7 +244,7 @@ def wait_for_download(
 
         if candidates:
             latest = max(candidates, key=lambda p: p.stat().st_mtime)
-            logger.info("✓ Archivo descargado detectado: %s", latest.name)
+            logger.info("Archivo descargado detectado: %s", latest.name)
             if desired_name:
                 target_path = _resolve_target_filename(download_dir, desired_name, overwrite)
                 try:
@@ -252,10 +252,10 @@ def wait_for_download(
                         target_path.unlink()
                     latest.rename(target_path)
                     latest = target_path
-                    logger.info("📦 Archivo renombrado a: %s", target_path.name)
+                    logger.debug("Archivo renombrado a: %s", target_path.name)
                 except Exception as exc:
                     message = f"No se pudo renombrar el archivo descargado a {target_path.name}"
-                    logger.error("❌ %s", message, exc_info=True)
+                    logger.error("%s", message, exc_info=True)
                     raise RuntimeError(message) from exc
             return latest
 

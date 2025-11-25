@@ -8,6 +8,13 @@
 !env.airflow.example
 !env.example
 config_local.py
+airflow_connections_import_dict.json
+airflow_connections_import_dict_dev.json
+airflow_connections_import_dict_staging.json
+airflow_connections_import_dict_prod.json
+AIRFLOW_SETUP_DEV.md
+AIRFLOW_SETUP_STAGING.md
+AIRFLOW_SETUP_PROD.md
 
 # Archivos de Chrome para Docker offline
 chrome_*.deb
@@ -94,15 +101,6 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -128,7 +126,6 @@ dmypy.json
 cython_debug/
 
 # Archivos específicos del proyecto
-downloads/
 *.log
 debug_*.py
 temp_*.py
@@ -163,27 +160,13 @@ geckodriver*
 *.xpi
 
 # Archivos de descarga del scraper
-scraper_downloads/
-downloads/
 *.pdf
 *.xlsx
 *.csv
 *.zip
 *.rar
-*tar.gz
-
-# Logs del sistema
-*.log
-logs/
-
-README_Docker.md
-README.md
-tests/
-requirements-test.txt
-requirements-dev.txt
-backup/# Imágenes Docker
 *.tar.gz
 *.tar
 
-# Documentación de bugs críticos
-BUGS_CRITICOS_IDENTIFICADOS.md
+# Logs del sistema
+logs/

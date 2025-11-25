@@ -7,14 +7,15 @@ from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+sys.path.insert(0, "/opt/airflow/proyectos")
 
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.sftp_energia.stractor import extraersftp_energia_PD, extraersftp_energia_DA
 from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_DA
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA
 from sources.sftp_energia.geterrortable import get_save_errors_PD, get_save_errors_DA
 
-setup_logging("DEBUG")
+setup_logging("INFO")
 
 def procesar_load_sftp_energia_PD(**kwargs):
     ti = kwargs['ti']

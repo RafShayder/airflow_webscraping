@@ -7,8 +7,9 @@ from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
+sys.path.insert(0, "/opt/airflow/proyectos")
 
-from core.utils import setup_logging
+from energiafacilities.core.utils import setup_logging
 from sources.webindra.stractor import stractor_indra
 from sources.webindra.loader import load_indra
 from sources.webindra.run_sp import correr_sp_webindra
@@ -33,7 +34,7 @@ config = {
 with DAG(
     "dag_etl_webindra",
     default_args=config,
-    schedule="0 0 1 * *",
+    schedule="*/10 * * * *",
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:

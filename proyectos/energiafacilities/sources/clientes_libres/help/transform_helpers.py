@@ -142,7 +142,7 @@ def _procesar_excel(path_xlsx: Path, mapping: dict, sheet_names: list[str]) -> p
     """Procesa las hojas indicadas del archivo Excel según el mapping."""
     wb = load_workbook(filename=path_xlsx, data_only=True, read_only=True)
     try:
-        logger.info(f"Hojas disponibles en {path_xlsx.name}")
+        logger.debug(f"Hojas disponibles en {path_xlsx.name}")
         disponibles = set(wb.sheetnames)
         registros = []
 
@@ -154,13 +154,13 @@ def _procesar_excel(path_xlsx: Path, mapping: dict, sheet_names: list[str]) -> p
             registro = _leer_registro(ws, mapping)
             registro["hoja"] = nombre
             registros.append(registro)
-        logger.info(f"Hojas procesadas: {len(registros)} de {len(sheet_names)} solicitadas.")
+        logger.debug(f"Hojas procesadas: {len(registros)} de {len(sheet_names)} solicitadas.")
         if not registros:
             logger.warning("No se generaron registros: todas las hojas fueron omitidas o vacías.")
             return pd.DataFrame(columns=list(mapping.keys()) + ["hoja", "num_recibo"])
 
         df = pd.DataFrame(registros)
-        logger.info(f"Procesamiento completado: {len(df)} registros generados.")
+        logger.debug(f"Procesamiento completado: {len(df)} registros generados.")
         return df
     finally:
         wb.close()
@@ -210,7 +210,7 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
             raise FileNotFoundError(f"No se encontró el archivo Excel: {input_path}")
 
         # ===== Transformación =====
-        logger.info(f"Iniciando transformación de archivo: {input_path}")
+        logger.debug(f"Iniciando transformación de archivo: {input_path}")
         df = _procesar_excel(input_path, mapping, sheet_names)
         # quitamos la columna periodo y la columna hoja porque no son necesarias en el resultado final
         if 'hoja' in df.columns:
@@ -231,7 +231,7 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
                 logger.error(f"No se pudo crear el directorio {pathcrear}: {e}")
                 raise
             df.to_excel(filename, index=False)
-            logger.info(f"Archivo transformado guardado en: {filename}")
+            logger.debug(f"Archivo transformado guardado en: {filename}")
             return filename
         return df
 

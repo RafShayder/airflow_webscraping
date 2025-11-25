@@ -1,7 +1,0 @@
-
-CREATE TABLE IF NOT EXISTS raw.lmt_lbt_poste_de_cada_uno (
-  task_id   VARCHAR(255) NOT NULL,
-  site_id   VARCHAR(255) NOT NULL,
-  sub_wo_id VARCHAR(255) NOT NULL
-);
-

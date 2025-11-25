@@ -1,8 +1,0 @@
-
-CREATE TABLE IF NOT EXISTS raw.mantenimiento_preventivo_dinami (
-  task_id    VARCHAR(255) NOT NULL,
-  site_id    VARCHAR(255) NOT NULL,
-  sub_wo_id  VARCHAR(255) NOT NULL,
-  work_order VARCHAR(255) NULL
-);
-
