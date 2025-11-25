@@ -8,6 +8,7 @@
         "total_pagado": "TOTAL_PAGADO",
         "fecha_emision": "FECHA_EMISION",
         "fecha_vencimiento": "FECHA_VENCIMIENTO",
-        "periodo_consumo": "Periodo Consumo"
+        "periodo_consumo": "Periodo Consumo",
+        "archivo":"archivo"
     }
 }

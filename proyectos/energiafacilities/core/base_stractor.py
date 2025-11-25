@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List
+from typing import Any, Dict, List,Optional
 import os
 import io
 import pandas as pd
@@ -236,6 +236,7 @@ class BaseExtractorSFTP:
         self,
         archivos: List[str] | str,
         nombre_salida_local: str,
+        columnas_verificar: Dict[str, str],
         hoja: str = None,
         fila_inicio: int = None,
         local_dir: str=None,
@@ -300,14 +301,20 @@ class BaseExtractorSFTP:
                     df = df.dropna(subset=[subsetname])
                     
                     df["archivo"] = archivo
-                    dfs.append(df)
                     #borramos las filas que sean vacias
                     # MOVIMIENTO A PROCESSED → CON OVERWRITE
                     destino_ok = f"{self.paths.processed_dir}/{archivo}"
-                    rename_overwrite(sftp, ruta_remota, destino_ok)
+                    
+                    dataframefiltrado=self.validate_columns_dataframe(df, columnas_verificar)
 
-                    logger.debug(f"Archivo procesado con éxito: {archivo}")
-
+                    if  dataframefiltrado is not None:
+                        rename_overwrite(sftp, ruta_remota, destino_ok)
+                        logger.debug(f"Archivo procesado con éxito: {archivo}")
+                        
+                    else:
+                        logger.error(f"Las columnas de {archivo} no son las esperadas")
+                        raise
+                    dfs.append(dataframefiltrado)
                 except Exception as e:
                     try:
                         destino_error = f"{self.paths.error_dir}/{archivo}"
@@ -348,3 +355,27 @@ class BaseExtractorSFTP:
         finally:
             if sftp:
                 sftp.close()
+    
+    # verificamos las columnas de un dataframe donde le pasamos las columnas en un map y solo debe tomas en cuenta los values del map
+    # y que lo renombre y solo retorne las columnas de l map
+    def validate_columns_dataframe(self ,df: pd.DataFrame, column_map: Dict[str, str]) -> Optional[pd.DataFrame]:
+        try:
+            # Verificamos que todas las columnas del map existan en el DataFrame
+            missing_columns = [col for col in column_map.values() if col not in df.columns]
+            if missing_columns:
+                logger.error(f"Faltan columnas en el DataFrame: {missing_columns}")
+                return None
+
+            # Renombramos las columnas según el map
+            df_renamed = df.rename(columns={v: k for k, v in column_map.items()})
+
+            # Seleccionamos solo las columnas que necesitamos
+            df_final = df_renamed[list(column_map.keys())]
+
+            return df_final
+
+        except Exception as e:
+            logger.error(f"Error al procesar el DataFrame: {e}")
+            return None
+
+        

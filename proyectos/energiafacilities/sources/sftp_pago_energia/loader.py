@@ -12,9 +12,9 @@ def load_sftp_base_sitos(filepath=None,): #sftp_base_sitios, tablabasedesitios, 
         )
 
     Loader.validar_conexion()
-    columnas =traerjson(archivo='config/columnas/columns_map_pago_energia.json',valor="tablarpagoenergia")
+
     filedata= filepath or (general_config['local_dir'] +'/'+ general_config['nombre_salida_local'])
-    Loader.verificar_datos(data=filedata ,column_mapping=columnas)
-    carga=Loader.load_data(data=filedata, column_mapping=columnas)
+
+    carga=Loader.load_data(data=filedata,)
     return carga
 

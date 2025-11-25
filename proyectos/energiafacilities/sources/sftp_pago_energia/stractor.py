@@ -1,6 +1,6 @@
 
 from core.base_stractor import BaseExtractorSFTP
-from core.utils import  load_config 
+from core.utils import  load_config,traerjson
 
 def extraersftp_pago_energia():
     config = load_config()
@@ -13,8 +13,8 @@ def extraersftp_pago_energia():
     Extractor.validar_conexion()
     Extractor.validate() #validar datos del sftp
     archivos= Extractor.listar_archivos()
-
-    metastraccion=Extractor.estract_archivos_excel(archivos=archivos,nombre_salida_local="Consolidado_PagoEnergia.xlsx",fila_inicio=6)
+    columnas =traerjson(archivo='config/columnas/columns_map_pago_energia.json',valor="tablarpagoenergia")
+    metastraccion=Extractor.estract_archivos_excel(archivos=archivos,nombre_salida_local="Consolidado_PagoEnergia.xlsx",fila_inicio=6,columnas_verificar=columnas)
     return metastraccion['ruta']
 
 
