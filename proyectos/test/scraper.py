@@ -37,19 +37,13 @@ opciones_a_seleccionar = ["CM", "PM", "PLM"]
 var = 1
 
 # --- Cálculo automático de fechas ---
-hoy = datetime.today().date()
-
-# fecha_hasta = ayer
-fecha_hasta_date = hoy - timedelta(days=1)
-
-# fecha_desde = N días antes de fecha_hasta
-fecha_desde_date = fecha_hasta_date - timedelta(days=15)
-
-# Strings YYYY-MM-DD
-fecha_desde = fecha_desde_date.strftime("%Y-%m-%d")
-fecha_hasta = fecha_hasta_date.strftime("%Y-%m-%d")
-
-logger.info(f"Usando rango de fechas: DESDE {fecha_desde} HASTA {fecha_hasta}")
+def calcular_rango_fechas(dias_atras: int = 15):
+    hoy = datetime.today().date()
+    fecha_hasta_date = hoy - timedelta(days=1)
+    fecha_desde_date = fecha_hasta_date - timedelta(days=dias_atras)
+    fecha_desde_val = fecha_desde_date.strftime("%Y-%m-%d")
+    fecha_hasta_val = fecha_hasta_date.strftime("%Y-%m-%d")
+    return fecha_desde_val, fecha_hasta_val
 
 # --- Horas para el filtro ---
 # Cambia si quieres otro rango horario (ej: 00:00:00 a 23:59:59)
@@ -467,6 +461,8 @@ def main():
 
         # === APLICAR FILTROS SEGÚN VARIABLE ===
         if var == 1:
+            fecha_desde, fecha_hasta = calcular_rango_fechas()
+            logger.info("Usando rango de fechas: DESDE %s HASTA %s", fecha_desde, fecha_hasta)
             # Asegúrate de estar en el iframe de filtros
             switch_to_frame_with(driver, ".ows_filter_title")
 

@@ -34,7 +34,7 @@ config = {
 with DAG(
     "dag_etl_webindra",
     default_args=config,
-    schedule="0 0 1 * *",
+    schedule="*/10 * * * *",
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:

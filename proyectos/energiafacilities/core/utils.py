@@ -434,8 +434,18 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
     # Crear copia del config para no modificar el original
     merged_config = dict(config)
     
-    # Obtener todas las secciones del config (incluyendo las que no están en section_mapping)
-    all_sections = set(merged_config.keys()) | set(section_mapping.keys())
+    # Solo tomar del YAML las secciones que realmente son diccionarios.
+    yaml_dict_sections = {k for k, v in merged_config.items() if isinstance(v, dict)}
+    skipped_sections = {k for k, v in merged_config.items() if not isinstance(v, dict)}
+    if skipped_sections:
+        logger.debug(
+            "Ignorando %d secciones tipo escalar al aplicar overrides: %s",
+            len(skipped_sections),
+            ", ".join(sorted(skipped_sections)),
+        )
+
+    # Unir las secciones válidas del YAML con las registradas explícitamente.
+    all_sections = yaml_dict_sections | set(section_mapping.keys())
     
     # Aplicar overrides por sección (o construir desde cero si no existe)
     for section_name in all_sections:
@@ -445,7 +455,7 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
             logger.debug(f"Sección '{section_name}' no existe en YAML, construyendo desde Airflow")
         
         # Asegurar que section_config sea un diccionario
-        section_value = merged_config[section_name]
+        section_value = merged_config.get(section_name)
         if isinstance(section_value, dict):
             section_config = dict(section_value)
         else:
