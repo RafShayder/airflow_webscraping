@@ -243,10 +243,12 @@ Las Variables permiten sobrescribir valores específicos. Se buscan con prefijo 
 
 **Variables en Airflow (Admin → Variables):**
 ```
+ENV_MODE = "dev"
+LOGGING_LEVEL = "INFO"
 POSTGRES_HOST_DEV = "10.226.17.162"
 POSTGRES_PORT_DEV = "5425"
-TELEOWS_USERNAME_DEV = "usuario"
-TELEOWS_PASSWORD_DEV = "contraseña"
+TELEOWS_GDE_USERNAME_DEV = "usuario"  # Variables específicas para GDE
+TELEOWS_DC_USERNAME_DEV = "usuario"  # Variables específicas para Dynamic Checklist
 ```
 
 ### Auto-descubrimiento
@@ -285,11 +287,20 @@ Las variables de entorno se reemplazan automáticamente usando `${VAR_NAME}`.
 
 Algunas secciones tienen mapeo explícito en `section_mapping`:
 - `postgress` → Connection: `postgres_siom_{env}`, Variables: `POSTGRES_*`
-- `teleows` → Connection: `generic_autin_shared_{env}`, Variables: `TELEOWS_*`
-- `sftp_energia` → Connection: `sftp_energia_{env}`, Variables: `SFTP_ENERGIA_*`
-- Y otras más...
+- `teleows` → Connection: `generic_autin_shared_{env}` (opcional, no recomendada), Variables: `TELEOWS_*`
+- `gde` → Connection: `generic_autin_gde_{env}`, Variables: `TELEOWS_GDE_*`
+- `dynamic_checklist` → Connection: `generic_autin_dc_{env}`, Variables: `TELEOWS_DC_*`
+- `sftp_energia_c` → Connection: `sftp_energia_{env}`, Variables: `SFTP_ENERGIA_*`
+- `sftp_energia` → Connection: `None` (usa `sftp_energia_c`), Variables: `SFTP_ENERGIA_*`
+- `sftp_daas_c` → Connection: `sftp_daas_{env}`, Variables: `SFTP_DAAS_*`
+- `sftp_base_sitios` → Connection: `sftp_base_sitios_{env}`, Variables: `SFTP_BASE_SITIOS_*`
+- `sftp_base_sitios_bitacora` → Connection: `sftp_base_sitios_bitacora_{env}`, Variables: `SFTP_BASE_SITIOS_BITACORA_*`
+- `webindra_energia` → Connection: `http_webindra_{env}`, Variables: `WEBINDRA_ENERGIA_*`
+- `clientes_libres` → Connection: `sftp_clientes_libres_{env}`, Variables: `CLIENTES_LIBRES_*`
 
-Las secciones no mapeadas usan auto-descubrimiento basado en convenciones.
+**Nota**: La connection `generic_autin_shared_{env}` es opcional y no recomendada. Los módulos GDE y Dynamic Checklist tienen sus propias connections específicas que incluyen toda la configuración necesaria.
+
+Las secciones no mapeadas (como `sftp_pago_energia`) usan auto-descubrimiento basado en convenciones.
 
 ### Ejemplo completo
 
@@ -307,12 +318,19 @@ mi_api = config.get("mi_api_test", {})
 # Busca automáticamente: mi_api_test_dev (Connection) y MI_API_TEST_* (Variables)
 ```
 
+### Variables Requeridas
+
+**Variables globales que deben configurarse en Airflow:**
+- `ENV_MODE`: Define el entorno actual (`dev`, `staging`, o `prod`). **REQUERIDA**.
+- `LOGGING_LEVEL`: Nivel de logging (`INFO`, `DEBUG`, `WARNING`, `ERROR`, `CRITICAL`). **REQUERIDA**.
+
 ### Notas importantes
 
 - El entorno se determina automáticamente desde `ENV_MODE` (Airflow Variable o variable de entorno), o usa `"dev"` por defecto.
 - Si una Connection o Variable no existe, el sistema continúa usando los valores del YAML sin error.
 - El campo `extra` de las Connections acepta JSON para parámetros adicionales (ej: `{"api_key": "abc123", "endpoint": "/api"}`).
 - Mantén `AIRFLOW_UID=50000` en el `.env` de la raíz del proyecto para evitar problemas de permisos en los volúmenes Docker.
+- **No es necesario crear la connection `generic_autin_shared_{env}`**. Los módulos GDE y Dynamic Checklist tienen sus propias connections específicas (`generic_autin_gde_{env}` y `generic_autin_dc_{env}`) que incluyen toda la configuración necesaria.
 
 ---
 

@@ -12,6 +12,9 @@ airflow_connections_import_dict.json
 airflow_connections_import_dict_dev.json
 airflow_connections_import_dict_staging.json
 airflow_connections_import_dict_prod.json
+AIRFLOW_SETUP_DEV.md
+AIRFLOW_SETUP_STAGING.md
+AIRFLOW_SETUP_PROD.md
 
 # Archivos de Chrome para Docker offline
 chrome_*.deb
