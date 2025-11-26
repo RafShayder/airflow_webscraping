@@ -63,7 +63,7 @@ def create_flexible_mapping(column_mapping: Dict[str, str], excel_columns: list)
                 excel_found = excel_cols_normalized[expected_normalized]
                 flexible_mapping[bd_col] = excel_found
                 logger.debug(f"Mapeo flexible encontrado: {bd_col} -> '{excel_found}' (esperado: '{excel_expected}')")
-        else:
+            else:
                 # 3. No se encontró, se insertará como NULL
                 logger.debug(f"No se encontró columna para '{bd_col}' (esperado: '{excel_expected}'). Se insertará como NULL.")
                 # No agregamos al mapeo, BaseLoaderPostgres manejará las columnas faltantes
