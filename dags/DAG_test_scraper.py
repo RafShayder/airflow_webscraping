@@ -31,7 +31,7 @@ import scraper
 
 from energiafacilities.core.utils import setup_logging
 
-setup_logging("INFO")
+    setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 

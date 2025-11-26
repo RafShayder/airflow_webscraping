@@ -23,5 +23,5 @@ def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga
         logger.info(f"Ejecutando SP: {sp_ejecutar}")
         postgress.ejecutar(sp_ejecutar, tipo='sp')
         data = postgress.ejecutar("public.log_sp_ultimo_fn", parametros=(f'{sp_ejecutar}()',), tipo='fn')
-        logger.debug(f"Estado SP: {data['estado'].values}, Detalle: {data['msj_error'].values}")
+            logger.debug(f"Estado SP: {data['estado'].values}, Detalle: {data['msj_error'].values}")
         logger.info(f"SP ejecutado correctamente: {sp_ejecutar}")
