@@ -170,18 +170,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Run Hash"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 110
-              }
-            ]
           }
         ]
       },
@@ -266,20 +254,19 @@
               "Time": true,
               "Value #Info": true,
               "instance": true,
-              "job": true
+              "job": true,
+              "run_id_hash": true
             },
             "indexByName": {
               "Value #EndTime": 0,
               "dag_id": 1,
               "state": 2,
-              "Value #Duration": 3,
-              "run_id_hash": 4
+              "Value #Duration": 3
             },
             "renameByName": {
               "Value #Duration": "Duración",
               "Value #EndTime": "Fecha Finalización",
               "dag_id": "DAG",
-              "run_id_hash": "Run Hash",
               "state": "Estado"
             }
           }
@@ -830,8 +817,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Historial de Ejecuciones de DAGs - Airflow v2",
-  "uid": "airflow-dag-history-v2",
+  "title": "Historial de Ejecuciones de DAGs - Airflow",
+  "uid": "airflow-dag-history",
   "version": 1,
   "weekStart": ""
 }

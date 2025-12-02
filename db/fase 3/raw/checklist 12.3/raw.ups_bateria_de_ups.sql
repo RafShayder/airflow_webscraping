@@ -1,0 +1,47 @@
+CREATE TABLE raw.ups_bateria_de_ups (
+  task_id                                      varchar(255) NOT NULL,
+  site_id                                      varchar(255) NOT NULL,
+  sub_wo_id                                    varchar(255) NOT NULL,
+
+  codigo_unico_banco_bateria                   text NULL,
+  codigo_ups_asociado_banco_bat                text NULL,
+  nombre_ups_asociado_banco_bat                text NULL,
+  marca_ups_asociado_banco_bat                 text NULL,
+  capacidad_ups_asociado_banco_bat_ampdc       text NULL,
+  tipo_banco_baterias                          text NULL,
+  subtipo_banco_baterias                       text NULL,
+  nombre_sala_bateria                          text NULL,
+  numero_banco                                 text NULL,
+  cantidad_celdas                              text NULL,
+  voltaje_total_banco_v                        text NULL,
+  voltaje_unitario_celda_v                     text NULL,
+  marca                                        text NULL,
+  modelo                                       text NULL,
+  estado_banco_baterias                        text NULL,
+  tiene_bornes_levantados                      text NULL,
+  tiene_celda_rajada                           text NULL,
+  capacidad_ah                                 text NULL,
+  fecha_instalacion                            text NULL,
+  cantidad_cables_por_polo                     text NULL,
+  calibre_cable                                text NULL,
+  temperatura_c                                text NULL,
+  medir_voltaje_cada_celda_num_celda_averiada  text NULL,
+  engrase                                      text NULL,
+  ajustes_reapriete_general                    text NULL,
+  limpieza_general_bornes_elementos            text NULL,
+  voltaje_flotacion                            text NULL,
+  corriente_recarga                            text NULL,
+  estado_baterias_elementos_anexos             text NULL,
+  estado_bornes_cada_bateria_celda             text NULL,
+  estado_puentes_entre_baterias_celdas         text NULL,
+  observar_deformacion_baterias_celdas         text NULL,
+  medicion_impedancia                          text NULL,
+  autonomia_prueba_descarga_controlada         text NULL,
+  observacion                                  text NULL,
+  banco_bateria_etiquetado_codigo_unico        text NULL,
+
+  fechacarga                                   timestamp(0) NOT NULL
+);
+
+CREATE INDEX raw_ups_bateria_de_ups_fechacarga_idx
+ON raw.ups_bateria_de_ups USING btree (fechacarga);

@@ -73,8 +73,8 @@ def procesar_load_gde(**kwargs):
 with DAG(
     "dag_autin_gde",
     default_args=default_args,
-    description="Scraper y carga de datos GDE - Ejecución manual",
-    schedule=None,
+    description="Scraper y carga de datos GDE - Ejecución cada 20 minutos",
+    schedule="*/20 * * * *",  # Cada 20 minutos
     catchup=False,
     tags=["scraper", "gde", "integratel", "teleows"],
 ) as dag:
