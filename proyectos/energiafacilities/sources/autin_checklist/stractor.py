@@ -41,6 +41,7 @@ from typing import Any, Dict, Iterable, Optional
 
 # Configurar path para imports cuando se ejecuta directamente
 current_path = Path(__file__).resolve()
+sys.path.insert(0, str(current_path.parents[2]))  # /.../energiafacilities (para clients, common, core)
 sys.path.insert(0, str(current_path.parents[3]))  # /.../proyectos
 sys.path.insert(0, str(current_path.parents[4]))  # repo root for other imports
 

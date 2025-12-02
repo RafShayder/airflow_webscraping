@@ -125,10 +125,10 @@ def load_toa(filepath: Optional[str] = None):
     sheet_name = toa_config.get("sheet_name", 0)
     df_temp = pd.read_excel(filepath, sheet_name=sheet_name, nrows=0)  # Solo leer encabezados
     excel_columns = list(df_temp.columns)
-    
+
     # Crear mapeo flexible (intenta exacto, luego normalizado)
     columnas = create_flexible_mapping(columnas_original, excel_columns)
-    
+
     # Verificar datos y cargar (con strictreview=False para permitir columnas faltantes)
     Loader.verificar_datos(
         data=filepath,
