@@ -89,9 +89,9 @@ def run_scraper(cfg: dict) -> Path:
             "http": proxy_url,
             "https": proxy_url,
         }
-        logger.info(f"✅ Proxy ACTIVO: {proxy_url}")
+        logger.info(f"Proxy ACTIVO: {proxy_url}")
     else:
-        logger.warning("⚠️  Proxy NO configurado - las peticiones se harán directamente sin proxy")
+        logger.warning("  Proxy NO configurado - las peticiones se harán directamente sin proxy")
 
     # 🔹 Verificar conectividad
     try:
@@ -104,7 +104,7 @@ def run_scraper(cfg: dict) -> Path:
         logger.error(f"Error de conexión a {cfg['BASE_URL']}: {e}")
         raise
 
-    # 🔹 Login
+    #  Login
     try:
         login_url = f"{cfg['BASE_URL'].rstrip('/')}{cfg['LOGIN_PATH']}"
         logger.debug(f"Iniciando sesión en {login_url}")
