@@ -162,6 +162,8 @@ geckodriver*
 # Archivos de descarga del scraper
 *.pdf
 *.xlsx
+# Excepción: permitir archivos de documentación en docs/
+!docs/*.xlsx
 *.csv
 *.zip
 *.rar
