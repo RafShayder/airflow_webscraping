@@ -31,7 +31,7 @@ def procesar_load_clientes_libres(**kwargs):
 
 default_args = {
     "owner": "SigmaAnalytics",
-    "start_date": datetime(2025, 10, 6),
+    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -41,7 +41,7 @@ default_args = {
 with DAG(
     "dag_etl_clientes_libres",
     default_args=default_args,
-    schedule="0 0 1 * *",
+    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:

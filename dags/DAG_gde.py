@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 default_args = {
     "owner": "adragui",
     "depends_on_past": False,
-    "start_date": datetime(2024, 10, 1),
+    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -73,8 +73,8 @@ def procesar_load_gde(**kwargs):
 with DAG(
     "dag_autin_gde",
     default_args=default_args,
-    description="Scraper y carga de datos GDE - Ejecución cada 20 minutos",
-    schedule="*/20 * * * *",  # Cada 20 minutos
+    description="Scraper y carga de datos GDE - Ejecución cada 3 horas",
+    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
     catchup=False,
     tags=["scraper", "gde", "integratel", "teleows"],
 ) as dag:

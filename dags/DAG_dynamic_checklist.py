@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 default_args = {
     "owner": "adragui",
     "depends_on_past": False,
-    "start_date": datetime(2024, 10, 1),
+    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -132,8 +132,8 @@ def make_table_loader(tabla_sql: str, nombre_pestana: str):
 with DAG(
     "dag_autin_checklist",
     default_args=default_args,
-    description="ETL completo para Dynamic Checklist - Ejecución manual",
-    schedule=None,
+    description="ETL completo para Dynamic Checklist - Ejecución cada 3 horas (desfasado 2 horas de DAG_gde)",
+    schedule="0 2,5,8,11,14,17,20,23 * * *",  # Cada 3 horas desfasado 2 horas (02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00)
     catchup=False,
     tags=["scraper", "dynamic-checklist", "integratel", "teleows", "etl"],
 ) as dag:

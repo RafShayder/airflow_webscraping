@@ -45,7 +45,7 @@ def procesar_load_sftp_pago_energia(**kwargs):
 
 config = {
     "owner": "SigmaAnalytics",
-    "start_date": datetime(2025, 10, 6),
+    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -55,7 +55,7 @@ config = {
 with DAG(
     "dag_etl_sftp_pago_energia",
     default_args=config,
-    schedule="0 0 1 * *",  # Ejecutar el día 1 de cada mes a las 00:00
+    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:
