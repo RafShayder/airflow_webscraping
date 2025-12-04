@@ -97,6 +97,16 @@ sftp_toa:
   page_size: 1000  # tamaño de lote para inserción
   sp_carga: "ods.sp_cargar_sftp_hd_toa"  # stored procedure opcional
 
+sftp_base_suministros_activos:
+  remote_dir: "/daas/prod/energy-facilities/base-suministros-activos/input"
+  local_dir: "tmp/sftp_base_suministros_activos"
+  schema: "ods"
+  table: "sftp_hm_base_suministros_activos"
+  if_exists: "replace"  # 'append' | 'replace' | 'fail'
+  specific_filename: "base_suministros_activos"
+  sheet_name: 0  # índice de hoja o nombre, ej: "Hoja1" o 0
+  page_size: 1000  # tamaño de lote para inserción
+
 # ============================================================================
 # Web Indra (scraping de recibos de energía)
 # ============================================================================
