@@ -11,6 +11,7 @@ Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a
 3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
 4. [Configuración y credenciales](#configuración-y-credenciales)
 5. [Notas de operación](#notas-de-operación)
+6. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
 
 ---
 
@@ -340,3 +341,25 @@ mi_api = config.get("mi_api_test", {})
 - Para usar Docker sin `sudo`, añade tu usuario al grupo `docker` y vuelve a iniciar sesión.
 - Los logs en vivo están disponibles con `sudo docker compose logs -f`.
 - Si necesitas reconstruir la imagen (por ejemplo, cambiar Chrome/Chromedriver), vuelve a ejecutar `./generar_paquete_offline.sh` y distribuye el nuevo bundle.
+
+---
+
+## Stored Procedures (SP) en `db/`
+
+Dónde están:
+- Código de SPs: `db/fase 3/ods/funcion/`
+- Definición de tablas RAW/ODS: `db/fase 3/raw/` y `db/fase 3/ods/tabla/`
+
+SP ↔ DAG (tabla resumen):
+
+| DAG | SP(s) | Origen (RAW) | Destino (ODS / otros) |
+| --- | --- | --- | --- |
+| dag_recibos_sftp_energia | ods.sp_cargar_sftp_hm_consumo_suministro_da / ods.sp_cargar_sftp_hm_consumo_suministro_pd | raw.sftp_mm_consumo_suministro_da / raw.sftp_mm_consumo_suministro_pd | ods.sftp_hm_consumo_suministro |
+| dag_etl_sftp_pago_energia | ods.sp_cargar_sftp_hm_pago_energia | raw.sftp_mm_pago_energia | ods.sftp_hm_pago_energia (errores en public.error_pago_energia) |
+| dag_etl_base_sitios | ods.sp_cargar_fs_hm_base_de_sitios / ods.sp_cargar_fs_hm_bitacora_base_sitios | raw.fs_mm_base_de_sitios / raw.fs_mm_bitacora_base_sitios | ods.fs_hm_base_de_sitios / ods.fs_hm_bitacora_base_sitios |
+| dag_etl_sftp_toa | ods.sp_cargar_sftp_hd_toa | raw.sftp_hd_toa | ods.sftp_hd_toa |
+| dag_etl_clientes_libres | ods.sp_cargar_sftp_hm_clientes_libres | raw.sftp_mm_clientes_libres | ods.sftp_hm_clientes_libres |
+| dag_autin_checklist | ods.sp_cargar_dynamic_checklist_tasks | raw.dynamic_checklist_tasks | Tablas ODS de checklist + validaciones extra |
+| dag_autin_gde | ods.sp_cargar_gde_tasks | raw.web_mm_autin_infogeneral | ods.web_hm_autin_infogeneral |
+| dag_etl_webindra | ods.sp_cargar_web_hm_indra_energia | raw.web_mm_indra_energia | ods.web_hm_indra_energia |
+| dag_etl_sftp_base_suministros_activos | (carga directa) | — | ods.sftp_hm_base_suministros_activos |

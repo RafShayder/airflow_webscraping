@@ -39,8 +39,8 @@ with DAG('dag_recibos_sftp_energia_OLD', default_args=config, schedule=None, cat
         python_callable=extraerdatos
     )
     
-    task2 =PythonOperator(
-        task_id='sftp_recibos_loead_datos',
+    task2 = PythonOperator(
+        task_id='sftp_recibos_load_datos',
         python_callable=loaderdatos
     )
 

@@ -1,4 +1,6 @@
 import sys
+import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Configurar path para imports cuando se ejecuta directamente
@@ -37,11 +39,24 @@ def extraer_base_suministros_activos():
     archivos_atributos = Extractor.listar_archivos_atributos()
     basearchivo = sftp_config_others.get("specific_filename", "base_suministros_activos")
     
-    # Filtrar archivos que contengan el texto base (case insensitive) y sean .xlsx
+    # Filtrar archivos del último mes/año con patrón base_suministros_activos_MMYY*.xlsx
+    hoy = datetime.today()
+    mes_ref = (hoy.replace(day=1) - timedelta(days=1)).month  # último mes
+    anio_ref = (hoy.replace(day=1) - timedelta(days=1)).year % 100  # YY
+    sufijo_ref = f"{mes_ref:02d}{anio_ref:02d}"
+    patron = re.compile(rf"{basearchivo}.*_{sufijo_ref}.*\\.xlsx$", re.IGNORECASE)
+
     archivos_filtrados = [
         f for f in archivos_atributos
-        if basearchivo.upper() in f["nombre"].upper() and f["nombre"].lower().endswith(".xlsx")
+        if patron.search(f["nombre"])
     ]
+
+    # Si no hay archivos del último mes, caer al filtro anterior (cualquier .xlsx con el prefijo)
+    if not archivos_filtrados:
+        archivos_filtrados = [
+            f for f in archivos_atributos
+            if basearchivo.upper() in f["nombre"].upper() and f["nombre"].lower().endswith(".xlsx")
+        ]
     
     if not archivos_filtrados:
         raise FileNotFoundError(

@@ -1,4 +1,4 @@
-from core.utils import  setup_logging
+from core.utils import setup_logging
 from sources.sftp_pago_energia.run_sp import correr_sftp_pago_energia
 from sources.sftp_pago_energia.stractor import extraersftp_pago_energia
 from sources.sftp_pago_energia.loader import load_sftp_base_sitos

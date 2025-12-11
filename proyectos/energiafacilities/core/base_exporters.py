@@ -3,7 +3,7 @@ import os
 import logging
 import tempfile
 import shutil
-from typing import  Union
+from typing import Union
 from types import SimpleNamespace
 import pandas as pd
 import paramiko
