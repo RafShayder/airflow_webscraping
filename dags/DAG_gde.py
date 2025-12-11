@@ -18,6 +18,7 @@ sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from energiafacilities.sources.autin_gde.loader import load_gde
 
 setup_logging("INFO")
@@ -60,8 +61,7 @@ def procesar_load_gde(**kwargs):
     Procesa la carga de datos de GDE hacia PostgreSQL.
     Obtiene el filepath del task anterior mediante XCom.
     """
-    ti = kwargs['ti']
-    linkdata = ti.xcom_pull(task_ids='scrape_gde_report')
+    linkdata = get_xcom_result(kwargs, 'scrape_gde_report')
     logger.debug("Archivo recibido desde extract: %s", linkdata)
 
     # Obtener el mismo entorno que se usó en el extract

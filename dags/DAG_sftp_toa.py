@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_toa.stractor import extraer_toa
 from sources.sftp_toa.loader import load_toa
 from sources.sftp_toa.run_sp import correr_sp_toa
@@ -18,10 +19,7 @@ setup_logging("INFO")
 
 def procesar_load_toa(**kwargs):
     """Procesa la carga de datos TOA desde el archivo extraído"""
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_sftp_toa')
-    # extraer_toa retorna la ruta del archivo extraído
-    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    ruta = get_xcom_result(kwargs, 'extract_sftp_toa')
     return load_toa(filepath=ruta)
 
 config = {

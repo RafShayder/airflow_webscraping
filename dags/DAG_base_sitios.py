@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.base_sitios.stractor import extraer_basedesitios
 from sources.base_sitios.loader import loader_basesitios, loader_bitacora_basesitios
 from sources.base_sitios.run_sp import correr_sp_basesitios, correr_sp_bitacora
@@ -17,15 +18,11 @@ from sources.base_sitios.run_sp import correr_sp_basesitios, correr_sp_bitacora
 setup_logging("INFO")
 
 def procesar_load_base_sitios(**kwargs):
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_base_sitios')
-    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    ruta = get_xcom_result(kwargs, 'extract_base_sitios')
     return loader_basesitios(filepath=ruta)
 
 def procesar_load_bitacora_sitios(**kwargs):
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_base_sitios')
-    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    ruta = get_xcom_result(kwargs, 'extract_base_sitios')
     return loader_bitacora_basesitios(filepath=ruta)
 
 config = {

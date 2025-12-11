@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_pago_energia.stractor import extraersftp_pago_energia
 from sources.sftp_pago_energia.loader import load_sftp_base_sitos
 from sources.sftp_pago_energia.run_sp import correr_sftp_pago_energia
@@ -19,24 +20,18 @@ setup_logging("INFO")
 
 def validar_archivo_sftp_pago_energia(**kwargs):
     """Verifica si la extracción generó un archivo válido y corta el DAG si no existe"""
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_sftp_pago_energia')
-    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    ruta = get_xcom_result(kwargs, 'extract_sftp_pago_energia')
 
     if not ruta or (isinstance(ruta, str) and not ruta.strip()):
         return False  # ShortCircuitOperator marcará downstream como SKIPPED
 
-    ti.xcom_push(key="ruta_archivo_pago_energia", value=ruta)
+    kwargs['ti'].xcom_push(key="ruta_archivo_pago_energia", value=ruta)
     return True
 
 
 def procesar_load_sftp_pago_energia(**kwargs):
     """Procesa la carga de datos de pago energía desde el archivo extraído"""
-    ti = kwargs['ti']
-    ruta = ti.xcom_pull(
-        task_ids='validar_archivo_sftp_pago_energia',
-        key='ruta_archivo_pago_energia'
-    )
+    ruta = get_xcom_result(kwargs, 'validar_archivo_sftp_pago_energia', key='ruta_archivo_pago_energia')
 
     if not ruta:
         return None  # Salvaguarda adicional

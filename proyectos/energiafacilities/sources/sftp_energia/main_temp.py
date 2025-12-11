@@ -16,6 +16,7 @@ sftp_energia_DA=extraersftp_energia_DA("202509")
 load_sftp_energia_DA(filepath=sftp_energia_DA)
 correr_sftp_energia_DA()
 get_save_errors_DA()
+get_save_errors_DA()
 
 """
     extraersftp_energia_PD >> load_sftp_energia

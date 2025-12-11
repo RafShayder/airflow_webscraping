@@ -9,6 +9,7 @@ from pathlib import Path
 import os
 import shutil
 import json
+import re
 from datetime import date, timedelta, datetime
 from typing import List, Optional, Dict
 
@@ -279,4 +280,145 @@ def default_download_path() -> str:
     if Path("/opt/airflow").exists():
         return "/opt/airflow/proyectos/energiafacilities/temp"
     return str(Path.home() / "Downloads" / "scraper_downloads")
+
+
+def get_xcom_result(kwargs: dict, task_id: str, key: Optional[str] = None) -> Optional[str]:
+    """
+    Extrae resultado de XCom de forma consistente desde un task de Airflow.
+    
+    Maneja dos casos comunes:
+    1. Si el resultado es un dict, extrae la clave especificada (por defecto "ruta")
+    2. Si el resultado no es un dict, lo retorna directamente
+    
+    Args:
+        kwargs: Diccionario de kwargs pasado a la función del task (debe contener 'ti')
+        task_id: ID del task del cual extraer el resultado XCom
+        key: Clave a extraer si el resultado es un dict. Por defecto "ruta".
+              Si se especifica, también se intentará usar como key en xcom_pull.
+    
+    Returns:
+        Valor extraído del XCom, o None si no se encuentra
+    
+    Ejemplo:
+        # Caso 1: Resultado es un dict con "ruta"
+        resultado = {"ruta": "/path/to/file.xlsx", "status": "success"}
+        ruta = get_xcom_result(kwargs, 'extract_task')  # Retorna "/path/to/file.xlsx"
+        
+        # Caso 2: Resultado es un string directo
+        resultado = "/path/to/file.xlsx"
+        ruta = get_xcom_result(kwargs, 'extract_task')  # Retorna "/path/to/file.xlsx"
+        
+        # Caso 3: Usar key específica en xcom_pull
+        ruta = get_xcom_result(kwargs, 'validar_archivo', key='ruta_archivo_pago_energia')
+    """
+    if 'ti' not in kwargs:
+        logger.warning(f"get_xcom_result: kwargs no contiene 'ti'. No se puede extraer XCom de '{task_id}'")
+        return None
+    
+    ti = kwargs['ti']
+    
+    # Si se especifica key, intentar usarla directamente en xcom_pull
+    if key:
+        try:
+            result = ti.xcom_pull(task_ids=task_id, key=key)
+            if result is not None:
+                return result
+        except Exception:
+            # Si falla, continuar con el método alternativo
+            pass
+    
+    # Extraer resultado del XCom
+    try:
+        resultado = ti.xcom_pull(task_ids=task_id)
+    except Exception as e:
+        logger.warning(f"get_xcom_result: Error al extraer XCom de '{task_id}': {e}")
+        return None
+    
+    if resultado is None:
+        return None
+    
+    # Si es un dict, extraer la clave (por defecto "ruta" si no se especificó key)
+    if isinstance(resultado, dict):
+        key_to_use = key or "ruta"
+        return resultado.get(key_to_use)
+    
+    # Si no es dict, retornar directamente
+    return resultado
+
+
+def normalize_column_name(s: str) -> str:
+    """
+    Normaliza nombres de columnas para comparación flexible:
+    - pasa a minúsculas
+    - quita tildes y ñ
+    - convierte espacios y guiones en _
+    - quita caracteres especiales
+    
+    Args:
+        s: Nombre de columna a normalizar
+    
+    Returns:
+        Nombre de columna normalizado (solo letras minúsculas, números y guiones bajos)
+    
+    Ejemplo:
+        normalize_column_name("Código Suministro") -> "codigo_suministro"
+        normalize_column_name("Fecha-Emisión") -> "fecha_emision"
+    """
+    if s is None:
+        return ""
+    s = str(s).strip().lower()
+    s = (s.replace("á", "a").replace("é", "e").replace("í", "i")
+           .replace("ó", "o").replace("ú", "u").replace("ñ", "n"))
+    # espacios y guiones -> _
+    s = re.sub(r"[-\s]+", "_", s)
+    # solo letras, números y _
+    s = re.sub(r"[^a-z0-9_]+", "", s)
+    return s
+
+
+def create_flexible_mapping(column_mapping: Dict[str, str], excel_columns: list) -> Dict[str, str]:
+    """
+    Crea un mapeo flexible que intenta primero coincidencia exacta,
+    y si no encuentra, busca columnas similares (normalizadas).
+    
+    Esta función es útil cuando los nombres de columnas en Excel pueden variar
+    ligeramente (tildes, mayúsculas, espacios) pero representan la misma columna.
+    
+    Args:
+        column_mapping: Mapeo original (BD -> Excel esperado)
+        excel_columns: Lista de columnas reales en el Excel
+    
+    Returns:
+        Mapeo ajustado con las columnas encontradas (exactas o similares)
+    
+    Ejemplo:
+        column_mapping = {"cod_suministro": "Código Suministro"}
+        excel_columns = ["Código Suministro", "Fecha"]
+        # Retorna: {"cod_suministro": "Código Suministro"} (coincidencia exacta)
+        
+        column_mapping = {"cod_suministro": "codigo suministro"}
+        excel_columns = ["Código Suministro", "Fecha"]
+        # Retorna: {"cod_suministro": "Código Suministro"} (coincidencia normalizada)
+    """
+    flexible_mapping = {}
+    excel_cols_normalized = {normalize_column_name(col): col for col in excel_columns}
+    
+    for bd_col, excel_expected in column_mapping.items():
+        # 1. Intentar coincidencia exacta
+        if excel_expected in excel_columns:
+            flexible_mapping[bd_col] = excel_expected
+            logger.debug(f"Mapeo exacto: {bd_col} -> {excel_expected}")
+        else:
+            # 2. Intentar coincidencia normalizada
+            expected_normalized = normalize_column_name(excel_expected)
+            if expected_normalized in excel_cols_normalized:
+                excel_found = excel_cols_normalized[expected_normalized]
+                flexible_mapping[bd_col] = excel_found
+                logger.debug(f"Mapeo flexible encontrado: {bd_col} -> '{excel_found}' (esperado: '{excel_expected}')")
+            else:
+                # 3. No se encontró, se insertará como NULL
+                logger.debug(f"No se encontró columna para '{bd_col}' (esperado: '{excel_expected}'). Se insertará como NULL.")
+                # No agregamos al mapeo, BaseLoaderPostgres manejará las columnas faltantes
+    
+    return flexible_mapping
 

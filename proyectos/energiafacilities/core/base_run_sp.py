@@ -1,7 +1,7 @@
 import logging
 
-from core.base_postgress import PostgresConnector
-from core.utils import load_config
+from .base_postgress import PostgresConnector
+from .utils import load_config
 
 logger = logging.getLogger(__name__)
 

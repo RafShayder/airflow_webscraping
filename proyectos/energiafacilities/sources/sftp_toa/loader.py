@@ -1,5 +1,4 @@
 import sys
-import re
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -9,66 +8,11 @@ sys.path.insert(0, str(current_path.parents[2]))  # /.../energiafacilities
 
 from core.base_loader import BaseLoaderPostgres
 from core.utils import load_config
-from core.helpers import traerjson
+from core.helpers import traerjson, normalize_column_name, create_flexible_mapping
 import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_column_name(s: str) -> str:
-    """
-    Normaliza nombres de columnas para comparación flexible:
-    - pasa a minúsculas
-    - quita tildes y ñ
-    - convierte espacios y guiones en _
-    - quita caracteres especiales
-    """
-    if s is None:
-        return ""
-    s = str(s).strip().lower()
-    s = (s.replace("á", "a").replace("é", "e").replace("í", "i")
-           .replace("ó", "o").replace("ú", "u").replace("ñ", "n"))
-    # espacios y guiones -> _
-    s = re.sub(r"[-\s]+", "_", s)
-    # solo letras, números y _
-    s = re.sub(r"[^a-z0-9_]+", "", s)
-    return s
-
-
-def create_flexible_mapping(column_mapping: Dict[str, str], excel_columns: list) -> Dict[str, str]:
-    """
-    Crea un mapeo flexible que intenta primero coincidencia exacta,
-    y si no encuentra, busca columnas similares (normalizadas).
-    
-    Args:
-        column_mapping: Mapeo original (BD -> Excel esperado)
-        excel_columns: Lista de columnas reales en el Excel
-    
-    Returns:
-        Mapeo ajustado con las columnas encontradas (exactas o similares)
-    """
-    flexible_mapping = {}
-    excel_cols_normalized = {normalize_column_name(col): col for col in excel_columns}
-    
-    for bd_col, excel_expected in column_mapping.items():
-        # 1. Intentar coincidencia exacta
-        if excel_expected in excel_columns:
-            flexible_mapping[bd_col] = excel_expected
-            logger.debug(f"Mapeo exacto: {bd_col} -> {excel_expected}")
-        else:
-            # 2. Intentar coincidencia normalizada
-            expected_normalized = normalize_column_name(excel_expected)
-            if expected_normalized in excel_cols_normalized:
-                excel_found = excel_cols_normalized[expected_normalized]
-                flexible_mapping[bd_col] = excel_found
-                logger.debug(f"Mapeo flexible encontrado: {bd_col} -> '{excel_found}' (esperado: '{excel_expected}')")
-            else:
-                # 3. No se encontró, se insertará como NULL
-                logger.debug(f"No se encontró columna para '{bd_col}' (esperado: '{excel_expected}'). Se insertará como NULL.")
-                # No agregamos al mapeo, BaseLoaderPostgres manejará las columnas faltantes
-    
-    return flexible_mapping
 
 
 def load_toa(filepath: Optional[str] = None):

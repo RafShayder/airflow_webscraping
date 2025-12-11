@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.webindra.stractor import stractor_indra
 from sources.webindra.loader import load_indra
 from sources.webindra.run_sp import correr_sp_webindra
@@ -18,8 +19,7 @@ from sources.webindra.geterrortable import get_save_errors_indra
 setup_logging("INFO")
 
 def procesar_load_webindra(**kwargs):
-    ti = kwargs['ti']
-    linkdata = ti.xcom_pull(task_ids='extract_webindra')
+    linkdata = get_xcom_result(kwargs, 'extract_webindra')
     return load_indra(filepath=linkdata)
 
 config = {

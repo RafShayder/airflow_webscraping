@@ -3,6 +3,7 @@ import os
 import logging
 import tempfile
 import shutil
+from contextlib import contextmanager
 from typing import Union
 from types import SimpleNamespace
 import pandas as pd
@@ -38,6 +39,37 @@ class FileExporter:
             logger.error(f"Error conectando a {cfg.host}: {e}")
             transport.close()
             raise
+
+    @contextmanager
+    def _sftp_connection(self, cfg: dict):
+        """
+        Context manager para conexiones SFTP que asegura el cierre correcto.
+        
+        Args:
+            cfg: Diccionario con configuración de conexión (host, port, username, password)
+        
+        Uso:
+            with self._sftp_connection(conn_config) as sftp:
+                sftp.listdir("/remote/path")
+                # La conexión se cierra automáticamente al salir del bloque
+        """
+        cfg_ns = SimpleNamespace(**cfg)
+        transport = None
+        sftp = None
+        try:
+            transport = paramiko.Transport((cfg_ns.host, cfg_ns.port))
+            transport.connect(username=cfg_ns.username, password=cfg_ns.password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            logger.debug(f"Conectado a {cfg_ns.host} via SFTP.")
+            yield sftp
+        except Exception as e:
+            logger.error(f"Error conectando a {cfg_ns.host}: {e}")
+            raise
+        finally:
+            if sftp:
+                sftp.close()
+            if transport:
+                transport.close()
 
     def _ensure_dir(self, path: str):
         """Crea la carpeta local si no existe."""
@@ -185,32 +217,28 @@ class FileExporter:
     # =========================================================
     def upload_to_remote(self, conn: dict, local_path: str, remote_path: str):
         """Sube un archivo local a un servidor remoto, creando directorios si no existen."""
-        sftp = self._sftp_connect(conn)
         logger.debug(f"Subiendo archivos a {remote_path}")
         try:
-            remote_dir = os.path.dirname(remote_path)
-            self._mkdirs_remote(sftp, remote_dir)
-            sftp.put(local_path, remote_path)
-            logger.debug(f"Archivo subido: {local_path} → {conn['host']}:{remote_path}")
+            with self._sftp_connection(conn) as sftp:
+                remote_dir = os.path.dirname(remote_path)
+                self._mkdirs_remote(sftp, remote_dir)
+                sftp.put(local_path, remote_path)
+                logger.debug(f"Archivo subido: {local_path} → {conn['host']}:{remote_path}")
         except Exception as e:
             logger.error(f"Error subiendo archivo a remoto: {e}")
             raise
-        finally:
-            sftp.close()
 
     def download_from_remote(self, conn: dict, remote_path: str, local_path: str):
         """Descarga un archivo remoto a local, creando carpetas locales si no existen."""
-        sftp = self._sftp_connect(conn)
         logger.debug(f"Inicio de descarga en proceso {local_path}")
         try:
-            self._ensure_dir(local_path)
-            sftp.get(remote_path, local_path)
-            logger.debug(f"Archivo descargado: {conn['host']}:{remote_path} → {local_path}")
+            with self._sftp_connection(conn) as sftp:
+                self._ensure_dir(local_path)
+                sftp.get(remote_path, local_path)
+                logger.debug(f"Archivo descargado: {conn['host']}:{remote_path} → {local_path}")
         except Exception as e:
             logger.error(f"Error descargando desde remoto: {e}")
             raise
-        finally:
-            sftp.close()
 
     # =========================================================
     # REMOTO ↔ REMOTO
@@ -278,13 +306,13 @@ class FileExporter:
             # Exportar temporal local
             self.export_dataframe(df, temp_file.name, index=index)
             # Conectar y crear directorios
-            sftp = self._sftp_connect(conn)
-            logger.debug(f"Creando directorios remotos si no existen: {remote_dir}")
-            self._mkdirs_remote(sftp, remote_dir)
+            with self._sftp_connection(conn) as sftp:
+                logger.debug(f"Creando directorios remotos si no existen: {remote_dir}")
+                self._mkdirs_remote(sftp, remote_dir)
 
-            # Subir archivo
-            sftp.put(temp_file.name, remote_path)
-            logger.debug(f"DataFrame exportado a remoto: {conn['host']}:{remote_path}")
+                # Subir archivo
+                sftp.put(temp_file.name, remote_path)
+                logger.debug(f"DataFrame exportado a remoto: {conn['host']}:{remote_path}")
 
         except Exception as e:
             logger.error(f"Error exportando DataFrame a remoto: {e}")
@@ -293,8 +321,6 @@ class FileExporter:
         finally:
             if os.path.exists(temp_file.name):
                 os.remove(temp_file.name)
-            if 'sftp' in locals():
-                sftp.close()
 
 
 

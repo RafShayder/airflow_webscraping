@@ -1,6 +1,6 @@
-from core.base_postgress import PostgresConnector
-from core.utils import load_config
-from core.base_exporters import FileExporter
+from .base_postgress import PostgresConnector
+from .utils import load_config
+from .base_exporters import FileExporter
 import logging
 logger = logging.getLogger(__name__)
 

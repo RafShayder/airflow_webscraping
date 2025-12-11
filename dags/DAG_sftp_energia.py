@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_energia.stractor import extraersftp_energia_PD, extraersftp_energia_DA
 from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_DA
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA
@@ -18,13 +19,11 @@ from sources.sftp_energia.geterrortable import get_save_errors_PD, get_save_erro
 setup_logging("INFO")
 
 def procesar_load_sftp_energia_PD(**kwargs):
-    ti = kwargs['ti']
-    linkdata = ti.xcom_pull(task_ids='extract_sftp_energia_PD')
+    linkdata = get_xcom_result(kwargs, 'extract_sftp_energia_PD')
     return load_sftp_energia_PD(filepath=linkdata)
 
 def procesar_load_sftp_energia_DA(**kwargs):
-    ti = kwargs['ti']
-    linkdata = ti.xcom_pull(task_ids='extract_sftp_energia_DA')
+    linkdata = get_xcom_result(kwargs, 'extract_sftp_energia_DA')
     return load_sftp_energia_DA(filepath=linkdata)
 
 config = {

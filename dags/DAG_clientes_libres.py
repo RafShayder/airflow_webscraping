@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.clientes_libres.stractor import extraersftp_clienteslibres
 from sources.clientes_libres.transformer import transformer_clienteslibres
 from sources.clientes_libres.loader import load_clienteslibres
@@ -18,15 +19,11 @@ from sources.clientes_libres.run_sp import correr_sp_clienteslibres
 setup_logging("INFO")
 
 def procesar_transform_clientes_libres(**kwargs):
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_clientes_libres')
-    # extraersftp_clienteslibres retorna un dict con clave "ruta"
-    path_extraido = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    path_extraido = get_xcom_result(kwargs, 'extract_clientes_libres')
     return transformer_clienteslibres(filepath=path_extraido)
 
 def procesar_load_clientes_libres(**kwargs):
-    ti = kwargs['ti']
-    path_transformado = ti.xcom_pull(task_ids='transform_clientes_libres')
+    path_transformado = get_xcom_result(kwargs, 'transform_clientes_libres')
     return load_clienteslibres(filepath=path_transformado)
 
 default_args = {

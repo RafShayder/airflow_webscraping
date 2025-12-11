@@ -10,6 +10,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_base_suministros_activos.stractor import extraer_base_suministros_activos
 from sources.sftp_base_suministros_activos.loader import load_base_suministros_activos
 
@@ -17,10 +18,7 @@ setup_logging("INFO")
 
 def procesar_load_base_suministros_activos(**kwargs):
     """Procesa la carga de datos Base Suministros Activos desde el archivo extraído"""
-    ti = kwargs['ti']
-    resultado_extract = ti.xcom_pull(task_ids='extract_sftp_base_suministros_activos')
-    # extraer_base_suministros_activos retorna la ruta del archivo extraído
-    ruta = resultado_extract.get("ruta") if isinstance(resultado_extract, dict) else resultado_extract
+    ruta = get_xcom_result(kwargs, 'extract_sftp_base_suministros_activos')
     return load_base_suministros_activos(filepath=ruta)
 
 config = {
