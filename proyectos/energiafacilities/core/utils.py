@@ -808,5 +808,3 @@ def default_download_path() -> str:
     return str(Path.home() / "Downloads" / "scraper_downloads")
 
 
-
-

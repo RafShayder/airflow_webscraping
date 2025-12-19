@@ -26,7 +26,7 @@ setup_logging("INFO")
 logger = logging.getLogger(__name__)
 
 default_args = {
-    "owner": "adragui",
+    "owner": "SigmaAnalytics",
     "depends_on_past": False,
     "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,

@@ -32,7 +32,7 @@ setup_logging("INFO")
 logger = logging.getLogger(__name__)
 
 default_args = {
-    "owner": "adragui",
+    "owner": "SigmaAnalytics",
     "depends_on_past": False,
     "start_date": datetime(2024, 10, 1),
     "email_on_failure": False,
@@ -253,4 +253,3 @@ with DAG(
     
     # Dependencias: get_file -> set_fecha -> todas las tareas de carga (en paralelo)
     get_file >> set_fecha >> load_tasks
-

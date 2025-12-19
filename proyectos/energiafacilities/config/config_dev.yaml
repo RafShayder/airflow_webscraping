@@ -213,7 +213,6 @@ dynamic_checklist:
   # Configuración de fechas
   date_mode: 1  # 1=rango manual (usa last_n_days), 2=último mes automático
   last_n_days: 1  # Últimos N días desde hoy (solo funciona con date_mode=1)
-
   # Configuración de carga a BD
   schema: "raw"
   table: "dynamic_checklist_tasks"
@@ -237,9 +236,11 @@ neteco:
   password: "Tdp#12345678"
   # Configuración de extracción
   local_dir: "tmp/neteco"
-  specific_filename: "neteco_diario.xlsx"
+  specific_filename: "neteco_diario.zip"
+  export_overwrite_files: true
+  headless: true
 
   # Configuración de fechas
-  date_mode: 1  # 1=rango manual (usa last_n_days), 2=último mes automático
-  last_n_days: 1  # Últimos N días desde hoy (solo funciona con date_mode=1)
-
+  # Formato: "YYYY-MM-DD HH:MM:SS"
+  start_time: "2025-12-18 00:00:00"
+  end_time: "2025-12-18 00:20:00"

@@ -227,3 +227,18 @@ dynamic_checklist:
     table: "error_dynamic_checklist_ultimo_lote"
     limmit: 100
     remote_dir: "/daas/prod/energy-facilities/dynamic_checklist/errors"
+
+# ============================================================================
+neteco:
+  username: "proyecto.analytic"
+  password: "Tdp#12345678"
+  # Configuración de extracción
+  local_dir: "tmp/neteco"
+  specific_filename: "neteco_diario.zip"
+  export_overwrite_files: true
+  headless: true
+
+  # Configuración de fechas
+  # Formato: "YYYY-MM-DD HH:MM:SS"
+  start_time: "2025-12-18 00:00:00"
+  end_time: "2025-12-18 00:20:00"

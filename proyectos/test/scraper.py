@@ -38,8 +38,8 @@ var = 1
 
 # --- Cálculo automático de fechas ---
 def calcular_rango_fechas(dias_atras: int = 15):
-    hoy = datetime.today().date()
-    fecha_hasta_date = hoy - timedelta(days=1)
+hoy = datetime.today().date()
+fecha_hasta_date = hoy - timedelta(days=1)
     fecha_desde_date = fecha_hasta_date - timedelta(days=dias_atras)
     fecha_desde_val = fecha_desde_date.strftime("%Y-%m-%d")
     fecha_hasta_val = fecha_hasta_date.strftime("%Y-%m-%d")

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_ARGS = {
-    "owner": "healthcheck",
+    "owner": "SigmaAnalytics",
     "depends_on_past": False,
     "start_date": datetime(2024, 12, 1),
     "email_on_failure": False,
@@ -534,5 +534,4 @@ with DAG(
 
     # Orden: primero variables, luego existencia de connections y finalmente pruebas de conectividad
     check_vars_task >> check_conns_task >> check_connectivity_task
-
 
