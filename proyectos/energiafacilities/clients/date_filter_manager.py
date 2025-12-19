@@ -501,7 +501,7 @@ class DateFilterManager:
 
         if target_element is None:
             logger.warning(
-                "⚠️ No se encontró radio etiquetado como 'Último mes'. "
+                "No se encontró radio etiquetado como 'Último mes'. "
                 "Intentando usar índice por defecto..."
             )
             default_elements = self.driver.find_elements(By.CSS_SELECTOR, CSS_RADIO_BUTTON)

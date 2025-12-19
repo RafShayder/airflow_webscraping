@@ -227,3 +227,19 @@ dynamic_checklist:
     table: "error_dynamic_checklist_ultimo_lote"
     limmit: 100
     remote_dir: "/daas/dev/energy-facilities/dynamic_checklist/errors"
+
+
+
+
+# ============================================================================
+neteco:
+  username: "proyecto.analytic"
+  password: "Tdp#12345678"
+  # Configuración de extracción
+  local_dir: "tmp/neteco"
+  specific_filename: "neteco_diario.xlsx"
+
+  # Configuración de fechas
+  date_mode: 1  # 1=rango manual (usa last_n_days), 2=último mes automático
+  last_n_days: 1  # Últimos N días desde hoy (solo funciona con date_mode=1)
+
