@@ -3,19 +3,17 @@ DAG para ejecutar el scraper de NetEco (solo extracción por ahora).
 """
 
 import logging
-import os
 import sys
 from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
-from airflow.sdk import Variable  # type: ignore
 
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities.sources.neteco.stractor import extraer_neteco
+from energiafacilities.sources.neteco.scraper import scraper_neteco
 from energiafacilities.core.utils import setup_logging
 
 setup_logging("INFO")
@@ -39,9 +37,8 @@ def run_neteco_scraper() -> str:
     La configuración se carga automáticamente desde Airflow Connection neteco_{env}
     o desde el YAML si no hay Connection.
     """
-    env = os.getenv("ENV_MODE") or Variable.get("ENV_MODE", default="dev")
     try:
-        file_path = extraer_neteco(env=env)
+        file_path = scraper_neteco()
         return str(file_path)
     except Exception as exc:
         logger.error("Error en scraper NetEco: %s", exc)

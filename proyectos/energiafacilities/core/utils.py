@@ -398,7 +398,7 @@ def _apply_airflow_overrides(config: dict, env: str) -> dict:
             "var_prefix": "SFTP_ENERGIA_"
         },
         "sftp_energia": {
-            "conn_id": None,  # No tiene Connection propia, usa sftp_energia_c
+            "conn_id": "sftp_energia",  # Lee extras desde la misma Connection
             "var_prefix": "SFTP_ENERGIA_"
         },
         "sftp_daas_c": {
@@ -806,5 +806,4 @@ def default_download_path() -> str:
     if Path("/opt/airflow").exists():
         return "/opt/airflow/proyectos/energiafacilities/temp"
     return str(Path.home() / "Downloads" / "scraper_downloads")
-
 

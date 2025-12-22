@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import time
 import logging
+import os
 
 # Configurar path para imports
 current_path = Path(__file__).resolve()
@@ -22,20 +23,13 @@ sys.path.insert(0, str(current_path.parents[4]))  # repo root
 from core.utils import load_config
 from core.helpers import default_download_path
 from common.selenium_utils import wait_for_download
+from clients.browser import BrowserManager
 from clients.auth import AuthManager, LoginSelectors
 from selenium.webdriver.common.by import By
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
-
-# Configuración básica de Chrome para NetEco (certificados SSL)
-chrome_options = Options()
-chrome_options.add_argument("--ignore-certificate-errors")
-chrome_options.add_argument("--allow-insecure-localhost")
-chrome_options.add_argument("--ignore-ssl-errors=yes")
 
 DEBUG_LOGS = False
 logging.basicConfig(
@@ -52,6 +46,22 @@ FILTER_BUTTON_CLASS = "nco-search-container-buttons"
 # XPath para el elemento de NetEco Monitor
 NETECO_MONITOR_XPATH = '//*[@id="refr.mm.NetEco_Monitor"]/span'
 NETECO_MONITOR_XPATH_FALLBACK = '/html/body/div[2]/div/div[3]/div/div/div[2]/span[1]/span'
+
+def _build_browser_manager(download_dir: Path, headless: bool) -> BrowserManager:
+    cache_dir = Path(os.environ.setdefault("SELENIUM_MANAGER_CACHE_PATH", "/tmp/selenium-cache"))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    user_data_dir = f"/tmp/neteco-chrome-{os.getpid()}-{int(time.time())}"
+    extra_args = [
+        "--ignore-certificate-errors",
+        "--allow-insecure-localhost",
+        "--ignore-ssl-errors=yes",
+        f"--user-data-dir={user_data_dir}",
+    ]
+    return BrowserManager(
+        download_path=str(download_dir),
+        headless=headless,
+        extra_args=extra_args,
+    )
 
 def _scroll_into_view(driver, element, pause_seconds=0.2):
     try:
@@ -205,7 +215,7 @@ def _set_datetime_field(driver, xpath, value, label):
         logger.debug(f"No se encontró el campo {label}: {e}")
         return
 
-    logger.info(f"Llenando {label} con {value}...")
+    logger.debug(f"Llenando {label} con {value}...")
     _fill_input(driver, field, value, label=label)
 
 
@@ -222,7 +232,7 @@ def _click_until_visible(driver, click_xpath, target_xpath, label, max_attempts=
         try:
             button = driver.find_element(By.XPATH, click_xpath)
             if button.is_displayed():
-                logger.info(f"Haciendo click en {label} (intento {attempt})")
+                logger.debug(f"Haciendo click en {label} (intento {attempt})")
                 _js_click(driver, button)
             else:
                 logger.debug(f"Botón {label} no visible (intento {attempt})")
@@ -339,7 +349,7 @@ def _wait_and_click_download(
                             logger.debug(f"Download aún no disponible para {task_name} (fila {idx})")
                         break
 
-                    logger.info(f"Haciendo click en Download para {task_name} (fila {idx})")
+                    logger.debug(f"Haciendo click en Download para {task_name} (fila {idx})")
                     click_time = time.time()
                     _js_click(driver, download_button)
                     try:
@@ -359,11 +369,11 @@ def _wait_and_click_download(
                         logger.info(f"Archivo descargado: {downloaded.name}")
                     except Exception as e:
                         logger.warning(f"No se pudo detectar/renombrar descarga para {task_name}: {e}")
-                        return False
-                    return True
+                        return None
+                    return downloaded
                 except Exception as e:
                     logger.warning(f"Error al intentar click en Download para {task_name}: {e}")
-                    return False
+                    return None
 
             if found_task:
                 break
@@ -381,15 +391,17 @@ def _wait_and_click_download(
         time.sleep(poll_seconds)
 
     logger.warning(f"Timeout esperando Download para {task_name}")
-    return False
+    return None
 
-def test_login_and_navigate():
+def scraper_neteco():
     """
     Función de prueba para login y navegación básica.
     Útil para debugging y pruebas rápidas.
     """
     task_name_value = None
+    downloaded_path = None
     driver = None
+    browser_manager = None
     try:
         config = load_config()
         config_neteco = config.get("neteco", {})
@@ -406,24 +418,11 @@ def test_login_and_navigate():
         headless = bool(config_neteco.get("headless", False))
         configured_start_time = config_neteco.get("start_time")
         configured_end_time = config_neteco.get("end_time")
-        if headless:
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
         download_path = config_neteco.get("local_dir") or default_download_path()
         download_dir = Path(download_path).expanduser().resolve()
         download_dir.mkdir(parents=True, exist_ok=True)
-        chrome_options.add_experimental_option(
-            "prefs",
-            {
-                "download.default_directory": str(download_dir),
-                "download.prompt_for_download": False,
-                "download.directory_upgrade": True,
-                "safebrowsing.enabled": True,
-            },
-        )
-
-        driver = webdriver.Chrome(options=chrome_options)
+        browser_manager = _build_browser_manager(download_dir, headless=headless)
+        driver, _ = browser_manager.create_driver()
         logger.info("Iniciando flujo NetEco")
 
         selectors = LoginSelectors(
@@ -497,7 +496,7 @@ def test_login_and_navigate():
         if historical_data_element:
             # Usar JavaScript click para evitar que el menú se cierre
             _js_click(driver, historical_data_element)
-            logger.info("Click realizado en 'Historical Data'")
+            logger.debug("Click realizado en 'Historical Data'")
             time.sleep(2)  # Esperar navegación
         else:
             logger.warning("No se encontró el elemento 'Historical Data'")
@@ -517,7 +516,7 @@ def test_login_and_navigate():
         # Buscar y hacer click en el checkbox "Root"
         root_checkbox = _find_checkbox_by_texts(driver, "Root")
         if root_checkbox:
-            logger.info("Haciendo click en checkbox Root")
+            logger.debug("Haciendo click en checkbox Root")
             _scroll_into_view(driver, root_checkbox)
             is_checked = driver.execute_script(
                 "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
@@ -525,7 +524,7 @@ def test_login_and_navigate():
             )
             if not is_checked:
                 _js_click(driver, root_checkbox)
-                logger.info("Click realizado en checkbox 'Root'")
+                logger.debug("Click realizado en checkbox 'Root'")
                 time.sleep(1)
             else:
                 logger.debug("Checkbox 'Root' ya estaba marcado")
@@ -538,7 +537,7 @@ def test_login_and_navigate():
         # Buscar y hacer click en el checkbox "Mains"
         mains_checkbox = _find_checkbox_by_texts(driver, "Mains")
         if mains_checkbox:
-            logger.info("Haciendo click en checkbox 'Mains'")
+            logger.debug("Haciendo click en checkbox 'Mains'")
             _scroll_into_view(driver, mains_checkbox)
             is_checked = driver.execute_script(
                 "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
@@ -546,7 +545,7 @@ def test_login_and_navigate():
             )
             if not is_checked:
                 _js_click(driver, mains_checkbox)
-                logger.info("Click realizado en checkbox 'Mains'")
+                logger.debug("Click realizado en checkbox 'Mains'")
                 time.sleep(2)
             else:
                 logger.debug("Checkbox 'Mains' ya estaba marcado")
@@ -563,7 +562,7 @@ def test_login_and_navigate():
             driver, ["(All) Device Instances", "All Device Instances"]
         )
         if all_device_types_checkbox:
-            logger.info("Haciendo click en '(All) Device Instances'")
+            logger.debug("Haciendo click en '(All) Device Instances'")
             _scroll_into_view(driver, all_device_types_checkbox)
             is_checked = driver.execute_script(
                 "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
@@ -571,7 +570,7 @@ def test_login_and_navigate():
             )
             if not is_checked:
                 _js_click(driver, all_device_types_checkbox)
-                logger.info("Click realizado en checkbox '(All) Device Instances'")
+                logger.debug("Click realizado en checkbox '(All) Device Instances'")
                 time.sleep(1)
             else:
                 logger.debug("Checkbox '(All) Device Instances' ya estaba marcado")
@@ -615,7 +614,7 @@ def test_login_and_navigate():
                 # Hacer click en el botón Export
                 logger.info("Haciendo click en botón Export")
                 _js_click(driver, export_button, pause_seconds=0.5)
-                logger.info("Click realizado en botón Export")
+                logger.debug("Click realizado en botón Export")
 
                 # Esperar a que aparezca el modal
                 logger.debug("Esperando a que aparezca el modal...")
@@ -631,7 +630,7 @@ def test_login_and_navigate():
 
                 if task_name_field:
                     task_name_value = f"NETECO_{datetime.now().strftime('%d%m%Y%H%M%S')}"
-                    logger.info(f"Llenando campo Task Name con {task_name_value!r}")
+                    logger.debug(f"Llenando campo Task Name con {task_name_value!r}")
                     _fill_input(driver, task_name_field, task_name_value, label="Task Name")
                     logger.debug("Intento de llenado del campo Task Name completado")
                 else:
@@ -665,7 +664,7 @@ def test_login_and_navigate():
                     try:
                         confirm_button = driver.find_element(By.XPATH, confirm_button_xpath)
                         if confirm_button.is_displayed():
-                            logger.info("Haciendo click en botón de confirmación")
+                            logger.debug("Haciendo click en botón de confirmación")
                             _js_click(driver, confirm_button)
                     except Exception:
                         logger.warning("No se pudo hacer click en el botón de confirmación")
@@ -675,7 +674,7 @@ def test_login_and_navigate():
                 if task_name_value:
                     logger.info(f"Esperando Download para {task_name_value!r}")
                     try:
-                        _wait_and_click_download(
+                        downloaded_path = _wait_and_click_download(
                             driver,
                             task_name_value,
                             download_dir,
@@ -695,14 +694,20 @@ def test_login_and_navigate():
 
         logger.info("Proceso completado.")
         if task_name_value:
-            logger.info(f"Secuencia finalizada: Root → Mains → (All) Device Instances → Export → Task Name: {task_name_value!r}")
+            logger.debug(f"Secuencia finalizada: Root → Mains → (All) Device Instances → Export → Task Name: {task_name_value!r}")
         else:
-            logger.info("Secuencia finalizada: Root → Mains → (All) Device Instances → Export → Task Name: no definido")
+            logger.debug("Secuencia finalizada: Root → Mains → (All) Device Instances → Export → Task Name: no definido")
         # input("Presiona Enter para continuar...")  # Deshabilitado para ejecución automática
     finally:
-        if driver is not None:
+        if browser_manager is not None:
+            browser_manager.close_driver()
+        elif driver is not None:
             driver.quit()
+
+    if not downloaded_path:
+        raise RuntimeError("No se pudo descargar el archivo NetEco")
+    return downloaded_path
 
 
 if __name__ == "__main__":
-    test_login_and_navigate()
+    scraper_neteco()
