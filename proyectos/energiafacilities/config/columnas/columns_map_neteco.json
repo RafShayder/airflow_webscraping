@@ -1,0 +1,11 @@
+{
+    "neteco":{
+    "site_name": "Site Name",
+    "subnet": "SubNet",
+    "manage_object": "ManageObject",
+    "start_time": "Start Time",
+    "energy_consumption_per_hour_kwh": "Energy Consumption per Hour/kWh",
+    "supply_duration_per_hour_h": "Supply Duration per Hour/h",
+    "total_energy_consumption_kwh": "Total Energy Consumption/kWh"
+    }
+  }

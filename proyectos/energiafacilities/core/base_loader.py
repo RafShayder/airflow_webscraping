@@ -288,7 +288,6 @@ class BaseLoaderPostgres:
 
             # Obtener columnas de la tabla destino
             columnas_tabla = self._get_table_columns(table_name or self._cfgload.table)
-
             # Comparar columnas
             sobrantes = columnas_origen - columnas_tabla
             faltantes = columnas_tabla - columnas_origen

@@ -15,7 +15,6 @@ def load_sftp_energia(filepath=None, table_name=None):
     Loader.validar_conexion()
     columnas =traerjson(archivo='config/columnas/columns_map.json',valor='tablarecibosenergia')
     filedata= filepath or (general_config['local_dir'] +'/'+ general_config['specific_filename'])
-    print("paso ", filedata)
     Loader.verificar_datos(data=filedata ,column_mapping=columnas, table_name=general_config[table_name])
     
     carga=Loader.load_data(data=filedata, column_mapping=columnas, table_name=general_config[table_name]) 

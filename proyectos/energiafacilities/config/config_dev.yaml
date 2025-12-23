@@ -239,8 +239,10 @@ neteco:
   specific_filename: "neteco_diario.zip"
   export_overwrite_files: true
   headless: true
-
+  local_destination_dir: "tmp/neteco/processed/neteco_diario.xlsx"
   # Configuración de fechas
   # Formato: "YYYY-MM-DD HH:MM:SS"
   start_time: "2025-12-18 00:00:00"
   end_time: "2025-12-18 00:20:00"
+  schema: "raw"
+  table: "web_md_neteco"

@@ -222,7 +222,7 @@ def ejecutar_transformacion(config_transform: dict, mapeo_campos: dict, filepath
             filename = config_transform.get("local_destination_dir") or newdestinationoptional
             if not filename:
                 logger.error("No se especificó un directorio de destino para guardar")
-                raise ValueError("No se especificó un directorio de destino para guardar")
+                raise
             try:
                 pathcrear=filename.rsplit('/',1)[0]
                 os.makedirs(pathcrear, exist_ok=True)
