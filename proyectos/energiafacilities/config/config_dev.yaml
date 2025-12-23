@@ -246,3 +246,4 @@ neteco:
   end_time: "2025-12-18 00:20:00"
   schema: "raw"
   table: "web_md_neteco"
+  sp_carga: "ods.sp_cargar_web_md_neteco"
