@@ -11,6 +11,7 @@ if(True):
         retorno=load_neteco(path_transformer)
         if(retorno):
             correr_sp_neteco() 
+            
 setup_logging(level="INFO")
 
 
