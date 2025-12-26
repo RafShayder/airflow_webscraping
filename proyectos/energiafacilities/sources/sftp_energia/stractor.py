@@ -24,13 +24,8 @@ def extraersftp_energia(specific_file_config: str ,periodo: str=None):
     )
     if not archivoextraer:
         msg = "No se encontraron archivos para extraer en SFTP energía"
-        logger.warning(msg)
-        return {
-            "status": "warning",
-            "code": 204,
-            "etl_msg": msg,
-            "ruta": None,
-        }
+        logger.error(msg)
+        raise FileNotFoundError(msg)
     metastraccion = Extractor.extract(specific_file=archivoextraer["nombre"])
     return metastraccion
 

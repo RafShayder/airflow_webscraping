@@ -418,6 +418,7 @@ def scraper_neteco():
         headless = bool(config_neteco.get("headless", False))
         configured_start_time = config_neteco.get("start_time")
         configured_end_time = config_neteco.get("end_time")
+        date_mode = (config_neteco.get("date_mode") or "manual").strip().lower()
         download_path = config_neteco.get("local_dir") or default_download_path()
         download_dir = Path(download_path).expanduser().resolve()
         download_dir.mkdir(parents=True, exist_ok=True)
@@ -639,13 +640,15 @@ def scraper_neteco():
                 # Llenar Start Time y End Time
                 start_time_xpath = "//*[@id='startdatepicker_value']"
                 end_time_xpath = "//*[@id='enddatepicker_value']"
-                if configured_start_time and configured_end_time:
+                if date_mode == "auto":
+                    yesterday = datetime.now() - timedelta(days=1)
+                    start_time_value = yesterday.replace(hour=0, minute=0, second=1).strftime("%Y-%m-%d %H:%M:%S")
+                    end_time_value = yesterday.replace(hour=23, minute=59, second=59).strftime("%Y-%m-%d %H:%M:%S")
+                elif configured_start_time and configured_end_time:
                     start_time_value = configured_start_time
                     end_time_value = configured_end_time
                 else:
-                    yesterday = datetime.now() - timedelta(days=1)
-                    start_time_value = yesterday.replace(hour=0, minute=0, second=0).strftime("%Y-%m-%d %H:%M:%S")
-                    end_time_value = yesterday.replace(hour=0, minute=10, second=0).strftime("%Y-%m-%d %H:%M:%S")
+                    raise ValueError("Faltan start_time/end_time para modo manual en NetEco")
 
                 _set_datetime_field(driver, start_time_xpath, start_time_value, "Start Time")
                 _set_datetime_field(driver, end_time_xpath, end_time_value, "End Time")

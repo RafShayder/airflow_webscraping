@@ -5,13 +5,12 @@ from datetime import datetime, timedelta
 import logging
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
-from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_energia.stractor import extraersftp_energia_PD, extraersftp_energia_DA
 from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_DA
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA
@@ -21,40 +20,12 @@ setup_logging("INFO")
 logger = logging.getLogger(__name__)
 
 def procesar_load_sftp_energia_PD(**kwargs):
-    linkdata = get_xcom_result(
-        kwargs,
-        "validar_archivo_sftp_energia_PD",
-        key="ruta_archivo_sftp_energia_PD",
-    )
-    if not linkdata:
-        return None
+    linkdata = kwargs["ti"].xcom_pull(task_ids="extract_sftp_energia_PD")
     return load_sftp_energia_PD(filepath=linkdata)
 
 def procesar_load_sftp_energia_DA(**kwargs):
-    linkdata = get_xcom_result(
-        kwargs,
-        "validar_archivo_sftp_energia_DA",
-        key="ruta_archivo_sftp_energia_DA",
-    )
-    if not linkdata:
-        return None
+    linkdata = kwargs["ti"].xcom_pull(task_ids="extract_sftp_energia_DA")
     return load_sftp_energia_DA(filepath=linkdata)
-
-def validar_archivo_sftp_energia_PD(**kwargs):
-    ruta = get_xcom_result(kwargs, "extract_sftp_energia_PD")
-    if not ruta or (isinstance(ruta, str) and not ruta.strip()):
-        logger.info("No se encontró archivo PD en SFTP energía. Se omiten tareas downstream.")
-        return False
-    kwargs["ti"].xcom_push(key="ruta_archivo_sftp_energia_PD", value=ruta)
-    return True
-
-def validar_archivo_sftp_energia_DA(**kwargs):
-    ruta = get_xcom_result(kwargs, "extract_sftp_energia_DA")
-    if not ruta or (isinstance(ruta, str) and not ruta.strip()):
-        logger.info("No se encontró archivo DA en SFTP energía. Se omiten tareas downstream.")
-        return False
-    kwargs["ti"].xcom_push(key="ruta_archivo_sftp_energia_DA", value=ruta)
-    return True
 
 config = {
     "owner": "SigmaAnalytics",
@@ -77,10 +48,6 @@ with DAG(
         task_id="extract_sftp_energia_PD",
         python_callable=extraersftp_energia_PD,
     )
-    validar_pd = ShortCircuitOperator(
-        task_id="validar_archivo_sftp_energia_PD",
-        python_callable=validar_archivo_sftp_energia_PD,
-    )
     load_pd = PythonOperator(
         task_id="load_sftp_energia_PD",
         python_callable=procesar_load_sftp_energia_PD,
@@ -99,10 +66,6 @@ with DAG(
         task_id="extract_sftp_energia_DA",
         python_callable=extraersftp_energia_DA,
     )
-    validar_da = ShortCircuitOperator(
-        task_id="validar_archivo_sftp_energia_DA",
-        python_callable=validar_archivo_sftp_energia_DA,
-    )
     load_da = PythonOperator(
         task_id="load_sftp_energia_DA",
         python_callable=procesar_load_sftp_energia_DA,
@@ -117,7 +80,7 @@ with DAG(
     )
 
     # Dependencias PD
-    extract_pd >> validar_pd >> load_pd >> sp_pd >> errors_pd
+    extract_pd >> load_pd >> sp_pd >> errors_pd
 
     # Dependencias DA
-    extract_da >> validar_da >> load_da >> sp_da >> errors_da
+    extract_da >> load_da >> sp_da >> errors_da

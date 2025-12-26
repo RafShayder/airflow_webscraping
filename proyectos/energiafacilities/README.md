@@ -16,6 +16,8 @@ energiafacilities/
     ├── base_sitios/
     ├── cargaglobal/
     ├── clientes_libres/
+    ├── neteco/
+    ├── sftp_base_suministros_activos/
     ├── sftp_energia/
     ├── sftp_pago_energia/
     ├── sftp_toa/
@@ -121,6 +123,42 @@ Módulos de extracción por fuente de datos. Cada módulo típicamente contiene:
 - `stractor.py`: Descarga desde SFTP
 - `transformer.py`: Transformaciones de datos
 - `loader.py`: Carga a tabla `raw.sftp_mm_clientes_libres`
+
+---
+
+### `neteco/`
+**Proceso**: Extracción de datos de NetEco (Historical Data) desde portal web.
+
+**Flujo**:
+1. Login al portal NetEco
+2. Navegación a NetEco Monitor > Historical Data (PM View)
+3. Aplicación de filtros (sitios/objetos/KPIs y rango de fechas)
+4. Exportación y descarga de archivo ZIP
+5. Descompresión y consolidación de Excels (hoja "1 hour")
+6. Carga a PostgreSQL
+7. Ejecución de stored procedures
+
+**Archivos**:
+- `stractor.py`: Workflow de scraping (dispara `scraper_neteco`)
+- `scraper.py`: Login, navegación, filtros y descarga ZIP
+- `transformer.py`: Descompresión y consolidación a Excel
+- `loader.py`: Carga a tabla `raw.web_md_neteco`
+- `run_sp.py`: Ejecución de stored procedure de transformación
+
+---
+
+### `sftp_base_suministros_activos/`
+**Proceso**: Extracción de base de suministros activos desde SFTP.
+
+**Flujo**:
+1. Conexión SFTP
+2. Búsqueda del archivo más reciente con patrón `base_suministros_activos`
+3. Descarga de archivo Excel
+4. Carga a PostgreSQL con mapeo flexible de columnas
+
+**Archivos**:
+- `stractor.py`: Descarga desde SFTP y selección del archivo
+- `loader.py`: Carga a tabla `ods.sftp_hm_base_suministros_activos`
 
 ---
 
@@ -299,4 +337,3 @@ Las secciones no mapeadas usan **auto-descubrimiento** basado en convenciones.
 - `LOGGING_LEVEL`: Nivel de logging (`INFO`, `DEBUG`, `WARNING`, `ERROR`, `CRITICAL`). **REQUERIDA**.
 
 Para una guía completa de todas las Connections y Variables necesarias, consulta los archivos `AIRFLOW_SETUP_{ENV}.md` en la raíz del proyecto (no versionados).
-

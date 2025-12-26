@@ -232,6 +232,7 @@ dynamic_checklist:
 neteco:
   username: "proyecto.analytic"
   password: "Tdp#12345678"
+  date_mode: "manual"  # manual | auto
   # Configuración de extracción
   local_dir: "tmp/neteco"
   specific_filename: "neteco_diario.zip"
