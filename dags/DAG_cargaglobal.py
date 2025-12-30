@@ -11,6 +11,7 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
+from energiafacilities.core.base_run_sp import run_sp
 from sources.cargaglobal.cargamanual import load_clienteslibres
 
 setup_logging("INFO")
@@ -23,9 +24,13 @@ def ejecutar(**kwargs):
     modo = params.get('modo')
     schema = params.get('schema')
     table = params.get('table')
-    return load_clienteslibres(
+    sp = params.get('sp')
+    carga = load_clienteslibres(
         filepath=filepath, schema=schema, table_name=table, modo=modo
     )
+    if sp:
+        run_sp(configyaml="", sp_value=sp)
+    return carga
 
 
 default_args = {
@@ -42,6 +47,7 @@ params = {
     'modo': 'replace',
     'schema': 'raw',
     'table': 'excel_hm_consumo_energia',
+    'sp': "",  # opcional
 }
 
 with DAG(
@@ -56,5 +62,4 @@ with DAG(
         task_id="run",
         python_callable=ejecutar,
     )
-
 

@@ -101,11 +101,13 @@ def get_required_connections(env: str) -> List[str]:
         f"sftp_clientes_libres_{env}",
         f"sftp_toa_{env}",
         f"sftp_energia_{env}",
+        f"sftp_pago_energia_{env}",
         # HTTP
         f"http_webindra_{env}",
         # Generic (selenium / teleows)
         f"generic_autin_gde_{env}",
         f"generic_autin_dc_{env}",
+        f"neteco_{env}",
     ]
 
 
@@ -226,7 +228,7 @@ def _test_postgres_connection(conn_id: str) -> Dict[str, Any]:
         }
 
 
-def _test_sftp_connection(conn_id: str) -> Dict[str, Any]:
+def _test_sftp_connection(conn_id: str, env: str) -> Dict[str, Any]:
     """Prueba conectividad a SFTP usando paramiko directamente (igual que base_stractor.py)."""
     transport = None
     sftp = None
@@ -241,6 +243,21 @@ def _test_sftp_connection(conn_id: str) -> Dict[str, Any]:
         port = conn.port or 22
         username = conn.login
         password = conn.password
+
+        # Fallback a sftp_daas_{env} si faltan credenciales en conexiones DAAS específicas
+        fallback_conn_ids = {"sftp_base_sitios", "sftp_base_sitios_bitacora", "sftp_clientes_libres", "sftp_toa"}
+        conn_base = conn_id[:-len(f"_{env}")] if conn_id.endswith(f"_{env}") else conn_id
+        if conn_base in fallback_conn_ids and (not username or not password or not host or not port):
+            daas_conn_id = f"sftp_daas_{env}"
+            daas_conn = BaseHook.get_connection(daas_conn_id)
+            if not username and daas_conn.login:
+                username = daas_conn.login
+            if not password and daas_conn.password:
+                password = daas_conn.password
+            if not host and daas_conn.host:
+                host = daas_conn.host
+            if (not port or port == 0) and daas_conn.port:
+                port = daas_conn.port
         
         if not all([host, username, password]):
             raise ValueError(f"Faltan parámetros de conexión: host={host}, username={username}, password={'***' if password else None}")
@@ -391,6 +408,55 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
         }
 
 
+def _test_neteco_http_connection(conn_id: str) -> Dict[str, Any]:
+    """Prueba conectividad HTTP a NetEco usando host/base_url de una conexión Generic."""
+    try:
+        logger.info("🔍 Probando conexión NetEco (HTTP): %s", conn_id)
+        conn = BaseHook.get_connection(conn_id)
+        extras = conn.extra_dejson or {}
+
+        base_url = conn.host or extras.get("base_url") or extras.get("BASE_URL")
+        if not base_url:
+            return {
+                "status": "WARN",
+                "message": "Connection NetEco sin host/base_url configurado",
+            }
+
+        if not base_url.startswith(("http://", "https://")):
+            base_url = f"https://{base_url}"
+
+        logger.info("   URL base: %s", base_url)
+        response = requests.head(base_url, timeout=10, verify=False)
+        status_code = response.status_code
+
+        if 200 <= status_code < 400:
+            logger.info("✅ %s: NetEco HTTP OK (status: %d)", conn_id, status_code)
+            return {
+                "status": "OK",
+                "message": f"HTTP {status_code} recibido correctamente",
+            }
+        logger.warning("⚠️ %s: NetEco HTTP status inesperado: %s", conn_id, status_code)
+        return {
+            "status": "WARN",
+            "message": f"HTTP status inesperado: {status_code}",
+        }
+    except requests.exceptions.RequestException as exc:
+        error_msg = str(exc)
+        logger.error("❌ %s: Error de conexión NetEco HTTP - %s", conn_id, error_msg)
+        return {
+            "status": "ERROR",
+            "message": f"Error de conexión: {error_msg}",
+        }
+    except Exception as exc:
+        error_msg = str(exc)
+        error_type = type(exc).__name__
+        logger.error("❌ %s: Error conectando a NetEco HTTP [%s] - %s", conn_id, error_type, error_msg)
+        return {
+            "status": "ERROR",
+            "message": f"Error [{error_type}]: {error_msg}",
+        }
+
+
 def _test_generic_connection(conn_id: str) -> Dict[str, Any]:
     """Valida que una conexión Generic se pueda leer correctamente."""
     try:
@@ -448,11 +514,14 @@ def check_connectivity() -> Dict[str, Any]:
             if conn_type == "postgres":
                 results[conn_id] = _test_postgres_connection(conn_id)
             elif conn_type == "sftp":
-                results[conn_id] = _test_sftp_connection(conn_id)
+                results[conn_id] = _test_sftp_connection(conn_id, env)
             elif conn_type in ["http", "https"]:
                 results[conn_id] = _test_http_connection(conn_id)
             elif conn_type == "generic":
-                results[conn_id] = _test_generic_connection(conn_id)
+                if conn_id.startswith("neteco_"):
+                    results[conn_id] = _test_neteco_http_connection(conn_id)
+                else:
+                    results[conn_id] = _test_generic_connection(conn_id)
             else:
                 logger.warning("⚠️ %s: Tipo de conexión '%s' no soportado para prueba de conectividad", conn_id, conn_type)
                 results[conn_id] = {
@@ -534,4 +603,3 @@ with DAG(
 
     # Orden: primero variables, luego existencia de connections y finalmente pruebas de conectividad
     check_vars_task >> check_conns_task >> check_connectivity_task
-

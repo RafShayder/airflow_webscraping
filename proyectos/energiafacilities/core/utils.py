@@ -96,6 +96,7 @@ def _load_airflow_connection(conn_id: str, env: str = None) -> Dict[str, Any]:
     try:
         from airflow.sdk.bases.hook import BaseHook
         
+        fallback_conn_ids = {"sftp_base_sitios", "sftp_base_sitios_bitacora", "sftp_clientes_libres", "sftp_toa"}
         for conn_id_to_try in conn_ids_to_try:
             try:
                 conn = BaseHook.get_connection(conn_id_to_try)
@@ -166,6 +167,28 @@ def _load_airflow_connection(conn_id: str, env: str = None) -> Dict[str, Any]:
                             values["PASS"] = conn.password
                     
                 logger.debug(f"Valores cargados desde Connection '{conn_id_to_try}': {list(values.keys())}")
+
+                # Si faltan credenciales en conexiones DAAS específicas, usar sftp_daas_{env}
+                if conn_id in fallback_conn_ids and (not values.get("username") or not values.get("password")):
+                    daas_conn_ids = []
+                    if env:
+                        daas_conn_ids.append(f"sftp_daas_{env}")
+                    daas_conn_ids.append("sftp_daas")
+                    for daas_conn_id in daas_conn_ids:
+                        try:
+                            daas_conn = BaseHook.get_connection(daas_conn_id)
+                            if not values.get("username") and daas_conn.login:
+                                values["username"] = daas_conn.login
+                            if not values.get("password") and daas_conn.password:
+                                values["password"] = daas_conn.password
+                            if not values.get("host") and daas_conn.host:
+                                values["host"] = daas_conn.host
+                            if not values.get("port") and daas_conn.port:
+                                values["port"] = daas_conn.port
+                            logger.debug(f"Credenciales fallback desde '{daas_conn_id}' para '{conn_id_to_try}'")
+                            break
+                        except Exception:
+                            continue
                 break  # Si encontramos la Connection, salir del loop
                 
             except Exception:
@@ -806,4 +829,3 @@ def default_download_path() -> str:
     if Path("/opt/airflow").exists():
         return "/opt/airflow/proyectos/energiafacilities/temp"
     return str(Path.home() / "Downloads" / "scraper_downloads")
-
