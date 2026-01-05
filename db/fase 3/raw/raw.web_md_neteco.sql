@@ -5,8 +5,5 @@ CREATE TABLE raw.web_md_neteco (
 	start_time text NULL,
 	energy_consumption_per_hour_kwh text NULL,
 	supply_duration_per_hour_h text NULL,
-	total_energy_consumption_kwh text NULL,
-	archivo text NULL,
-	fecha_carga timestamptz DEFAULT clock_timestamp() NOT NULL
+	total_energy_consumption_kwh text NULL
 );
-CREATE INDEX idx_web_md_neteco_fecha_carga ON raw.web_md_neteco USING btree (fecha_carga);
