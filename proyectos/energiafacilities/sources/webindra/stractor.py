@@ -2,13 +2,14 @@ import time
 import hashlib
 import logging
 import os
+import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
 import urllib3
 
-from core.utils import  load_config 
+from core.utils import load_config, default_download_path 
 
 # Desactivar warnings de SSL cuando se usa verify=False (necesario para proxies corporativos)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -60,10 +61,27 @@ def sha12(data: bytes) -> str:
 def run_scraper(cfg: dict) -> Path:
     """Flujo principal: conectividad → login → descarga → guardado."""
     session = requests.Session()
-    session.headers.update(cfg["HEADERS"])
+    # Usar HEADERS si está disponible, sino usar headers (minúsculas), sino usar valor por defecto
+    headers = cfg.get("HEADERS") or cfg.get("headers") or {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "*/*",
+        "Connection": "keep-alive"
+    }
+    if isinstance(headers, str):
+        # Si headers es un string JSON, parsearlo
+        try:
+            headers = json.loads(headers)
+        except json.JSONDecodeError:
+            logger.warning(f"No se pudo parsear HEADERS como JSON, usando valor por defecto")
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "*/*",
+                "Connection": "keep-alive"
+            }
+    session.headers.update(headers)
     
     # 🔹 Configurar proxy si está disponible
-    proxy = cfg.get("PROXY") or os.getenv("PROXY")
+    proxy = cfg.get("PROXY") or cfg.get("proxy") or os.getenv("PROXY")
     proxies = None
     if proxy:
         proxy_url = proxy if "://" in proxy else f"http://{proxy}"
@@ -71,15 +89,17 @@ def run_scraper(cfg: dict) -> Path:
             "http": proxy_url,
             "https": proxy_url,
         }
-        logger.info(f"Configurando proxy: {proxy_url}")
+        logger.info(f"✅ Proxy ACTIVO: {proxy_url}")
+    else:
+        logger.warning("⚠️  Proxy NO configurado - las peticiones se harán directamente sin proxy")
 
     # 🔹 Verificar conectividad
     try:
-        logger.info(f"Verificando conectividad con {cfg['BASE_URL']}")
+        logger.debug(f"Verificando conectividad con {cfg['BASE_URL']}")
         resp = session.head(cfg["BASE_URL"], timeout=10, proxies=proxies, verify=False)
         if resp.status_code >= 400:
             raise ConnectionError(f"Conectividad fallida (HTTP {resp.status_code})")
-        logger.info("Conectividad verificada correctamente")
+        logger.debug("Conectividad verificada correctamente")
     except Exception as e:
         logger.error(f"Error de conexión a {cfg['BASE_URL']}: {e}")
         raise
@@ -87,7 +107,7 @@ def run_scraper(cfg: dict) -> Path:
     # 🔹 Login
     try:
         login_url = f"{cfg['BASE_URL'].rstrip('/')}{cfg['LOGIN_PATH']}"
-        logger.info(f"Iniciando sesión en {login_url}")
+        logger.debug(f"Iniciando sesión en {login_url}")
         r = session.get(login_url, timeout=cfg["TIMEOUT"], proxies=proxies, verify=False)
         r.raise_for_status()
 
@@ -100,7 +120,7 @@ def run_scraper(cfg: dict) -> Path:
         if not any(c.name == "ci_session" for c in session.cookies):
             raise RuntimeError("Login fallido: no se estableció cookie de sesión")
 
-        logger.info("Login exitoso")
+        logger.debug("Login exitoso")
 
     except Exception as e:
         logger.error(f"Error en login: {e}")
@@ -113,7 +133,7 @@ def run_scraper(cfg: dict) -> Path:
     data = None
     for attempt in range(1, cfg.get("MAX_RETRIES", 3) + 1):
         try:
-            logger.info(f"Descargando archivo (intento {attempt}) desde {url}")
+            logger.debug(f"Descargando archivo (intento {attempt}) desde {url}")
             r = session.get(url, timeout=cfg["TIMEOUT"], stream=True, proxies=proxies, verify=False)
             r.raise_for_status()
 
@@ -121,7 +141,7 @@ def run_scraper(cfg: dict) -> Path:
             if not data:
                 raise ValueError("Archivo descargado vacío")
 
-            logger.info(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
+            logger.debug(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
             break
 
         except Exception as e:
@@ -134,7 +154,9 @@ def run_scraper(cfg: dict) -> Path:
 
     # 🔹 Guardar archivo
     try:
-        folder = Path(cfg["local_dir"])
+        # Usar local_dir de la config, o valor por defecto
+        local_dir = cfg.get("local_dir") or default_download_path()
+        folder = Path(local_dir)
         folder.mkdir(parents=True, exist_ok=True)
 
         # Si se definió nombre específico en config
@@ -149,7 +171,7 @@ def run_scraper(cfg: dict) -> Path:
         path = folder / name
         path.write_bytes(data)
 
-        logger.info(f"Archivo guardado correctamente: {path}")
+        logger.debug(f"Archivo guardado correctamente: {path}")
         return str(path)
 
     except Exception as e:

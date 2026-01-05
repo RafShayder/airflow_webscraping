@@ -1,5 +1,6 @@
-from .help.transform_helpers import ejecutar_transformacion
-from core.utils import traerjson,load_config
+from sources.clientes_libres.help.transform_helpers import ejecutar_transformacion
+from core.utils import load_config
+from core.helpers import traerjson
 
 def transformer_clienteslibres(filepath=None):
     

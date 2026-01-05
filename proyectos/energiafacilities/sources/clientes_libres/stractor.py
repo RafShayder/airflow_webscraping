@@ -1,6 +1,7 @@
 
 from core.base_stractor import BaseExtractorSFTP
-from core.utils import load_config, archivoespecifico_periodo_CL
+from core.utils import load_config
+from core.helpers import archivoespecifico_periodo_CL
 
 
 def extraersftp_clienteslibres():
@@ -16,5 +17,5 @@ def extraersftp_clienteslibres():
     archivos_atributos= Extractor.listar_archivos()
     nombrearchivoextraer=archivoespecifico_periodo_CL(lista_archivos=archivos_atributos,basearchivo=sftp_config_others["specific_filename"])
     metastraccion=Extractor.extract(specific_file=nombrearchivoextraer)
-    return metastraccion 
+    return metastraccion['ruta'] 
 

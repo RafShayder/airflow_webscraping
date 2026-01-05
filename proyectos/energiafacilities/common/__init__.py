@@ -13,6 +13,12 @@ from .selenium_utils import (
     monitor_export_loader,
     wait_for_download,
 )
+from .vue_helpers import (
+    find_vue_component,
+    apply_vue_date_value,
+    inject_date_via_javascript,
+    dispatch_vue_events,
+)
 
 __all__ = [
     "require",
@@ -22,4 +28,8 @@ __all__ = [
     "navigate_to_submenu",
     "monitor_export_loader",
     "wait_for_download",
+    "find_vue_component",
+    "apply_vue_date_value",
+    "inject_date_via_javascript",
+    "dispatch_vue_events",
 ]

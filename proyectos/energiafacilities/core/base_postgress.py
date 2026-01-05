@@ -107,7 +107,7 @@ class PostgresConnector:
             with self._connect().connect() as conn:
                 conn.execute(text("SELECT 1"))
             info = {"status": "success", "code": 200, "etl_msg": f"Conexión exitosa a {self._cfg.host}"}
-            logger.info(info["etl_msg"])
+            logger.debug(info["etl_msg"])
             return info
         except Exception as e:
             info = {"status": "error", "code": 401, "etl_msg": f"Error de conectividad: {e}"}
@@ -216,14 +216,14 @@ class PostgresConnector:
         if getattr(cfg, "limit", None):
             sql += f" LIMIT {cfg.limit}"
 
-        logger.info(f"Ejecutando extracción: {sql}")
+        logger.debug(f"Ejecutando extracción: {sql}")
         engine = self._connect()
 
         try:
             df = pd.read_sql_query(text(sql), engine, chunksize=getattr(cfg, "batch_size", None))
             if isinstance(df, pd.io.parsers.TextFileReader):  # batch mode
                 df = pd.concat(df, ignore_index=True)
-            logger.info(f"Extracción completada ({len(df)} filas).")
+            logger.debug(f"Extracción completada ({len(df)} filas).")
             return df
         except Exception as e:
             logger.error(f"Error durante la extracción: {e}")

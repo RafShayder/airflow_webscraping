@@ -81,7 +81,7 @@ class BaseLoaderPostgres:
     # CONEXIÓN
     # ----------
     def _connect(self):
-        logger.info("Verificando conectividad a PostgreSQL...")
+        logger.debug("Verificando conectividad a PostgreSQL...")
         return psycopg2.connect(
             host=self._cfg.host,
             port=self._cfg.port,
@@ -110,14 +110,32 @@ class BaseLoaderPostgres:
     def verificar_datos(self, data: Any, column_mapping: Optional[Dict[str, str]] = None, sheet_name: str = 0, strictreview=True, numerofilasalto: int =0, table_name:str =None):
         """Verifica columnas entre origen y tabla destino (mapeo invertido: DB ➜ Excel)."""
         try:
-            logger.info("Verificando data y la db destino")
+            logger.debug("Verificando data y la db destino")
             # --- Leer DataFrame ---
             if isinstance(data, pd.DataFrame):
                 df = data
                 origen = "DataFrame"
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
-                df = pd.read_excel(data, sheet_name=sheet_name,skiprows=numerofilasalto)
-                origen = f"Excel ({data})"
+                try:
+                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                    origen = f"Excel ({data})"
+                except ValueError as e:
+                    # Si falla por nombre de hoja, listar las hojas disponibles
+                    if "Worksheet named" in str(e) or "not found" in str(e).lower():
+                        try:
+                            xl_file = pd.ExcelFile(data, engine='openpyxl')
+                            available_sheets = xl_file.sheet_names
+                            error_msg = (
+                                f"No se encontró la hoja '{sheet_name}' en el archivo '{data}'. "
+                                f"Hojas disponibles: {', '.join([f'\"{s}\"' for s in available_sheets])}"
+                            )
+                            logger.error(error_msg)
+                            raise ValueError(error_msg) from e
+                        except Exception:
+                            # Si no podemos leer el Excel, lanzar el error original
+                            raise
+                    else:
+                        raise
             elif isinstance(data, str) and data.lower().endswith(".csv"):
                 df = pd.read_csv(data,skiprows=numerofilasalto)
                 origen = f"CSV ({data})"
@@ -131,7 +149,7 @@ class BaseLoaderPostgres:
             if column_mapping:
                 inverse_map = {v: k for k, v in column_mapping.items()}
                 df = df.rename(columns=inverse_map)
-                logger.debug("Mapeo de columnas aplicado (modo invertido DB ➜ Excel)")
+                logger.debug("Mapeo de columnas aplicado")
 
             # Obtener nombres de columnas sin comillas para comparación
             # (las columnas del DataFrame pueden tener comillas si empiezan con números)
@@ -148,8 +166,8 @@ class BaseLoaderPostgres:
                         FROM pg_catalog.pg_attribute a
                         JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
                         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-                        WHERE n.nspname = %s
-                          AND c.relname = %s
+                        WHERE LOWER(n.nspname) = LOWER(%s)
+                          AND LOWER(c.relname) = LOWER(%s)
                           AND a.attnum > 0
                           AND NOT a.attisdropped
                         ORDER BY a.attnum;
@@ -167,14 +185,14 @@ class BaseLoaderPostgres:
                 raise ValueError(msg)
             elif faltantes and not strictreview:
                 msg = f"Columnas no encontradas en origen: {', '.join(faltantes)}"
-                logger.warning(msg)
+                logger.debug(msg)
             
 
             if sobrantes:
-                logger.warning(f"Columnas adicionales en origen: {', '.join(sobrantes)}")
+                logger.debug(f"Columnas adicionales en origen: {', '.join(sobrantes)}")
 
             retornoinfo = {"status": "success", "code": 200, "etl_msg": "Columnas verificadas correctamente"}
-            logger.info("Verificación de columnas completada", extra=retornoinfo)
+            logger.debug("Verificación de columnas completada", extra=retornoinfo)
             return retornoinfo
 
         except Exception as e:
@@ -207,11 +225,29 @@ class BaseLoaderPostgres:
         - fecha_carga: fecha y hora de inicio del proceso de carga (opcional).
         """
         try:
-            logger.info("Iniciando validación de carga")
+            logger.debug("Iniciando validación de carga")
             if isinstance(data, pd.DataFrame):
                 df = data
             elif isinstance(data, str) and data.lower().endswith((".xlsx", ".xls")):
-                df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                try:
+                    df = pd.read_excel(data, sheet_name=sheet_name, skiprows=numerofilasalto)
+                except ValueError as e:
+                    # Si falla por nombre de hoja, listar las hojas disponibles
+                    if "Worksheet named" in str(e) or "not found" in str(e).lower():
+                        try:
+                            xl_file = pd.ExcelFile(data, engine='openpyxl')
+                            available_sheets = xl_file.sheet_names
+                            error_msg = (
+                                f"No se encontró la hoja '{sheet_name}' en el archivo '{data}'. "
+                                f"Hojas disponibles: {', '.join([f'\"{s}\"' for s in available_sheets])}"
+                            )
+                            logger.error(error_msg)
+                            raise ValueError(error_msg) from e
+                        except Exception:
+                            # Si no podemos leer el Excel, lanzar el error original
+                            raise
+                    else:
+                        raise
             elif isinstance(data, str) and data.lower().endswith(".csv"):
                 df = pd.read_csv(data, skiprows=numerofilasalto)
             else:
@@ -221,11 +257,34 @@ class BaseLoaderPostgres:
             # --- Mapeo inverso ---
             if column_mapping:
                 inverse_map = {v: k for k, v in column_mapping.items()}
-                cols_existentes = [c for c in inverse_map.keys() if c in df.columns]
+                # Guardar columnas originales para comparación
+                columnas_originales = list(df.columns)
+                # Comparación case-insensitive y sin espacios extra
+                df_cols_normalized = {col.strip(): col for col in df.columns}
+                inverse_map_normalized = {k.strip(): v for k, v in inverse_map.items()}
+                
+                cols_existentes = []
+                cols_mapeo = {}
+                for excel_col_normalized, excel_col_original in df_cols_normalized.items():
+                    if excel_col_normalized in inverse_map_normalized:
+                        cols_existentes.append(excel_col_original)
+                        cols_mapeo[excel_col_original] = inverse_map_normalized[excel_col_normalized]
+                    else:
+                        # Intentar búsqueda case-insensitive
+                        excel_col_lower = excel_col_normalized.lower()
+                        for map_key_normalized, map_value in inverse_map_normalized.items():
+                            if map_key_normalized.lower() == excel_col_lower:
+                                cols_existentes.append(excel_col_original)
+                                cols_mapeo[excel_col_original] = map_value
+                                logger.debug(f"Mapeo case-insensitive: '{excel_col_original}' -> '{map_value}'")
+                                break
                 
                 if cols_existentes:
-                    df = df[cols_existentes].rename(columns=inverse_map)
-                    logger.debug("Mapeo invertido aplicado (DB ➜ Excel)")
+                    df = df[cols_existentes].rename(columns=cols_mapeo)
+                    logger.debug(f"Mapeo aplicado: {len(cols_existentes)} columnas mapeadas")
+                    if len(cols_existentes) < len(columnas_originales):
+                        cols_no_mapeadas = set(columnas_originales) - set(cols_existentes)
+                        logger.debug(f"{len(cols_no_mapeadas)} columnas del Excel no están en el mapeo y serán omitidas")
                 else:
                     logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
                     raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
@@ -261,8 +320,8 @@ class BaseLoaderPostgres:
                         FROM pg_catalog.pg_attribute a
                         JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
                         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-                        WHERE n.nspname = %s
-                          AND c.relname = %s
+                        WHERE LOWER(n.nspname) = LOWER(%s)
+                          AND LOWER(c.relname) = LOWER(%s)
                           AND a.attnum > 0
                           AND NOT a.attisdropped
                         ORDER BY a.attnum;
@@ -274,7 +333,9 @@ class BaseLoaderPostgres:
                         col_sin_comillas = col_exacta.strip('"')
                         columnas_tabla_exactas[col_sin_comillas.lower()] = col_exacta
             
-            logger.info(f"📊 Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
+            logger.debug(f"Columnas encontradas en tabla '{validated_table}': {len(columnas_tabla_exactas)}")
+            logger.debug(f"Columnas del DataFrame después del mapeo: {list(df.columns)[:10]}{'...' if len(df.columns) > 10 else ''}")
+            logger.debug(f"Columnas en la tabla PostgreSQL (primeras 10): {list(columnas_tabla_exactas.keys())[:10]}{'...' if len(columnas_tabla_exactas) > 10 else ''}")
             
             # Crear mapeo: nombre del DataFrame (sin comillas) -> nombre exacto en tabla
             # Solo incluir columnas que existan en la tabla
@@ -300,12 +361,12 @@ class BaseLoaderPostgres:
                         cols_para_insert.append(col_tabla_sin_comillas)
                 else:
                     # Columna no encontrada en tabla - omitirla (no intentar insertarla)
-                    logger.warning(f"⚠️  Columna '{col_df_sin_comillas}' del DataFrame no existe en tabla '{validated_table}', será omitida")
+                    logger.debug(f"Columna '{col_df_sin_comillas}' del DataFrame no existe en tabla '{validated_table}', será omitida")
             
             # Filtrar DataFrame para incluir solo columnas que existen en la tabla
             if len(columnas_df_filtradas) < len(df.columns):
                 columnas_omitidas = set(df.columns) - set(columnas_df_filtradas)
-                logger.warning(f"📋 Se omitirán {len(columnas_omitidas)} columnas que no existen en la tabla: {list(columnas_omitidas)[:5]}{'...' if len(columnas_omitidas) > 5 else ''}")
+                logger.debug(f"Se omitirán {len(columnas_omitidas)} columnas que no existen en la tabla: {list(columnas_omitidas)[:5]}{'...' if len(columnas_omitidas) > 5 else ''}")
                 df = df[columnas_df_filtradas]
             
             # Agregar columna fechacarga si se proporciona fecha_carga y la columna existe en la tabla
@@ -321,12 +382,14 @@ class BaseLoaderPostgres:
                         cols_para_insert.append(f'"{col_fechacarga_sin_comillas}"')
                     else:
                         cols_para_insert.append(col_fechacarga_sin_comillas)
-                    logger.info(f"📅 Columna 'fechacarga' agregada con valor: {fecha_carga}")
+                    logger.debug(f"Columna 'fechacarga' agregada con valor: {fecha_carga}")
                 else:
-                    logger.warning(f"⚠️  Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
+                    logger.debug(f"Se proporcionó fecha_carga pero la columna 'fechacarga' no existe en la tabla '{validated_table}'")
             
             if not cols_para_insert:
-                raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'")
+                logger.error(f"Columnas del DataFrame: {list(df.columns)}")
+                logger.error(f"Columnas en la tabla: {list(columnas_tabla_exactas.keys())}")
+                raise ValueError(f"No hay columnas válidas para insertar en la tabla '{validated_table}'. Columnas del DataFrame: {list(df.columns)[:5]}. Columnas en tabla: {list(columnas_tabla_exactas.keys())[:5]}")
             
             cols = ', '.join(cols_para_insert)
 

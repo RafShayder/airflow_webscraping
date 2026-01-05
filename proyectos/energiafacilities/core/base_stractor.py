@@ -1,11 +1,18 @@
 from __future__ import annotations
-from typing import Any, Dict, List
+from typing import Any, Dict, List,Optional
 import os
+import io
+import pandas as pd
 import paramiko
 from types import SimpleNamespace
-from core.utils import asegurar_directorio_sftp
+from core.helpers import asegurar_directorio_sftp
 import logging
 from datetime import datetime
+import stat
+
+# Silenciar logs INFO y DEBUG de paramiko (solo mostrar WARNING y ERROR)
+logging.getLogger("paramiko").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 class BaseExtractorSFTP:
@@ -48,7 +55,6 @@ class BaseExtractorSFTP:
 
         missing_conn = [k for k in required_conn if k not in conn or not conn[k]]
         missing_paths = [k for k in required_paths if k not in paths or not paths[k]]
-
         if missing_conn or missing_paths:
             msg = f"Faltan campos: conexión={missing_conn}, rutas={missing_paths}"
             logger.error(msg)
@@ -105,7 +111,7 @@ class BaseExtractorSFTP:
                 "code": 200,
                 "etl_msg": f"Conexión exitosa a {self.conn.host}"
             }
-            logger.debug(retornoinfo["etl_msg"])
+            logger.info(retornoinfo["etl_msg"])
             return retornoinfo
         except Exception as e:
             retornoinfo = {
@@ -119,13 +125,25 @@ class BaseExtractorSFTP:
     # ----------
     # LISTAR ARCHIVOS EN DIRECTORIO REMOTO
     # ----------
-    def listar_archivos(self, ruta_remota: str | None = None) -> List[str]:
+    def listar_archivos(self, ruta_remota: str | None = None, only_files: bool = True) -> List[str]:
         ruta = ruta_remota or self.paths.remote_dir
         sftp = None
         try:
             sftp = self.conectar_sftp()
-            archivos = sftp.listdir(ruta)
+            archivos = sftp.listdir_attr(ruta)
+            if only_files:
+                archivos=[
+                item.filename
+                for item in archivos
+                if stat.S_ISREG(item.st_mode)
+            ]
+
+            else:
+                archivos = [item.filename for item in archivos]
+                
+                
             logger.debug(f"Archivos encontrados en {ruta}: {archivos}")
+            
             return archivos
         except Exception as e:
             logger.error(f"Error al listar archivos en {ruta}: {e}")
@@ -170,7 +188,8 @@ class BaseExtractorSFTP:
             archivo = specific_file or getattr(self.paths, "specific_filename", None)
 
             if not archivo:
-                raise ValueError("Debe especificarse un archivo para la extracción.")
+                logger.error("Debe especificarse un archivo para la extracción.")
+                raise 
 
             if remotetransfere:
                 asegurar_directorio_sftp(sftp, local_dir)
@@ -179,18 +198,18 @@ class BaseExtractorSFTP:
                 # Validar si el archivo destino ya existe
                 try:
                     sftp.stat(destino)
-                    logger.warning(f"El archivo {destino} ya existe y será sobrescrito")
+                    logger.debug(f"El archivo {destino} ya existe y será sobrescrito")
                 except FileNotFoundError:
                     pass  # Archivo no existe, OK para mover
 
                 sftp.rename(f"{remote_dir}/{archivo}", destino)
                 msg = f"Archivo movido con éxito de {remote_dir}/{archivo} a {local_dir}"
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 os.makedirs(local_dir, exist_ok=True)
                 sftp.get(f"{remote_dir}/{archivo}", f"{local_dir}/{archivo}")
                 msg = f"Archivo descargado correctamente a {local_dir}/{archivo}"
-                logger.info(msg)
+                logger.debug(msg)
 
             retornoinfo = {
                 "status": "success",
@@ -210,3 +229,153 @@ class BaseExtractorSFTP:
         finally:
             if sftp:
                 sftp.close()
+                
+
+
+    def estract_archivos_excel(
+        self,
+        archivos: List[str] | str,
+        nombre_salida_local: str,
+        columnas_verificar: Dict[str, str],
+        hoja: str = None,
+        fila_inicio: int = None,
+        local_dir: str=None,
+        subsetname: str = None
+        
+    ) -> Dict[str, Any]:
+        """
+        Lee uno o varios archivos Excel desde SFTP, los unifica, agrega columna 'archivo',
+        mueve procesados a processed_dir y con errores a error_dir,
+        y guarda un Excel final en local_dir.
+        """
+        logger.info("Iniciando extracción de archivos recibos...")
+        # Normalizar parámetro a lista
+        if isinstance(archivos, str):
+            archivos = [archivos]
+
+        sftp = None
+        dfs = []
+
+        def rename_overwrite(sftp, origen, destino):
+            """Elimina destino si existe y luego renombra."""
+            # crear carpeta si no existe
+            carpeta = os.path.dirname(destino)
+            try:
+                sftp.stat(carpeta)
+            except IOError:
+                sftp.mkdir(carpeta, 0o775)
+                sftp.chmod(carpeta, 0o775)
+
+            # borrar destino si existe
+            try:
+                sftp.stat(destino)
+                sftp.remove(destino)
+            except IOError:
+                pass  # No existe, OK
+
+            sftp.rename(origen, destino)
+
+        try:
+            sftp = self.conectar_sftp()
+
+            # Crear carpetas si no existen (solo si se quiere)
+            asegurar_directorio_sftp(sftp, self.paths.processed_dir)
+            asegurar_directorio_sftp(sftp, self.paths.error_dir)
+
+            for archivo in archivos:
+                ruta_remota = f"{self.paths.remote_dir}/{archivo}"
+
+                try:
+                    # Descargar a memoria
+                    buffer = io.BytesIO()
+                    sftp.getfo(ruta_remota, buffer)
+                    buffer.seek(0)
+
+                    # Leer Excel
+                    df = pd.read_excel(
+                        buffer,
+                        sheet_name = hoja or self.paths.default_sheet,
+                        header     = fila_inicio or self.paths.fila_inicial
+                    )
+                    subsetname =subsetname or  self.paths.subsetna
+                    df = df.dropna(subset=[subsetname])
+                    
+                    df["archivo"] = archivo
+                    #borramos las filas que sean vacias
+                    # MOVIMIENTO A PROCESSED → CON OVERWRITE
+                    destino_ok = f"{self.paths.processed_dir}/{archivo}"
+                    
+                    dataframefiltrado=self.validate_columns_dataframe(df, columnas_verificar)
+
+                    if  dataframefiltrado is not None:
+                        rename_overwrite(sftp, ruta_remota, destino_ok)
+                        logger.debug(f"Archivo procesado con éxito: {archivo}")
+                        
+                    else:
+                        logger.error(f"Las columnas de {archivo} no son las esperadas")
+                        raise
+                    dfs.append(dataframefiltrado)
+                except Exception as e:
+                    try:
+                        destino_error = f"{self.paths.error_dir}/{archivo}"
+                        rename_overwrite(sftp, ruta_remota, destino_error)
+                    except Exception:
+                        logger.error(f"No se pudo mover {archivo} a carpeta de errores")
+
+                    logger.error(f"Error procesando {archivo}: {e}")
+                    continue
+
+            if not dfs:
+                logger.warning("No se encontraron archivos para procesar")
+                return {
+                    "status": "warning",
+                    "code": 204,
+                    "etl_msg": "No se encontraron archivos para procesar",
+                    "ruta": None,
+                } 
+
+            # Unificar
+            df_final = pd.concat(dfs, ignore_index=True)
+
+            # Guardar salida local
+            salida_local = f"{local_dir or self.paths.local_dir}/{nombre_salida_local}"
+            os.makedirs(os.path.dirname(salida_local), exist_ok=True)
+
+            df_final.to_excel(salida_local, index=False)
+            logger.info(f"Archivo consolidado generado en {salida_local}")
+            logger.debug(f"Archivo consolidado guardado en {salida_local}")
+
+            return {
+                "status": "success",
+                "code": 200,
+                "etl_msg": "Archivos procesados y consolidados correctamente",
+                "ruta": salida_local,
+            }
+
+        finally:
+            if sftp:
+                sftp.close()
+    
+    # verificamos las columnas de un dataframe donde le pasamos las columnas en un map y solo debe tomas en cuenta los values del map
+    # y que lo renombre y solo retorne las columnas de l map
+    def validate_columns_dataframe(self ,df: pd.DataFrame, column_map: Dict[str, str]) -> Optional[pd.DataFrame]:
+        try:
+            # Verificamos que todas las columnas del map existan en el DataFrame
+            missing_columns = [col for col in column_map.values() if col not in df.columns]
+            if missing_columns:
+                logger.error(f"Faltan columnas en el DataFrame: {missing_columns}")
+                return None
+
+            # Renombramos las columnas según el map
+            df_renamed = df.rename(columns={v: k for k, v in column_map.items()})
+
+            # Seleccionamos solo las columnas que necesitamos
+            df_final = df_renamed[list(column_map.keys())]
+
+            return df_final
+
+        except Exception as e:
+            logger.error(f"Error al procesar el DataFrame: {e}")
+            return None
+
+        
