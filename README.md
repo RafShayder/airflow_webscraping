@@ -344,6 +344,24 @@ mi_api = config.get("mi_api_test", {})
 
 ---
 
+## DAGs principales
+
+- `dag_neteco`: ETL NetEco (scraper + transform + load + SP), schedule `0 */3 * * *`.
+- `dag_neteco_faltantes_report`: reporte XLSX de faltantes NetEco, manual (schedule `None`).
+- `dag_autin_gde`: scraper y carga de GDE, schedule `0 */3 * * *`.
+- `dag_autin_checklist`: Dynamic Checklist, schedule `0 2,5,8,11,14,17,20,23 * * *`.
+- `dag_recibos_sftp_energia`: recibos de energía SFTP (PD/DA), schedule `0 */3 * * *`.
+- `dag_etl_sftp_pago_energia`: pagos de energía SFTP, schedule `0 */3 * * *`.
+- `dag_etl_sftp_toa`: reportes TOA SFTP, schedule `0 */3 * * *`.
+- `dag_etl_clientes_libres`: clientes libres SFTP, schedule `0 */3 * * *`.
+- `dag_etl_base_sitios`: base de sitios (base + bitácora), schedule `0 */3 * * *`.
+- `dag_etl_sftp_base_suministros_activos`: base suministros activos, schedule `0 */3 * * *`.
+- `dag_etl_webindra`: recibos Indra, schedule `0 */3 * * *`.
+- `dag_cargaglobal`: carga manual parametrizada, manual (schedule `None`).
+- `dag_healthcheck_config`: healthcheck de variables/connections, manual (schedule `None`).
+
+---
+
 ## Stored Procedures (SP) en `db/`
 
 Dónde están:
@@ -363,3 +381,4 @@ SP ↔ DAG (tabla resumen):
 | dag_autin_gde | ods.sp_cargar_gde_tasks | raw.web_mm_autin_infogeneral | ods.web_hm_autin_infogeneral |
 | dag_etl_webindra | ods.sp_cargar_web_hm_indra_energia | raw.web_mm_indra_energia | ods.web_hm_indra_energia |
 | dag_etl_sftp_base_suministros_activos | (carga directa) | — | ods.sftp_hm_base_suministros_activos |
+| dag_neteco | ods.sp_cargar_web_md_neteco | raw.web_md_neteco | ods.web_hd_neteco / ods.web_hd_neteco_diaria |

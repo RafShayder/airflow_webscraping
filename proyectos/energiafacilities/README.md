@@ -17,6 +17,7 @@ energiafacilities/
     ├── cargaglobal/
     ├── clientes_libres/
     ├── neteco/
+    ├── reporte_neteco/
     ├── sftp_base_suministros_activos/
     ├── sftp_energia/
     ├── sftp_pago_energia/
@@ -144,6 +145,20 @@ Módulos de extracción por fuente de datos. Cada módulo típicamente contiene:
 - `transformer.py`: Descompresión y consolidación a Excel
 - `loader.py`: Carga a tabla `raw.web_md_neteco`
 - `run_sp.py`: Ejecución de stored procedure de transformación
+
+---
+
+### `reporte_neteco/`
+**Proceso**: Generación de reporte XLSX de faltantes de data por sitio (NetEco).
+
+**Flujo**:
+1. Consulta a `ods.web_hd_neteco_diaria`
+2. Cálculo de faltantes (histórico y semana pasada)
+3. Generación de XLSX con el reporte
+
+**Archivos**:
+- `reporte.py`: Reporte basado en SQL
+- `reporte_python.py`: Variante con cálculos en pandas
 
 ---
 

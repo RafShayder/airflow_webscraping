@@ -13,7 +13,7 @@ from airflow.providers.standard.operators.python import PythonOperator  # type: 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from sources.reporte_neteco.reporte import run_reporte_neteco_faltantes
+from sources.reporte_neteco.reporte_python import run_reporte_neteco_faltantes_python
 
 
 logger = logging.getLogger(__name__)
@@ -39,5 +39,5 @@ with DAG(
 ) as dag:
     generate_report = PythonOperator(
         task_id="generate_report",
-        python_callable=run_reporte_neteco_faltantes,
+        python_callable=run_reporte_neteco_faltantes_python,
     )
