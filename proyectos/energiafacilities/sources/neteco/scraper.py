@@ -13,6 +13,12 @@ from datetime import datetime, timedelta
 import time
 import logging
 import os
+from typing import Optional
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 
 # Configurar path para imports
 current_path = Path(__file__).resolve()
@@ -46,6 +52,18 @@ FILTER_BUTTON_CLASS = "nco-search-container-buttons"
 # XPath para el elemento de NetEco Monitor
 NETECO_MONITOR_XPATH = '//*[@id="refr.mm.NetEco_Monitor"]/span'
 NETECO_MONITOR_XPATH_FALLBACK = '/html/body/div[2]/div/div[3]/div/div/div[2]/span[1]/span'
+
+
+def _resolve_timezone(config_neteco: dict) -> Optional[object]:
+    tz_name = (config_neteco.get("timezone") or config_neteco.get("tz") or "America/Lima")
+    if ZoneInfo is None:
+        logger.warning("zoneinfo no disponible; usando hora local del sistema")
+        return None
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        logger.warning("Zona horaria invalida '%s'; usando hora local del sistema", tz_name)
+        return None
 
 def _build_browser_manager(download_dir: Path, headless: bool) -> BrowserManager:
     cache_dir = Path(os.environ.setdefault("SELENIUM_MANAGER_CACHE_PATH", "/tmp/selenium-cache"))
@@ -641,9 +659,11 @@ def scraper_neteco():
                 start_time_xpath = "//*[@id='startdatepicker_value']"
                 end_time_xpath = "//*[@id='enddatepicker_value']"
                 if date_mode == "auto":
-                    yesterday = datetime.now() - timedelta(days=1)
-                    start_time_value = yesterday.replace(hour=0, minute=0, second=1).strftime("%Y-%m-%d %H:%M:%S")
-                    end_time_value = yesterday.replace(hour=23, minute=59, second=59).strftime("%Y-%m-%d %H:%M:%S")
+                    tzinfo = _resolve_timezone(config_neteco)
+                    now_ref = datetime.now(tzinfo) if tzinfo else datetime.now()
+                    yesterday = now_ref - timedelta(days=1)
+                    start_time_value = yesterday.replace(hour=0, minute=0, second=1, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+                    end_time_value = yesterday.replace(hour=23, minute=59, second=59, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
                 elif configured_start_time and configured_end_time:
                     start_time_value = configured_start_time
                     end_time_value = configured_end_time
