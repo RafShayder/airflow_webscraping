@@ -78,7 +78,7 @@ def get_report_dir(output_dir: Optional[str | Path] = None) -> Path:
 def _week_params(reference_date: date) -> tuple[pd.Timestamp, pd.Timestamp, str]:
     week_start_current = reference_date - timedelta(days=reference_date.weekday())
     semana_inicio = week_start_current - timedelta(days=7)
-    semana_fin = week_start_current - timedelta(days=1)
+    semana_fin = reference_date - timedelta(days=1)
     iso_year, iso_week, _ = semana_inicio.isocalendar()
     semana_reporte = f"{iso_year}-{iso_week:02d}"
     return pd.Timestamp(semana_inicio), pd.Timestamp(semana_fin), semana_reporte
@@ -127,12 +127,13 @@ def build_report_dataframe(
     )
 
     result = rango_all.merge(semana_data, on="codigo_sitio", how="left")
+    dias_esperados_semana = (semana_fin - semana_inicio).days + 1
     result["semana_reporte"] = semana_reporte
     result["semana_inicio"] = semana_inicio
     result["semana_fin"] = semana_fin
-    result["dias_esperados_semana"] = 7
+    result["dias_esperados_semana"] = dias_esperados_semana
     result["dias_con_data_semana"] = result["dias_con_data_semana"].fillna(0).astype(int)
-    result["dias_faltantes_semana"] = 7 - result["dias_con_data_semana"]
+    result["dias_faltantes_semana"] = dias_esperados_semana - result["dias_con_data_semana"]
 
     result["riesgo_actual"] = np.select(
         [
