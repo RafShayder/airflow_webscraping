@@ -11,7 +11,8 @@ Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a
 3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
 4. [Configuración y credenciales](#configuración-y-credenciales)
 5. [Notas de operación](#notas-de-operación)
-6. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
+6. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
+7. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
 
 ---
 
@@ -341,6 +342,12 @@ mi_api = config.get("mi_api_test", {})
 - Para usar Docker sin `sudo`, añade tu usuario al grupo `docker` y vuelve a iniciar sesión.
 - Los logs en vivo están disponibles con `sudo docker compose logs -f`.
 - Si necesitas reconstruir la imagen (por ejemplo, cambiar Chrome/Chromedriver), vuelve a ejecutar `./generar_paquete_offline.sh` y distribuye el nuevo bundle.
+
+---
+
+## Tablas finales por ingesta
+
+- Ver detalle en `docs/TABLAS_FINALES_INGESTAS.md`.
 
 ---
 
