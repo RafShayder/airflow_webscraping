@@ -238,6 +238,9 @@ neteco:
   specific_filename: "neteco_diario.zip"
   export_overwrite_files: true
   headless: true
+  # Timeouts de descarga (segundos)
+  download_button_wait_seconds: 10800
+  download_file_timeout_seconds: 1200
 
   # Configuración de fechas
   # Formato: "YYYY-MM-DD HH:MM:SS"

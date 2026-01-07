@@ -276,8 +276,9 @@ def _wait_and_click_download(
     task_name,
     download_dir: Path,
     *,
-    max_wait_seconds=120,
+    max_wait_seconds=10800,
     poll_seconds=2,
+    download_timeout_seconds=1200,
     overwrite=True,
     desired_filename: str | None = None,
 ):
@@ -375,7 +376,7 @@ def _wait_and_click_download(
                             download_dir,
                             since=click_time,
                             overwrite=overwrite,
-                            timeout=300,
+                            timeout=download_timeout_seconds,
                             desired_name=desired_filename if desired_filename and Path(desired_filename).suffix else None,
                             logger=logger,
                         )
@@ -437,6 +438,9 @@ def scraper_neteco():
         configured_start_time = config_neteco.get("start_time")
         configured_end_time = config_neteco.get("end_time")
         date_mode = (config_neteco.get("date_mode") or "manual").strip().lower()
+        download_button_wait_seconds = int(config_neteco.get("download_button_wait_seconds", 240))
+        download_file_timeout_seconds = int(config_neteco.get("download_file_timeout_seconds", 300))
+        download_poll_seconds = int(config_neteco.get("download_poll_seconds", 3))
         download_path = config_neteco.get("local_dir") or default_download_path()
         download_dir = Path(download_path).expanduser().resolve()
         download_dir.mkdir(parents=True, exist_ok=True)
@@ -703,8 +707,9 @@ def scraper_neteco():
                             download_dir,
                             overwrite=overwrite_download,
                             desired_filename=desired_filename,
-                            max_wait_seconds=240,
-                            poll_seconds=3,
+                            max_wait_seconds=download_button_wait_seconds,
+                            poll_seconds=download_poll_seconds,
+                            download_timeout_seconds=download_file_timeout_seconds,
                         )
                     except Exception as e:
                         logger.warning(f"Error esperando Download para {task_name_value!r}: {e}")

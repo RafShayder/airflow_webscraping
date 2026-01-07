@@ -48,6 +48,22 @@ REPORT_COLUMNS = [
     "riesgo_actual",
 ]
 
+COLUMN_NAME_MAP = {
+    "codigo_sitio": "Codigo Sitio",
+    "fecha_inicio": "Primera Lectura",
+    "fecha_fin": "Fecha Evaluacion",
+    "dias_esperados": "Dias Esperados",
+    "dias_con_data": "Dias con Data",
+    "dias_faltantes": "Dias Faltantes",
+    "semana_reporte": "Semana Reporte",
+    "semana_inicio": "Semana Inicio",
+    "semana_fin": "Semana Fin",
+    "dias_esperados_semana": "Dias Esperados Semana - Ayer",
+    "dias_con_data_semana": "Dias con Data Semana - Ayer",
+    "dias_faltantes_semana": "Dias Faltantes Semana - Ayer",
+    "riesgo_actual": "Riesgo Actual",
+}
+
 
 def get_report_dir(output_dir: Optional[str | Path] = None) -> Path:
     """Define el directorio base donde se guardan los reportes."""
@@ -163,6 +179,7 @@ def run_reporte_neteco_faltantes_python(
         connector.close()
 
     df_report = build_report_dataframe(df_raw)
+    df_report = df_report.rename(columns=COLUMN_NAME_MAP)
 
     output_dir = get_report_dir(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
