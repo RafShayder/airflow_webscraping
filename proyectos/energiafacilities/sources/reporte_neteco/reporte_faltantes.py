@@ -160,7 +160,7 @@ def generate_xlsx_report(df: pd.DataFrame, output_path: Path) -> None:
     exporter.export_dataframe(df, str(output_path), index=False)
 
 
-def run_reporte_neteco_faltantes_python(
+def run_reporte_neteco_faltantes(
     env: Optional[str] = None,
     output_dir: Optional[str | Path] = None,
 ) -> str:
@@ -207,7 +207,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     setup_logging(args.log_level)
-    output = run_reporte_neteco_faltantes_python(env=args.env, output_dir=args.output_dir)
+    output = run_reporte_neteco_faltantes(env=args.env, output_dir=args.output_dir)
     print(f"Reporte generado: {output}")
 
 

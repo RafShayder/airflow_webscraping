@@ -1,5 +1,5 @@
 """
-DAG para generar un reporte XLSX de faltantes de data por sitio (NetEco).
+DAG para generar reportes de alertas NetEco (faltantes y anomalias).
 """
 
 import logging
@@ -13,7 +13,8 @@ from airflow.providers.standard.operators.python import PythonOperator  # type: 
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from sources.reporte_neteco.reporte_python import run_reporte_neteco_faltantes_python
+from sources.reporte_neteco.reporte_anomalias_consumo import run_reporte_anomalias_consumo
+from sources.reporte_neteco.reporte_faltantes import run_reporte_neteco_faltantes
 
 
 logger = logging.getLogger(__name__)
@@ -30,14 +31,18 @@ DEFAULT_ARGS = {
 
 
 with DAG(
-    "dag_neteco_faltantes_report",
+    "dag_alertas_neteco",
     default_args=DEFAULT_ARGS,
-    description="Reporte XLSX de faltantes NetEco (mes actual).",
+    description="Reportes XLSX de alertas NetEco (faltantes y anomalias).",
     schedule=None,
     catchup=False,
-    tags=["neteco", "reporte", "xlsx"],
+    tags=["neteco", "alertas", "reporte", "xlsx"],
 ) as dag:
-    generate_report = PythonOperator(
-        task_id="generate_report",
-        python_callable=run_reporte_neteco_faltantes_python,
+    generate_faltantes_report = PythonOperator(
+        task_id="generate_faltantes_report",
+        python_callable=run_reporte_neteco_faltantes,
+    )
+    generate_anomalias_report = PythonOperator(
+        task_id="generate_anomalias_report",
+        python_callable=run_reporte_anomalias_consumo,
     )

@@ -158,7 +158,8 @@ Módulos de extracción por fuente de datos. Cada módulo típicamente contiene:
 
 **Archivos**:
 - `reporte.py`: Reporte basado en SQL
-- `reporte_python.py`: Variante con cálculos en pandas
+- `reporte_faltantes.py`: Variante con cálculos en pandas
+- `reporte_anomalias_consumo.py`: Reporte de anomalias altas en consumo diario
 
 ---
 

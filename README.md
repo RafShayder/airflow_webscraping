@@ -354,7 +354,7 @@ mi_api = config.get("mi_api_test", {})
 ## DAGs principales
 
 - `dag_neteco`: ETL NetEco (scraper + transform + load + SP), schedule `0 */3 * * *`.
-- `dag_neteco_faltantes_report`: reporte XLSX de faltantes NetEco, manual (schedule `None`).
+- `dag_alertas_neteco`: reportes XLSX de alertas NetEco (faltantes y anomalias), manual (schedule `None`).
 - `dag_autin_gde`: scraper y carga de GDE, schedule `0 */3 * * *`.
 - `dag_autin_checklist`: Dynamic Checklist, schedule `0 2,5,8,11,14,17,20,23 * * *`.
 - `dag_recibos_sftp_energia`: recibos de energía SFTP (PD/DA), schedule `0 */3 * * *`.
