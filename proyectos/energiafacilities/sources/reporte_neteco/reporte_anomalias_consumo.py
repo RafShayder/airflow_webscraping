@@ -24,6 +24,12 @@ from core.utils import load_config, setup_logging
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_WINDOW_DAYS = 30  # Dias recientes usados para calcular la mediana/MAD por sitio.
+DEFAULT_Z_THRESHOLD = 3.5  # Umbral de z-score robusto para marcar anomalia alta.
+DEFAULT_RECENT_DAYS = 7  # Dias recientes a reportar desde la ultima fecha disponible.
+DEFAULT_NORMAL_STREAK = 3  # Registros normales consecutivos que cierran la alerta.
+RECENT_COL_PREFIX = "consumo_dia_"  # Prefijo para columnas (1 = mas antiguo, N = mas reciente).
+
 SQL_BASE_NETECO = """
 SELECT
   site_name,
@@ -59,8 +65,10 @@ def get_report_dir(output_dir: Optional[str | Path] = None) -> Path:
 def build_anomaly_dataframe(
     df_raw: pd.DataFrame,
     *,
-    window_days: int = 30,
-    z_threshold: float = 3.5,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    z_threshold: float = DEFAULT_Z_THRESHOLD,
+    recent_days: int = DEFAULT_RECENT_DAYS,
+    normal_streak: int = DEFAULT_NORMAL_STREAK,
 ) -> pd.DataFrame:
     """Construye el dataframe final con anomalias altas por site_name."""
     if df_raw.empty:
@@ -81,43 +89,82 @@ def build_anomaly_dataframe(
     if df_window.empty:
         return pd.DataFrame(columns=list(COLUMN_NAME_MAP.values()))
 
+    df_window_all = df_window.copy()
+
     median = (
-        df_window.groupby("site_name")["energy_consumption_per_day_kwh"]
+        df_window_all.groupby("site_name")["energy_consumption_per_day_kwh"]
         .median()
         .rename("median_30d")
     )
-    df_window = df_window.join(median, on="site_name")
-    df_window["abs_dev"] = (
-        df_window["energy_consumption_per_day_kwh"] - df_window["median_30d"]
+    df_window_all = df_window_all.join(median, on="site_name")
+    df_window_all["abs_dev"] = (
+        df_window_all["energy_consumption_per_day_kwh"] - df_window_all["median_30d"]
     ).abs()
-    mad = df_window.groupby("site_name")["abs_dev"].median().rename("mad_30d")
-    df_window = df_window.join(mad, on="site_name")
+    mad = df_window_all.groupby("site_name")["abs_dev"].median().rename("mad_30d")
+    df_window_all = df_window_all.join(mad, on="site_name")
 
-    mad_positive = df_window["mad_30d"] > 0
-    df_window["z_score"] = pd.NA
-    df_window.loc[mad_positive, "z_score"] = (
+    mad_positive = df_window_all["mad_30d"] > 0
+    df_window_all["z_score"] = pd.NA
+    df_window_all.loc[mad_positive, "z_score"] = (
         0.6745
-        * (df_window.loc[mad_positive, "energy_consumption_per_day_kwh"] - df_window.loc[mad_positive, "median_30d"])
-        / df_window.loc[mad_positive, "mad_30d"]
+        * (
+            df_window_all.loc[mad_positive, "energy_consumption_per_day_kwh"]
+            - df_window_all.loc[mad_positive, "median_30d"]
+        )
+        / df_window_all.loc[mad_positive, "mad_30d"]
     )
 
-    df_window["is_anomalia"] = False
-    df_window.loc[mad_positive, "is_anomalia"] = df_window.loc[mad_positive, "z_score"] >= z_threshold
-    df_window.loc[~mad_positive, "is_anomalia"] = (
-        df_window.loc[~mad_positive, "energy_consumption_per_day_kwh"]
-        > df_window.loc[~mad_positive, "median_30d"]
+    df_window_all["is_anomalia"] = False
+    df_window_all.loc[mad_positive, "is_anomalia"] = (
+        df_window_all.loc[mad_positive, "z_score"] >= z_threshold
     )
-    df_window = df_window[df_window["energy_consumption_per_day_kwh"] > df_window["median_30d"]]
+    df_window_all.loc[~mad_positive, "is_anomalia"] = (
+        df_window_all.loc[~mad_positive, "energy_consumption_per_day_kwh"]
+        > df_window_all.loc[~mad_positive, "median_30d"]
+    )
+    samples = (
+        df_window_all.groupby("site_name")["energy_consumption_per_day_kwh"]
+        .size()
+        .rename("window_samples")
+    )
+    df_window = df_window_all[
+        df_window_all["energy_consumption_per_day_kwh"] > df_window_all["median_30d"]
+    ]
 
     anomalies = df_window[df_window["is_anomalia"]].copy()
     if anomalies.empty:
         return pd.DataFrame(columns=list(COLUMN_NAME_MAP.values()))
 
-    samples = (
-        df_window.groupby("site_name")["energy_consumption_per_day_kwh"]
-        .size()
-        .rename("window_samples")
-    )
+    active_sites = set()
+    if normal_streak <= 0:
+        active_sites = set(anomalies["site_name"].unique())
+    else:
+        last_anom = (
+            df_window_all[df_window_all["is_anomalia"]]
+            .groupby("site_name")["fecha"]
+            .max()
+        )
+        if not last_anom.empty:
+            after_last = df_window_all.join(last_anom.rename("last_anom"), on="site_name")
+            after_last = after_last[after_last["fecha"] > after_last["last_anom"]]
+            counts_after = after_last.groupby("site_name")["fecha"].size()
+            active_sites = {
+                site
+                for site, last_date in last_anom.items()
+                if counts_after.get(site, 0) < normal_streak
+            }
+
+    if active_sites:
+        anomalies = anomalies[anomalies["site_name"].isin(active_sites)]
+    else:
+        return pd.DataFrame(columns=list(COLUMN_NAME_MAP.values()))
+
+    if recent_days > 0:
+        recent_cutoff = anomalies["window_end"] - pd.to_timedelta(recent_days - 1, unit="D")
+        anomalies = anomalies[anomalies["fecha"] >= recent_cutoff]
+        if anomalies.empty:
+            return pd.DataFrame(columns=list(COLUMN_NAME_MAP.values()))
+
     anomalies = anomalies.join(samples, on="site_name")
 
     report = anomalies[
@@ -134,7 +181,27 @@ def build_anomaly_dataframe(
         ]
     ].sort_values(["site_name", "fecha"], ascending=[True, True])
 
-    return report.rename(columns=COLUMN_NAME_MAP)
+    report = report.rename(columns=COLUMN_NAME_MAP)
+
+    if recent_days > 0:
+        recent_values = df_window_all[
+            df_window_all["fecha"] >= df_window_all["window_end"] - pd.to_timedelta(recent_days - 1, unit="D")
+        ].assign(
+            offset_days=lambda data: (
+                (data["fecha"] - (data["window_end"] - pd.to_timedelta(recent_days - 1, unit="D")))
+                .dt.days.astype("int")
+            )
+        )
+        recent_values = recent_values[recent_values["offset_days"].between(0, recent_days - 1)]
+        recent_values = recent_values.drop_duplicates(subset=["site_name", "offset_days"])
+        recent_pivot = recent_values.pivot(
+            index="site_name",
+            columns="offset_days",
+            values="energy_consumption_per_day_kwh",
+        ).rename(columns=lambda c: f"{RECENT_COL_PREFIX}{int(c) + 1}")
+        report = report.merge(recent_pivot, left_on="Site Name", right_index=True, how="left")
+
+    return report
 
 
 def generate_xlsx_report(df: pd.DataFrame, output_path: Path) -> None:
@@ -147,8 +214,10 @@ def run_reporte_anomalias_consumo(
     env: Optional[str] = None,
     output_dir: Optional[str | Path] = None,
     *,
-    window_days: int = 30,
-    z_threshold: float = 3.5,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    z_threshold: float = DEFAULT_Z_THRESHOLD,
+    recent_days: int = DEFAULT_RECENT_DAYS,
+    normal_streak: int = DEFAULT_NORMAL_STREAK,
 ) -> str:
     """Ejecuta el query base y genera el reporte XLSX con anomalias."""
     config = load_config(env)
@@ -169,6 +238,8 @@ def run_reporte_anomalias_consumo(
         df_raw,
         window_days=window_days,
         z_threshold=z_threshold,
+        recent_days=recent_days,
+        normal_streak=normal_streak,
     )
 
     output_dir = get_report_dir(output_dir)
@@ -189,8 +260,30 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--env", default=None, help="Entorno a usar (dev, staging, prod)")
     parser.add_argument("--output-dir", default=None, help="Directorio de salida para el XLSX")
-    parser.add_argument("--window-days", type=int, default=30, help="Dias maximos para calcular mediana/MAD")
-    parser.add_argument("--z-threshold", type=float, default=3.5, help="Umbral de z-score robusto")
+    parser.add_argument(
+        "--window-days",
+        type=int,
+        default=DEFAULT_WINDOW_DAYS,
+        help="Dias usados para calcular la mediana/MAD por sitio",
+    )
+    parser.add_argument(
+        "--z-threshold",
+        type=float,
+        default=DEFAULT_Z_THRESHOLD,
+        help="Umbral de z-score robusto para marcar anomalia alta",
+    )
+    parser.add_argument(
+        "--recent-days",
+        type=int,
+        default=DEFAULT_RECENT_DAYS,
+        help="Dias recientes a reportar desde la ultima fecha del sitio",
+    )
+    parser.add_argument(
+        "--normal-streak",
+        type=int,
+        default=DEFAULT_NORMAL_STREAK,
+        help="Registros normales consecutivos que cierran la alerta",
+    )
     parser.add_argument("--log-level", default="INFO", help="Nivel de log")
     return parser.parse_args()
 
@@ -203,9 +296,12 @@ def main() -> None:
         output_dir=args.output_dir,
         window_days=args.window_days,
         z_threshold=args.z_threshold,
+        recent_days=args.recent_days,
+        normal_streak=args.normal_streak,
     )
     print(f"Reporte generado: {output}")
 
 
 if __name__ == "__main__":
     main()
+RECENT_COL_PREFIX = "consumo_dia_"

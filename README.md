@@ -90,6 +90,49 @@ sudo dnf clean all
 rm -rf ~/docker_rpms_x86_64
 ```
 
+### Cambiar la carpeta de datos de Docker
+
+Si necesitas mover el almacenamiento de imágenes/volúmenes a otra ruta (por ejemplo, `/daas1/docker`), sigue estos pasos:
+
+1. **Detener Docker**
+   ```bash
+   sudo systemctl stop docker
+   sudo systemctl stop docker.socket
+   ```
+
+2. **Verificar que `dockerd` no esté en ejecución**
+   ```bash
+   ps aux | grep dockerd
+   ```
+
+3. **Crear el nuevo directorio**
+   ```bash
+   sudo mkdir -p /daas1/docker
+   sudo chown root:root /daas1/docker
+   sudo chmod 711 /daas1/docker
+   ```
+
+4. **Configurar `data-root`**
+   ```bash
+   sudo vi /etc/docker/daemon.json
+   ```
+   Contenido:
+   ```json
+   {
+     "data-root": "/daas1/docker"
+   }
+   ```
+
+5. **Confirmar la configuración**
+   ```bash
+   sudo cat /etc/docker/daemon.json
+   ```
+
+6. **Iniciar Docker nuevamente**
+   ```bash
+   sudo systemctl start docker
+   ```
+
 ---
 
 ## Despliegue offline en el servidor (Linux `amd64`)
