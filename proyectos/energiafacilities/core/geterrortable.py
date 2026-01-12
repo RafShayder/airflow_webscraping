@@ -20,21 +20,30 @@ def get_save_errors(configyaml: str, table_name='table',configpostgress:str="pos
             "remote_dir": "/daas/dev/energy-facilities/errors"
         }
     
+    fnerror_energia = (
+        f"{general_config['errorconfig']['schema']}.{general_config['errorconfig']['table']}"
+    )
+    tablaorigen = f"{general_config['schema']}.{general_config[table_name]}"
+
     # Crear instancia de conexión
-    postgress = PostgresConnector(postgres_config)
-    
-    fnerror_energia=general_config['errorconfig']["schema"] + "." + general_config['errorconfig']["table"]
-    tablaorigen=general_config['schema'] + "." + general_config[table_name]
-    data=postgress.ejecutar(fnerror_energia, tipo='fn',parametros=(tablaorigen,))
+    with PostgresConnector(postgres_config) as postgress:
+        data = postgress.ejecutar(fnerror_energia, tipo='fn', parametros=(tablaorigen,))
+
     # si es vacio no imprime nada
     if not data.empty:
-        baseexporter=FileExporter()
-        condigsfpt=config.get("sftp_daas_c",{})
-        baseexporter.export_dataframe_to_remote(data, conn=condigsfpt, 
-            remote_dir=general_config['errorconfig']["remote_dir"],filename=filename)
-        logger.debug(f"Se generó archivo de erorres en {general_config['errorconfig']["remote_dir"]}" )
-
+        baseexporter = FileExporter()
+        condigsfpt = config.get("sftp_daas_c", {})
+        baseexporter.export_dataframe_to_remote(
+            data,
+            conn=condigsfpt,
+            remote_dir=general_config['errorconfig']["remote_dir"],
+            filename=filename,
+        )
+        logger.debug(
+            "Se generó archivo de errores en %s",
+            general_config["errorconfig"]["remote_dir"],
+        )
     else:
-        logger.debug(f"no hay errores{tablaorigen}.")
-    return data
+        logger.debug("no hay errores %s.", tablaorigen)
 
+    return data

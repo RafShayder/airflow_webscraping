@@ -74,7 +74,8 @@ class FileExporter:
     def _ensure_dir(self, path: str):
         """Crea la carpeta local si no existe."""
         logger.debug("Creando la carpeta local si no existe")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        dir_path = os.path.dirname(path) or "."
+        os.makedirs(dir_path, exist_ok=True)
 
     def _mkdirs_remote(self, sftp: paramiko.SFTPClient, remote_dir: str):
         """Crea recursivamente directorios en el servidor remoto vía SFTP."""
@@ -321,7 +322,6 @@ class FileExporter:
         finally:
             if os.path.exists(temp_file.name):
                 os.remove(temp_file.name)
-
 
 
 

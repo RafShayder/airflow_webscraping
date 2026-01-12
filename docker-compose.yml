@@ -1,10 +1,8 @@
-
 x-logging:
   &default-logging
   driver: "json-file"
   options:
-    max-size: "100m"
-    max-file: "3"
+    max-size: "3000m"
 
 x-airflow-common:
   &airflow-common

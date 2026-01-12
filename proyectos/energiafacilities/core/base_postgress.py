@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 from types import SimpleNamespace
 import pandas as pd
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, URL
 
 # Silenciar advertencias irrelevantes de pandas/SQLAlchemy
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -80,11 +80,15 @@ class PostgresConnector:
             return self._engine
 
         try:
-            conn_str = (
-                f"postgresql+psycopg2://{self._cfg.user}:{self._cfg.password}"
-                f"@{self._cfg.host}:{self._cfg.port}/{self._cfg.database}"
+            conn_url = URL.create(
+                "postgresql+psycopg2",
+                username=self._cfg.user,
+                password=self._cfg.password,
+                host=self._cfg.host,
+                port=self._cfg.port,
+                database=self._cfg.database,
             )
-            self._engine = create_engine(conn_str, pool_pre_ping=True)
+            self._engine = create_engine(conn_url, pool_pre_ping=True)
             logger.debug(f"Conexión establecida con {self._cfg.host}")
             return self._engine
         except Exception as e:

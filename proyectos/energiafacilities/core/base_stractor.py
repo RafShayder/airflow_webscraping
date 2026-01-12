@@ -268,6 +268,20 @@ class BaseExtractorSFTP:
 
         dfs = []
 
+        def require_config_value(attr: str, label: str):
+            value = getattr(self.paths, attr, None)
+            if value in (None, ""):
+                raise ValueError(
+                    f"Falta '{attr}' en config_paths y no se proporciono {label}."
+                )
+            return value
+
+        sheet_name = hoja if hoja is not None else require_config_value("default_sheet", "hoja")
+        header_row = (
+            fila_inicio if fila_inicio is not None else require_config_value("fila_inicial", "fila_inicio")
+        )
+        subsetname = subsetname if subsetname is not None else require_config_value("subsetna", "subsetname")
+
         def rename_overwrite(sftp, origen, destino):
             """Elimina destino si existe y luego renombra."""
             # crear carpeta si no existe
@@ -305,10 +319,9 @@ class BaseExtractorSFTP:
                         # Leer Excel
                         df = pd.read_excel(
                             buffer,
-                            sheet_name = hoja or self.paths.default_sheet,
-                            header     = fila_inicio or self.paths.fila_inicial
+                            sheet_name=sheet_name,
+                            header=header_row,
                         )
-                        subsetname = subsetname or self.paths.subsetna
                         df = df.dropna(subset=[subsetname])
                         
                         df["archivo"] = archivo
