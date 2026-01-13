@@ -1,5 +1,4 @@
 import sys
-import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -8,6 +7,7 @@ current_path = Path(__file__).resolve()
 sys.path.insert(0, str(current_path.parents[2]))  # /.../energiafacilities
 
 from core.base_stractor import BaseExtractorSFTP
+from core.helpers import generar_archivo_especifico
 from core.utils import load_config, setup_logging
 import logging
 
@@ -25,7 +25,7 @@ def extraer_base_suministros_activos():
         str: Ruta del archivo extraído localmente
     """
     config = load_config()
-    sftp_config_connect = config.get("sftp_daas_c", {})
+    sftp_config_connect = config.get("sftp_energia_c", {})  # Usa sftp_energia_{env} según entorno
     sftp_config_others = config.get("sftp_base_suministros_activos", {})
     
     Extractor = BaseExtractorSFTP(
@@ -39,32 +39,21 @@ def extraer_base_suministros_activos():
     archivos_atributos = Extractor.listar_archivos_atributos()
     basearchivo = sftp_config_others.get("specific_filename", "base_suministros_activos")
     
-    # Filtrar archivos del último mes/año con patrón base_suministros_activos_MMYY*.xlsx
+    # Filtrar por el periodo del mes anterior (MMYY) y elegir el más reciente
     hoy = datetime.today()
-    mes_ref = (hoy.replace(day=1) - timedelta(days=1)).month  # último mes
-    anio_ref = (hoy.replace(day=1) - timedelta(days=1)).year % 100  # YY
-    sufijo_ref = f"{mes_ref:02d}{anio_ref:02d}"
-    patron = re.compile(rf"{basearchivo}.*_{sufijo_ref}.*\\.xlsx$", re.IGNORECASE)
+    ultimo_dia_mes_anterior = hoy.replace(day=1) - timedelta(days=1)
+    periodo_ref = f"{ultimo_dia_mes_anterior.month:02d}{ultimo_dia_mes_anterior.year % 100:02d}"
 
-    archivos_filtrados = [
-        f for f in archivos_atributos
-        if patron.search(f["nombre"])
-    ]
-
-    # Si no hay archivos del último mes, caer al filtro anterior (cualquier .xlsx con el prefijo)
-    if not archivos_filtrados:
-        archivos_filtrados = [
-            f for f in archivos_atributos
-            if basearchivo.upper() in f["nombre"].upper() and f["nombre"].lower().endswith(".xlsx")
-        ]
-    
-    if not archivos_filtrados:
+    archivo_mas_reciente = generar_archivo_especifico(
+        lista_archivos=archivos_atributos,
+        basearchivo=basearchivo,
+        periodo=periodo_ref,
+        tipo="xlsx",
+    )
+    if not archivo_mas_reciente:
         raise FileNotFoundError(
             f"No se encontraron archivos que contengan '{basearchivo}' en el directorio SFTP"
         )
-    
-    # Seleccionar el archivo más reciente por fecha de modificación
-    archivo_mas_reciente = max(archivos_filtrados, key=lambda x: x["fecha_modificacion"])
     nombrearchivoextraer = archivo_mas_reciente["nombre"]
     
     logger.info(f"Archivo seleccionado: {nombrearchivoextraer} (modificado: {archivo_mas_reciente['fecha_modificacion']})")
@@ -84,4 +73,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"❌ Error en la extracción: {e}", exc_info=True)
         raise
-
