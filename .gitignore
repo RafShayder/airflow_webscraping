@@ -8,6 +8,8 @@
 !env.airflow.example
 !env.example
 config_local.py
+proyectos/energiafacilities/config/config_*.yaml
+proyectos/energiafacilities/config/config_*.yml
 airflow_connections_import_dict.json
 airflow_connections_import_dict_dev.json
 airflow_connections_import_dict_staging.json
