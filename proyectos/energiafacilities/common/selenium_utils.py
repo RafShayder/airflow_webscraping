@@ -119,7 +119,9 @@ def navigate_to_menu_item(
     """
     menu_items = wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, ".menu-item.sideItem"))
     logger.debug("Encontrados %s elementos del menú", len(menu_items))
-    require(len(menu_items) > menu_index, f"No se encontró el menú {item_name}")
+    if len(menu_items) <= menu_index:
+        logger.error("No se encontró el menú %s (índice %s, encontrados %s)", item_name, menu_index, len(menu_items))
+        raise RuntimeError(f"No se encontró el menú {item_name}")
 
     target_menu_item = menu_items[menu_index]
     ActionChains(driver).move_to_element(target_menu_item).perform()
@@ -261,6 +263,7 @@ def wait_for_download(
 
         time.sleep(2)
 
+    logger.error("No se encontró archivo descargado en %s dentro del tiempo esperado", download_dir)
     raise RuntimeError(f"No se encontró archivo descargado en {download_dir} dentro del tiempo esperado")
 
 
