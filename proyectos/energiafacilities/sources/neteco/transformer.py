@@ -75,7 +75,7 @@ def combine_excel_from_zip(zip_path: str, sheet_name: str = "1 hour") -> pd.Data
         logger.info(f"DataFrames combinados exitosamente, total filas: {len(combined_df)}")
     else:
         logger.error("No se encontraron archivos Excel válidos para combinar")
-        raise
+        raise ValueError("No se encontraron archivos Excel válidos para combinar")
     return combined_df
 
 #zip_path = "tmp/neteco/HistoricalData_20251219000000_20251219003000_20251219110351.zip"
@@ -87,7 +87,7 @@ def transformer_neteco(zip_path: str) -> str:
         zipfile_path = zip_path or general_config.get('local_dir', '') + '/' + general_config.get('specific_filename', '')
         if not zipfile_path:
             logger.error("No se proporcionó zip_path ni configuración válida")
-            raise
+            raise ValueError("No se proporcionó zip_path ni configuración válida")
         logger.debug(f"Usando archivo zip: {zipfile_path}")
         df_final = combine_excel_from_zip(zipfile_path)
         path_out = general_config.get('local_destination_dir') or str(Path(zipfile_path).parent / "processed/neteco_diario.xlsx")
@@ -96,7 +96,7 @@ def transformer_neteco(zip_path: str) -> str:
         
         if not path_out:
             logger.error("No se especificó un directorio de destino para guardar")
-            raise 
+            raise ValueError("No se especificó un directorio de destino para guardar")
         try:
             pathcrear=path_out.rsplit('/',1)[0]
             os.makedirs(pathcrear, exist_ok=True)

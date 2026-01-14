@@ -1,8 +1,8 @@
 """
-Script de referencia para NetEco - contiene código de prueba y ejemplos.
+Scraper de NetEco - Extracción de datos históricos.
 
-Este archivo puede usarse para pruebas rápidas o como referencia.
-Para uso en producción, usar stractor.py que contiene el workflow completo.
+Este módulo realiza web scraping del portal NetEco para extraer
+datos de Historical Data (PM View) y descargar reportes en formato ZIP.
 """
 
 from __future__ import annotations
@@ -476,8 +476,8 @@ def scraper_neteco():
                 )
                 logger.debug("Elemento Monitor encontrado (XPath fallback)")
             except TimeoutException:
-                logger.warning("No se encontró el elemento de NetEco Monitor")
-                return
+                logger.error("No se encontró el elemento de NetEco Monitor")
+                raise RuntimeError("No se encontró el elemento de NetEco Monitor")
         
         # Hacer hover para mantener el menú abierto
         logger.debug("Haciendo hover sobre Monitor para abrir el menú...")
@@ -511,8 +511,8 @@ def scraper_neteco():
             logger.debug("Click realizado en 'Historical Data'")
             time.sleep(2)  # Esperar navegación
         else:
-            logger.warning("No se encontró el elemento 'Historical Data'")
-            return
+            logger.error("No se encontró el elemento 'Historical Data' en el menú")
+            raise RuntimeError("No se encontró el elemento 'Historical Data' en el menú")
         
         # Esperar a que cargue la página de PM View
         logger.debug("Esperando a que cargue la página de PM View...")
@@ -541,8 +541,8 @@ def scraper_neteco():
             else:
                 logger.debug("Checkbox 'Root' ya estaba marcado")
         else:
-            logger.warning("No se encontró el checkbox 'Root'")
-            return
+            logger.error("No se encontró el checkbox 'Root'")
+            raise RuntimeError("No se encontró el checkbox 'Root'")
 
         time.sleep(2)
 
@@ -563,9 +563,8 @@ def scraper_neteco():
                 logger.debug("Checkbox 'Mains' ya estaba marcado")
                 time.sleep(1)
         else:
-            logger.warning("No se encontró el checkbox 'Mains'")
-            input("Presiona Enter para continuar...")
-            return
+            logger.error("No se encontró el checkbox 'Mains'")
+            raise RuntimeError("No se encontró el checkbox 'Mains'")
 
         time.sleep(6)
 
@@ -646,6 +645,7 @@ def scraper_neteco():
                     _fill_input(driver, task_name_field, task_name_value, label="Task Name")
                     logger.debug("Intento de llenado del campo Task Name completado")
                 else:
+                    logger.error("No se encontró el campo Task Name en el modal de exportación")
                     raise RuntimeError("No se encontró el campo Task Name en el modal de exportación")
 
                 # Llenar Start Time y End Time
@@ -661,6 +661,7 @@ def scraper_neteco():
                     start_time_value = configured_start_time
                     end_time_value = configured_end_time
                 else:
+                    logger.error("Faltan start_time/end_time para modo manual en NetEco")
                     raise ValueError("Faltan start_time/end_time para modo manual en NetEco")
 
                 _set_datetime_field(driver, start_time_xpath, start_time_value, "Start Time")
@@ -729,6 +730,7 @@ def scraper_neteco():
                 pass
 
     if not downloaded_path:
+        logger.error("No se pudo descargar el archivo NetEco")
         raise RuntimeError("No se pudo descargar el archivo NetEco")
     return downloaded_path
 
