@@ -1,10 +1,14 @@
-from os import replace
+import logging
+
 from core.base_loader import BaseLoaderPostgres
 from core.utils import load_config, setup_logging
 
 setup_logging(level="INFO")
+logger = logging.getLogger(__name__)
 
-def load_clienteslibres(filepath="tmp/global/archivo.xlsx", modo=None,schema=None, table_name=None):
+
+def load_manual(filepath="tmp/global/archivo.xlsx", modo=None, schema=None, table_name=None):
+    """Carga manual de archivos Excel a PostgreSQL."""
 
     config = load_config()
     postgres_config = config.get("postgress", {})
@@ -19,7 +23,7 @@ def load_clienteslibres(filepath="tmp/global/archivo.xlsx", modo=None,schema=Non
 
 '''
 filepath="tmp/sftp_clientes_libres/processed/clientes_libres.xlsx"
-load_clienteslibres(filepath=filepath, modo='replace',schema='raw', table_name='sftp_mm_clientes_libres')
+load_manual(filepath=filepath, modo='replace', schema='raw', table_name='sftp_mm_clientes_libres')
 '''
 
 

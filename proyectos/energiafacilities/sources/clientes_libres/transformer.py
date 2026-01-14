@@ -1,6 +1,11 @@
+import logging
+
 from sources.clientes_libres.help.transform_helpers import ejecutar_transformacion
 from core.utils import load_config
 from core.helpers import traerjson
+
+logger = logging.getLogger(__name__)
+
 
 def transformer_clienteslibres(filepath=None):
     
