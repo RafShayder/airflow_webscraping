@@ -57,7 +57,7 @@ from clients.browser import BrowserManager, setup_browser_with_proxy
 from clients.date_filter_manager import DateFilterManager
 from clients.filters import FilterManager
 from clients.iframes import IframeManager
-from common import require, wait_for_download
+from common import wait_for_download
 from core.utils import load_config
 from core.helpers import default_download_path
 
@@ -211,15 +211,13 @@ class GDEWorkflow:
     def _authenticate_and_navigate(self) -> None:
         """Autentica y navega al módulo GDE."""
         auth_manager = AuthManager(self.driver)
-        require(
-            auth_manager.login(self.config.username, self.config.password),
-            "No se pudo realizar el login",
-        )
-        require(
-            self.iframe_manager.find_main_iframe(max_attempts=self.config.max_iframe_attempts),
-            "No se encontró el iframe principal",
-        )
-        
+        if not auth_manager.login(self.config.username, self.config.password):
+            logger.error("No se pudo realizar el login")
+            raise RuntimeError("No se pudo realizar el login")
+        if not self.iframe_manager.find_main_iframe(max_attempts=self.config.max_iframe_attempts):
+            logger.error("No se encontró el iframe principal")
+            raise RuntimeError("No se encontró el iframe principal")
+
         self.filter_manager.wait_for_filters_ready()
         self.filter_manager.open_filter_panel(method="complex")
     
@@ -465,6 +463,7 @@ def _click_y_setear_fecha_y_hora(driver, wait: WebDriverWait, container_xpath: s
             pass
 
     if target is None:
+        logger.error("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
         raise RuntimeError("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
 
     # Escribir la FECHA de forma robusta
@@ -483,6 +482,7 @@ def _click_y_setear_fecha_y_hora(driver, wait: WebDriverWait, container_xpath: s
         target.send_keys(Keys.ENTER)  # confirma/cierra el popover de fecha
         sleep(DELAY_LONG)
     except Exception as e:
+        logger.error("No se pudo escribir la fecha '%s': %s", fecha, e)
         raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
 
     # 4) Buscar input "Seleccionar hora" y setear valor
@@ -497,6 +497,7 @@ def _click_y_setear_fecha_y_hora(driver, wait: WebDriverWait, container_xpath: s
             break
 
     if time_input is None:
+        logger.error("No se encontró el input 'Seleccionar hora'.")
         raise RuntimeError("No se encontró el input 'Seleccionar hora'.")
 
     try:
@@ -513,6 +514,7 @@ def _click_y_setear_fecha_y_hora(driver, wait: WebDriverWait, container_xpath: s
         time_input.send_keys(Keys.ENTER)
         sleep(DELAY_LONG)
     except Exception as e:
+        logger.error("No se pudo escribir la hora '%s': %s", hora, e)
         raise RuntimeError(f"No se pudo escribir la hora '{hora}': {e}")
 
 
@@ -638,8 +640,8 @@ def _click_export_button(driver) -> None:
             if not _handle_filter_warning(driver, wait):
                 raise
             _select_first_grid_row(driver, wait)
-    logger.debug("No se pudo presionar el botón de exportación después de 3 intentos")
-    require(False, "No se pudo presionar el botón de exportación")
+    logger.error("No se pudo presionar el botón de exportación después de 3 intentos")
+    raise RuntimeError("No se pudo presionar el botón de exportación")
 
 
 def _trigger_export(driver) -> float:
@@ -666,7 +668,9 @@ def _navigate_to_export_status(iframe_manager: IframeManager) -> None:
     sleep(DELAY_LONG)
     driver.find_element(By.CSS_SELECTOR, ".level-1").click()
     sleep(DELAY_LONG)
-    require(iframe_manager.switch_to_iframe(1), "No se pudo cambiar al iframe de export status")
+    if not iframe_manager.switch_to_iframe(1):
+        logger.error("No se pudo cambiar al iframe de export status")
+        raise RuntimeError("No se pudo cambiar al iframe de export status")
     sleep(DELAY_LONG)
 
 
@@ -700,16 +704,16 @@ def _monitor_status(driver, timeout_seconds: int, poll_interval: int) -> None:
             if status == "Succeed":
                 logger.debug("Exportación completada exitosamente")
                 return
-            logger.debug("Proceso de exportación terminó con estado: %s", status)
-            require(False, f"Proceso de exportación terminó con estado: {status}")
+            logger.error("Proceso de exportación terminó con estado: %s", status)
+            raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
 
         if status != "Running":
             logger.warning("Estado desconocido '%s'. Continuando monitoreo...", status)
 
         sleep(poll_interval)
 
-    logger.debug("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
-    require(False, "Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
+    logger.error("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
+    raise RuntimeError("Tiempo máximo de espera alcanzado durante el monitoreo de exportación")
 
 
 # ========================================================================
