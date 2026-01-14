@@ -100,6 +100,7 @@ class AuthManager:
         else:
             # Modo genérico: usar valores proporcionados
             if login_url is None or success_url_contains is None or selectors is None:
+                logger.error("En modo genérico, deben proporcionarse login_url, success_url_contains y selectors")
                 raise ValueError(
                     "En modo genérico, deben proporcionarse login_url, success_url_contains y selectors"
                 )

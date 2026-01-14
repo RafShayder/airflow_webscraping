@@ -167,6 +167,7 @@ class DateFilterManager:
             pass
 
         if create_time_row is None:
+            logger.error("No se encontró el row de Create time")
             raise RuntimeError("No se encontró el row de Create time.")
 
         # 2) Intenta abrir el modo "intervalo personalizado" con el botón + dentro de Create time
@@ -218,6 +219,7 @@ class DateFilterManager:
                 pass
 
         if input_base is None:
+            logger.error("No se encontró el input base para fecha/hora")
             raise RuntimeError("No se encontró el input base para fecha/hora.")
 
         # 4) Cerrar cualquier popper abierto antes de abrir uno nuevo
@@ -267,6 +269,7 @@ class DateFilterManager:
             sleep(0.1)
 
         if picker is None:
+            logger.error("El popper de fecha no se hizo visible después de hacer click")
             raise RuntimeError("El popper de fecha no se hizo visible después de hacer click.")
 
         # 7) Buscar input "Seleccionar fecha" dentro del popper visible
@@ -284,6 +287,7 @@ class DateFilterManager:
             pass
 
         if target is None:
+            logger.error("No se encontró el input 'Seleccionar fecha' después de abrir el selector")
             raise RuntimeError("No se encontró el input 'Seleccionar fecha' después de abrir el selector.")
 
         # Escribir la FECHA de forma robusta
@@ -314,6 +318,7 @@ class DateFilterManager:
             if fecha not in fecha_escrita and fecha_escrita:
                 logger.warning(f"Fecha escrita no coincide. Esperado: {fecha}, Obtenido: {fecha_escrita}")
         except Exception as e:
+            logger.error("No se pudo escribir la fecha '%s': %s", fecha, e)
             raise RuntimeError(f"No se pudo escribir la fecha '{fecha}': {e}")
 
         # 8) Buscar input "Seleccionar hora" dentro del mismo popper visible
@@ -336,6 +341,7 @@ class DateFilterManager:
             sleep(0.1)
 
         if time_input is None:
+            logger.error("No se encontró el input 'Seleccionar hora' o no está visible")
             raise RuntimeError("No se encontró el input 'Seleccionar hora' o no está visible.")
 
         try:
@@ -404,6 +410,7 @@ class DateFilterManager:
                 except Exception:
                     pass
         except Exception as e:
+            logger.error("No se pudo escribir la hora '%s': %s", hora, e)
             raise RuntimeError(f"No se pudo escribir la hora '{hora}': {e}")
 
         # 9) Cerrar el popper de forma más agresiva
@@ -490,6 +497,7 @@ class DateFilterManager:
                 continue
 
         if not radio_elements:
+            logger.error("No se encontraron radios para seleccionar 'Último mes'")
             raise RuntimeError("No se encontraron radios para seleccionar 'Último mes'")
 
         target_element = None

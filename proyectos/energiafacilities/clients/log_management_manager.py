@@ -19,7 +19,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from common import navigate_to_menu_item, navigate_to_submenu, require
+from common import navigate_to_menu_item, navigate_to_submenu
 from common.dynamic_checklist_constants import (
     MENU_INDEX_LOG_MANAGEMENT,
     MENU_LOG_MANAGEMENT,
@@ -79,32 +79,30 @@ class LogManagementManager:
         logger.debug("Navegando a Log Management")
 
         # Navegar a menú de Log Management
-        require(
-            navigate_to_menu_item(
-                self.driver,
-                self.wait,
-                MENU_INDEX_LOG_MANAGEMENT,
-                MENU_LOG_MANAGEMENT,
-                MENU_LOG_MANAGEMENT,
-                logger=logger,
-            ),
-            f"No se pudo navegar al menú {MENU_LOG_MANAGEMENT}",
-        )
-        require(
-            navigate_to_submenu(
-                self.wait,
-                XPATH_SUBMENU_DATA_EXPORT_LOGS,
-                SUBMENU_DATA_EXPORT_LOGS,
-                logger=logger,
-            ),
-            f"No se pudo navegar al submenú {SUBMENU_DATA_EXPORT_LOGS}",
-        )
+        if not navigate_to_menu_item(
+            self.driver,
+            self.wait,
+            MENU_INDEX_LOG_MANAGEMENT,
+            MENU_LOG_MANAGEMENT,
+            MENU_LOG_MANAGEMENT,
+            logger=logger,
+        ):
+            logger.error("No se pudo navegar al menú %s", MENU_LOG_MANAGEMENT)
+            raise RuntimeError(f"No se pudo navegar al menú {MENU_LOG_MANAGEMENT}")
+
+        if not navigate_to_submenu(
+            self.wait,
+            XPATH_SUBMENU_DATA_EXPORT_LOGS,
+            SUBMENU_DATA_EXPORT_LOGS,
+            logger=logger,
+        ):
+            logger.error("No se pudo navegar al submenú %s", SUBMENU_DATA_EXPORT_LOGS)
+            raise RuntimeError(f"No se pudo navegar al submenú {SUBMENU_DATA_EXPORT_LOGS}")
 
         logger.debug("Cambiando al iframe de Data Export Logs")
-        require(
-            self.iframe_manager.switch_to_last_iframe(),
-            f"No se pudo encontrar iframe para {LABEL_DATA_EXPORT_LOGS}",
-        )
+        if not self.iframe_manager.switch_to_last_iframe():
+            logger.error("No se pudo encontrar iframe para %s", LABEL_DATA_EXPORT_LOGS)
+            raise RuntimeError(f"No se pudo encontrar iframe para {LABEL_DATA_EXPORT_LOGS}")
 
         self._wait_for_list()
         # Una vez en la tabla de logs, monitorizamos el estado hasta poder descargar.
@@ -148,6 +146,7 @@ class LogManagementManager:
                     if status == EXPORT_SUCCESS_STATE:
                         self.download_from_log_table(target_row)
                         return
+                    logger.error("Proceso de exportación terminó con estado: %s", status)
                     raise RuntimeError(f"Proceso de exportación terminó con estado: {status}")
 
                 if status != EXPORT_RUNNING_STATE:
