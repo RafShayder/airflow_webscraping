@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import time
 import logging
 import os
+import shutil
 from typing import Optional
 
 try:
@@ -28,7 +29,7 @@ sys.path.insert(0, str(current_path.parents[4]))  # repo root
 
 from core.utils import load_config
 from core.helpers import default_download_path
-from common.selenium_utils import wait_for_download
+from common.selenium_utils import wait_for_download, _resolve_target_filename
 from clients.browser import BrowserManager
 from clients.auth import AuthManager, LoginSelectors
 from selenium.webdriver.common.by import By
@@ -65,7 +66,7 @@ def _resolve_timezone(config_neteco: dict) -> Optional[object]:
         logger.warning("Zona horaria invalida '%s'; usando hora local del sistema", tz_name)
         return None
 
-def _build_browser_manager(download_dir: Path, headless: bool) -> BrowserManager:
+def _build_browser_manager(download_dir: Path, headless: bool) -> tuple[BrowserManager, str]:
     cache_dir = Path(os.environ.setdefault("SELENIUM_MANAGER_CACHE_PATH", "/tmp/selenium-cache"))
     cache_dir.mkdir(parents=True, exist_ok=True)
     user_data_dir = f"/tmp/neteco-chrome-{os.getpid()}-{int(time.time())}"
@@ -75,11 +76,12 @@ def _build_browser_manager(download_dir: Path, headless: bool) -> BrowserManager
         "--ignore-ssl-errors=yes",
         f"--user-data-dir={user_data_dir}",
     ]
-    return BrowserManager(
+    browser_manager = BrowserManager(
         download_path=str(download_dir),
         headless=headless,
         extra_args=extra_args,
     )
+    return browser_manager, user_data_dir
 
 def _scroll_into_view(driver, element, pause_seconds=0.2):
     try:
@@ -166,20 +168,6 @@ def _find_checkbox_by_texts(driver, labels):
                     except Exception:
                         continue
     return None
-
-
-def _resolve_target_filename(directory: Path, desired_name: str, overwrite: bool) -> Path:
-    target = directory / Path(desired_name).name
-    if overwrite or not target.exists():
-        return target
-    stem = target.stem
-    suffix = target.suffix
-    counter = 1
-    while True:
-        candidate = target.with_name(f"{stem}_{counter}{suffix}")
-        if not candidate.exists():
-            return candidate
-        counter += 1
 
 
 def _rename_downloaded(downloaded: Path, desired_name: str, overwrite: bool) -> Path:
@@ -421,6 +409,7 @@ def scraper_neteco():
     downloaded_path = None
     driver = None
     browser_manager = None
+    chrome_user_data_dir = None
     try:
         config = load_config()
         config_neteco = config.get("neteco", {})
@@ -444,7 +433,7 @@ def scraper_neteco():
         download_path = config_neteco.get("local_dir") or default_download_path()
         download_dir = Path(download_path).expanduser().resolve()
         download_dir.mkdir(parents=True, exist_ok=True)
-        browser_manager = _build_browser_manager(download_dir, headless=headless)
+        browser_manager, chrome_user_data_dir = _build_browser_manager(download_dir, headless=headless)
         driver, _ = browser_manager.create_driver()
         logger.info("Iniciando flujo NetEco")
 
@@ -657,7 +646,7 @@ def scraper_neteco():
                     _fill_input(driver, task_name_field, task_name_value, label="Task Name")
                     logger.debug("Intento de llenado del campo Task Name completado")
                 else:
-                    logger.warning("No se encontró el campo Task Name en el modal")
+                    raise RuntimeError("No se encontró el campo Task Name en el modal de exportación")
 
                 # Llenar Start Time y End Time
                 start_time_xpath = "//*[@id='startdatepicker_value']"
@@ -718,7 +707,7 @@ def scraper_neteco():
                 logger.warning("No se encontró el botón Export")
 
         except Exception as e:
-            logger.debug(f"Error en el proceso de exportación: {e}")
+            logger.error(f"Error en el proceso de exportación: {e}")
 
         logger.info("Proceso completado.")
         if task_name_value:
@@ -731,6 +720,13 @@ def scraper_neteco():
             browser_manager.close_driver()
         elif driver is not None:
             driver.quit()
+        # Limpiar directorio temporal de Chrome para evitar acumulación
+        if chrome_user_data_dir:
+            try:
+                shutil.rmtree(chrome_user_data_dir, ignore_errors=True)
+                logger.debug(f"Directorio temporal de Chrome eliminado: {chrome_user_data_dir}")
+            except Exception:
+                pass
 
     if not downloaded_path:
         raise RuntimeError("No se pudo descargar el archivo NetEco")

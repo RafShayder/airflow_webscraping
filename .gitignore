@@ -2,6 +2,9 @@
 # GITIGNORE PARA SCRAPER INTEGRATEL
 # ===========================================
 
+# Claude Code
+CLAUDE.md
+
 # Archivos de configuración sensibles
 .env
 *.env

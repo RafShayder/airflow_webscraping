@@ -51,6 +51,11 @@ def extraer_base_suministros_activos():
         tipo="xlsx",
     )
     if not archivo_mas_reciente:
+        logger.error(
+            "No se encontraron archivos para base '%s' con periodo '%s' en SFTP",
+            basearchivo,
+            periodo_ref,
+        )
         raise FileNotFoundError(
             f"No se encontraron archivos que contengan '{basearchivo}' en el directorio SFTP"
         )

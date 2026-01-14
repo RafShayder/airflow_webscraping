@@ -26,7 +26,7 @@ def load_neteco(filepath=None):
     Loader.validar_conexion()
     
     columnas =traerjson(archivo='config/columnas/columns_map_neteco.json',valor='neteco')
-    filedata= filepath or general_config['local_destination_dir']
+    filedata= filepath or general_config.get('local_dir') or general_config.get('local_destination_dir')
   
     Loader.verificar_datos(data=filedata ,column_mapping=columnas)
 
