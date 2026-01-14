@@ -12,7 +12,7 @@ sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.base_run_sp import run_sp
-from sources.cargaglobal.cargamanual import load_clienteslibres
+from sources.cargaglobal.cargamanual import load_manual
 
 setup_logging("INFO")
 
@@ -25,7 +25,7 @@ def ejecutar(**kwargs):
     schema = params.get('schema')
     table = params.get('table')
     sp = params.get('sp')
-    carga = load_clienteslibres(
+    carga = load_manual(
         filepath=filepath, schema=schema, table_name=table, modo=modo
     )
     if sp:
