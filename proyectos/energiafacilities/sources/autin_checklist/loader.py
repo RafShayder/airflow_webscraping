@@ -230,7 +230,8 @@ def _process_table(
             archivo="config/columnas/columns_map_checklist.json",
             valor=tabla_sql,
         )
-    except Exception:
+    except Exception as e:
+        logger.warning("No se encontró mapeo de columnas para tabla '%s': %s. Usando mapeo automático.", tabla_sql, e)
         columnas = None
 
     # Verificar si la hoja está vacía antes de intentar cargar
@@ -248,7 +249,7 @@ def _process_table(
                 },
             }
     except Exception as e:
-        logger.debug(f"Error al verificar si la hoja está vacía: {e}. Continuando con la carga normal.")
+        logger.warning("Error al verificar si la hoja '%s' está vacía: %s. Continuando con la carga normal.", nombre_pestana, e)
 
     loader.verificar_datos(
         data=filepath,

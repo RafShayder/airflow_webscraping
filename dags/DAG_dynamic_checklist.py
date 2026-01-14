@@ -89,6 +89,7 @@ def run_load_single_table(tabla_sql: str, nombre_pestana: str, **kwargs) -> dict
     # Obtener filepath del scraper
     file_path = ti.xcom_pull(task_ids='scrape_dynamic_checklist')
     if not file_path:
+        logger.error("No se recibió filepath del stractor. Verifica que el stractor se ejecutó correctamente.")
         raise ValueError("No se recibió filepath del stractor. Verifica que el stractor se ejecutó correctamente.")
     
     # Obtener fecha_carga de la tarea intermedia

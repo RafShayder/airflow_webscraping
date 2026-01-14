@@ -61,7 +61,6 @@ from common import (
     monitor_export_loader,
     navigate_to_menu_item,
     navigate_to_submenu,
-    require,
     wait_for_download,
     wait_for_notification_to_clear,
 )
@@ -206,14 +205,12 @@ class DynamicChecklistWorkflow:
     def _authenticate_and_navigate(self) -> None:
         """Autentica y navega al módulo Dynamic Checklist."""
         auth_manager = AuthManager(self.driver)
-        require(
-            auth_manager.login(self.config.username, self.config.password),
-            "No se pudo realizar el login.",
-        )
-        require(
-            self.iframe_manager.find_main_iframe(max_attempts=self.config.max_iframe_attempts),
-            "No se encontró el iframe principal",
-        )
+        if not auth_manager.login(self.config.username, self.config.password):
+            logger.error("No se pudo realizar el login.")
+            raise RuntimeError("No se pudo realizar el login.")
+        if not self.iframe_manager.find_main_iframe(max_attempts=self.config.max_iframe_attempts):
+            logger.error("No se encontró el iframe principal")
+            raise RuntimeError("No se encontró el iframe principal")
         self.iframe_manager.switch_to_default_content()
         self._navigate_to_dynamic_checklist()
 
@@ -236,7 +233,9 @@ class DynamicChecklistWorkflow:
         self._wait_for_loader()
 
         case_detected = monitor_export_loader(self.driver, logger=logger)
-        require(case_detected, "No se detectó resultado de exportación antes del timeout")
+        if not case_detected:
+            logger.error("No se detectó resultado de exportación antes del timeout")
+            raise RuntimeError("No se detectó resultado de exportación antes del timeout")
 
         if case_detected == "log_management":
             # Inicializar LogManagementManager si aún no está inicializado
@@ -308,10 +307,9 @@ class DynamicChecklistWorkflow:
 
     def _switch_to_last_iframe(self, label: str) -> None:
         """Helper para ubicarse en el último iframe cargado (nuevos contenidos)."""
-        require(
-            self.iframe_manager.switch_to_last_iframe(),
-            f"No se pudo encontrar iframe para {label}",
-        )
+        if not self.iframe_manager.switch_to_last_iframe():
+            logger.error("No se pudo encontrar iframe para %s", label)
+            raise RuntimeError(f"No se pudo encontrar iframe para {label}")
 
     # ========================================================================
     # Aplicación de filtros
@@ -324,10 +322,9 @@ class DynamicChecklistWorkflow:
         self.filter_manager.wait_for_filters_ready()
         logger.debug("Sección Sub PM Query cargada correctamente (iframe con filtros activo)")
         logger.debug("Aplicando filtros...")
-        require(
-            self.filter_manager.open_filter_panel(method="simple"),
-            "No se pudo abrir el panel de filtros",
-        )
+        if not self.filter_manager.open_filter_panel(method="simple"):
+            logger.error("No se pudo abrir el panel de filtros")
+            raise RuntimeError("No se pudo abrir el panel de filtros")
 
 
     # ========================================================================
@@ -369,21 +366,23 @@ class DynamicChecklistWorkflow:
         logger.warning("Intentando buscar cualquier splitbutton disponible...")
         buttons = self.driver.find_elements(By.CSS_SELECTOR, CSS_SPLITBUTTON_TEXT)
         logger.debug("Buscando botones splitbutton...")
-        require(len(buttons) > 0, "No se encontraron botones splitbutton disponibles")
-        
+        if len(buttons) == 0:
+            logger.error("No se encontraron botones splitbutton disponibles")
+            raise RuntimeError("No se encontraron botones splitbutton disponibles")
+
         logger.debug("Encontrados %s botones splitbutton", len(buttons))
         search_labels = [label]
         if label in BUTTON_ALTERNATIVES:
             search_labels.append(BUTTON_ALTERNATIVES[label])
-        
+
         for btn in buttons:
             btn_text = btn.text.strip()
             logger.debug("Botón encontrado: '%s'", btn_text)
             if any(search_label.lower() in btn_text.lower() for search_label in search_labels):
                 return btn
-        
-        logger.debug("No se pudo encontrar el botón '%s' o sus variantes después de todos los intentos", label)
-        require(False, f"No se pudo encontrar el botón '{label}' o sus variantes")
+
+        logger.error("No se pudo encontrar el botón '%s' o sus variantes después de todos los intentos", label)
+        raise RuntimeError(f"No se pudo encontrar el botón '{label}' o sus variantes")
 
     def _click_splitbutton(self, label: str, pause: int = 2) -> None:
         """Hace click en un splitbutton por su texto visible, con fallback automático."""
