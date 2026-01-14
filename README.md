@@ -8,12 +8,11 @@ Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a
 
 1. [Instalación de Docker CE (Requisito previo)](#instalación-de-docker-ce-requisito-previo)
 2. [Despliegue offline en el servidor](#despliegue-offline-en-el-servidor-linux-amd64)
-3. [Actualizar código y reiniciar servicios](#actualizar-código-y-reiniciar-servicios)
-4. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
-5. [Configuración y credenciales](#configuración-y-credenciales)
-6. [Notas de operación](#notas-de-operación)
-7. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
-8. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
+3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
+4. [Configuración y credenciales](#configuración-y-credenciales)
+5. [Notas de operación](#notas-de-operación)
+6. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
+7. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
 
 ---
 
@@ -71,73 +70,6 @@ Si el servidor no tiene Docker instalado, consulta la guía completa en **[docs/
    - UI de Airflow: `http://<host>:9095` (usuario/clave por defecto: `airflow` / `airflow`).
    - Logs: `sudo docker compose logs -f airflow-worker`.
    - Detener servicios: `sudo docker compose down` (usa `-v` si deseas borrar volúmenes).
-
----
-
-## Actualizar código y reiniciar servicios
-
-Cuando realices cambios en el código (DAGs, módulos en `proyectos/`, etc.), debes aplicarlos al servidor.
-
-### Actualizar código con Git
-
-```bash
-cd /daas1/analytics
-sudo git pull origin main
-```
-
-### Reiniciar servicios de Airflow
-
-**Reinicio rápido (recomendado para cambios de código):**
-
-```bash
-cd /daas1/analytics
-sudo docker compose restart airflow-webserver airflow-scheduler airflow-worker
-```
-
-**Reinicio completo (si hay problemas persistentes):**
-
-```bash
-cd /daas1/analytics
-sudo docker compose down
-sudo docker compose up -d --pull never
-```
-
-### Verificar que los DAGs cargaron correctamente
-
-1. **Ver logs del scheduler:**
-   ```bash
-   sudo docker compose logs -f airflow-scheduler --tail=50
-   ```
-
-2. **Buscar errores de importación:**
-   ```bash
-   sudo docker compose logs airflow-scheduler 2>&1 | grep -i "error\|import"
-   ```
-
-3. **Ver estado de los contenedores:**
-   ```bash
-   sudo docker compose ps
-   ```
-
-### Problemas comunes
-
-| Problema | Causa | Solución |
-|----------|-------|----------|
-| DAGs desaparecen | Error de sintaxis o import en algún DAG | Revisar logs del scheduler |
-| `ImportError: cannot import name 'X'` | Código desactualizado en servidor | `git pull` + restart |
-| DAGs no se actualizan | Caché de Airflow | Reinicio completo |
-| Contenedor en estado "Restarting" | Error en configuración | `docker compose logs <servicio>` |
-
-### Limpiar caché de DAGs (último recurso)
-
-Si los DAGs siguen sin actualizarse después de reiniciar:
-
-```bash
-cd /daas1/analytics
-sudo docker compose down
-sudo rm -rf logs/__pycache__ proyectos/**/__pycache__
-sudo docker compose up -d --pull never
-```
 
 ---
 
