@@ -23,7 +23,7 @@ def _get_logging_level_from_airflow() -> str | None:
     """
     try:
         from airflow.sdk import Variable
-        level = Variable.get("LOGGING_LEVEL", default_var=None)
+        level = Variable.get("LOGGING_LEVEL", default=None)
         if level:
             return level.upper()
     except ImportError:
