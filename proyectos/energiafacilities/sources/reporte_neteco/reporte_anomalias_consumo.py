@@ -224,6 +224,7 @@ def run_reporte_anomalias_consumo(
     resolved_env = env.lower().strip() if env else getattr(config, "_env", "dev")
     postgres_config = config.get("postgress", {})
     if not postgres_config:
+        logger.error("Configuracion de Postgres no encontrada en 'postgress'")
         raise ValueError("Configuracion de Postgres no encontrada en 'postgress'.")
 
     connector = PostgresConnector(postgres_config)
@@ -304,4 +305,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-RECENT_COL_PREFIX = "consumo_dia_"
