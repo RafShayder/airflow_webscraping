@@ -21,18 +21,22 @@ def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
     Previene SQL injection.
     """
     if not identifier:
+        logger.error("%s no puede estar vacío", name)
         raise ValueError(f"{name} no puede estar vacío")
 
     # Permitir schema.table con punto, pero validar cada parte
     if '.' in identifier:
         parts = identifier.split('.')
         if len(parts) > 2:
+            logger.error("%s inválido: demasiados puntos en '%s'", name, identifier)
             raise ValueError(f"{name} inválido: demasiados puntos en '{identifier}'")
         for part in parts:
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', part):
+                logger.error("%s inválido: '%s' contiene caracteres no permitidos", name, part)
                 raise ValueError(f"{name} inválido: '{part}' contiene caracteres no permitidos")
     else:
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+            logger.error("%s inválido: '%s' contiene caracteres no permitidos", name, identifier)
             raise ValueError(f"{name} inválido: '{identifier}' contiene caracteres no permitidos")
 
     return identifier
@@ -66,7 +70,7 @@ class PostgresConnector:
 
     def __init__(self, config: dict):
         if not isinstance(config, dict):
-            logger.debug("El parámetro 'config' debe ser un dict con las claves esperadas.")
+            logger.error("El parámetro 'config' debe ser un dict con las claves esperadas")
             raise ValueError("El parámetro 'config' debe ser un dict con las claves esperadas")
         self._cfg = SimpleNamespace(**config)
         self._engine: Optional[Engine] = None
@@ -199,6 +203,7 @@ class PostgresConnector:
 
         """
         if not isinstance(config, dict):
+            logger.error("config debe ser un dict con los parámetros de extracción")
             raise ValueError("config debe ser un dict con los parámetros de extracción.")
 
         cfg = SimpleNamespace(**config)

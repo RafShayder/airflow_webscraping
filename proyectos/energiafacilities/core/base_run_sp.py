@@ -19,7 +19,10 @@ def run_sp(configyaml: str,configpostgress:str="postgress",sp_name:str='sp_carga
 
     # Usar context manager para garantizar cierre de conexión
     with PostgresConnector(postgres_config) as postgress:
-        sp_ejecutar = sp_value or general_config[sp_name]
+        sp_ejecutar = sp_value or general_config.get(sp_name)
+        if not sp_ejecutar:
+            logger.error("No se encontró el SP '%s' en la configuración '%s'", sp_name, configyaml)
+            raise ValueError(f"No se encontró el SP '{sp_name}' en la configuración '{configyaml}'")
         logger.info(f"Ejecutando SP: {sp_ejecutar}")
         postgress.ejecutar(sp_ejecutar, tipo='sp')
         data = postgress.ejecutar("public.log_sp_ultimo_fn", parametros=(f'{sp_ejecutar}()',), tipo='fn')

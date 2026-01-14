@@ -271,6 +271,7 @@ class BaseExtractorSFTP:
         def require_config_value(attr: str, label: str):
             value = getattr(self.paths, attr, None)
             if value in (None, ""):
+                logger.error("Falta '%s' en config_paths y no se proporcionó %s", attr, label)
                 raise ValueError(
                     f"Falta '{attr}' en config_paths y no se proporciono {label}."
                 )
@@ -336,7 +337,7 @@ class BaseExtractorSFTP:
                             logger.debug(f"Archivo procesado con éxito: {archivo}")
                             
                         else:
-                            logger.error(f"Las columnas de {archivo} no son las esperadas")
+                            logger.error("Las columnas de %s no son las esperadas", archivo)
                             raise ValueError(f"Las columnas de {archivo} no son las esperadas")
                         dfs.append(dataframefiltrado)
                     except Exception as e:

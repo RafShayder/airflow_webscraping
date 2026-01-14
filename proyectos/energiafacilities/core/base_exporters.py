@@ -161,6 +161,7 @@ class FileExporter:
                 df_export.to_excel(destination_path, index=index, engine="openpyxl")
 
             else:
+                logger.error("Formato no soportado: %s. Usa .csv, .xlsx o .xls", destination_path)
                 raise ValueError("Formato no soportado. Usa .csv, .xlsx o .xls")
 
             logger.debug(f" Archivo exportado correctamente → {destination_path}")

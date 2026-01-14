@@ -25,18 +25,20 @@ def _strip_quotes(identifier: str) -> str:
 def _validate_identifier_chars(identifier: str, name: str = "identifier") -> None:
     """
     Valida que un identificador solo contenga caracteres seguros.
-    
+
     Args:
         identifier: El identificador a validar (sin comillas)
         name: Nombre descriptivo para mensajes de error
-        
+
     Raises:
         ValueError: Si contiene caracteres no permitidos o comillas internas
     """
     if '"' in identifier:
+        logger.error("%s inválido: '%s' contiene comillas dobles no permitidas", name, identifier)
         raise ValueError(f"{name} inválido: '{identifier}' contiene comillas dobles no permitidas")
-    
+
     if not re.match(r'^[a-zA-Z0-9_]+$', identifier):
+        logger.error("%s inválido: '%s' contiene caracteres no permitidos", name, identifier)
         raise ValueError(f"{name} inválido: '{identifier}' contiene caracteres no permitidos")
 
 
@@ -76,6 +78,7 @@ def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
         ValueError: Si el identificador es inválido
     """
     if not identifier:
+        logger.error("%s no puede estar vacío", name)
         raise ValueError(f"{name} no puede estar vacío")
 
     # Remover comillas si ya las tiene
@@ -85,6 +88,7 @@ def _validate_sql_identifier(identifier: str, name: str = "identifier") -> str:
     if '.' in identifier:
         parts = identifier.split('.')
         if len(parts) > 2:
+            logger.error("%s inválido: demasiados puntos en '%s'", name, identifier)
             raise ValueError(f"{name} inválido: demasiados puntos en '{identifier}'")
         
         validated_parts = []
@@ -180,8 +184,8 @@ class BaseLoaderPostgres:
         if isinstance(data, str) and data.lower().endswith(".csv"):
             df = pd.read_csv(data, skiprows=skiprows)
             return df, f"CSV ({data})"
-        
-        logger.error("Formato no soportado (DataFrame, Excel o CSV)")
+
+        logger.error("Formato no soportado: %s. Debe ser DataFrame, Excel o CSV", type(data).__name__)
         raise ValueError("Formato no soportado. Debe ser DataFrame, Excel o CSV")
 
     def _apply_column_mapping(
@@ -229,7 +233,7 @@ class BaseLoaderPostgres:
                         break
         
         if not cols_existentes:
-            logger.debug("No se aplicó el mapeo: ninguna columna coincide con el DataFrame.")
+            logger.error("No se aplicó el mapeo: ninguna columna coincide con el DataFrame")
             raise ValueError("No se pudo aplicar el mapeo: ninguna columna coincide con el DataFrame")
         
         # Aplicar mapeo y filtrar columnas
@@ -510,8 +514,9 @@ class BaseLoaderPostgres:
             )
             
             if not cols_para_insert:
-                logger.error(f"Columnas del DataFrame: {list(df.columns)}")
-                logger.error(f"Columnas en la tabla: {list(columnas_tabla.keys())}")
+                logger.error("No hay columnas válidas para insertar en la tabla '%s'", validated_table)
+                logger.error("Columnas del DataFrame: %s", list(df.columns))
+                logger.error("Columnas en la tabla: %s", list(columnas_tabla.keys()))
                 raise ValueError(
                     f"No hay columnas válidas para insertar en la tabla '{validated_table}'. "
                     f"Columnas del DataFrame: {list(df.columns)[:5]}. "
