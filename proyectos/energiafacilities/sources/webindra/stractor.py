@@ -54,6 +54,23 @@ def sha12(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:12]
 
 
+def is_valid_xlsx(data: bytes) -> bool:
+    """Verifica que los datos sean un archivo xlsx válido (ZIP con magic bytes PK)."""
+    if len(data) < 4:
+        return False
+    # XLSX es un archivo ZIP, debe comenzar con PK (0x50 0x4B 0x03 0x04)
+    return data[:4] == b'PK\x03\x04'
+
+
+def is_html_response(data: bytes) -> bool:
+    """Detecta si los datos son una respuesta HTML (página de error/login)."""
+    if len(data) < 100:
+        return False
+    # Verificar primeros bytes buscando indicadores HTML
+    header = data[:500].lower()
+    return b'<!doctype html' in header or b'<html' in header or b'<head' in header
+
+
 # ===========================
 # SCRAPER PRINCIPAL
 # ===========================
@@ -117,9 +134,27 @@ def run_scraper(cfg: dict) -> Path:
         r2 = session.post(login_url, data=payload, allow_redirects=True, timeout=cfg["TIMEOUT"], proxies=proxies, verify=False)
         r2.raise_for_status()
 
+        # Validación 1: Verificar que exista cookie de sesión
         if not any(c.name == "ci_session" for c in session.cookies):
             logger.error("Login fallido: no se estableció cookie de sesión")
             raise RuntimeError("Login fallido: no se estableció cookie de sesión")
+
+        # Validación 2: Verificar que la respuesta no contenga indicadores de error
+        response_lower = r2.text.lower()
+        login_error_indicators = [
+            "invalid", "incorrect", "failed", "error", "denied",
+            "invalido", "incorrecto", "fallido", "denegado",
+            "wrong password", "contraseña incorrecta", "usuario no encontrado"
+        ]
+        for indicator in login_error_indicators:
+            if indicator in response_lower and "login" in response_lower:
+                logger.error("Login fallido: la respuesta contiene indicador de error '%s'", indicator)
+                raise RuntimeError(f"Login fallido: credenciales inválidas (detectado: {indicator})")
+
+        # Validación 3: Verificar que no seguimos en la página de login
+        if cfg['LOGIN_PATH'].rstrip('/') in r2.url and "login" in response_lower:
+            logger.error("Login fallido: redirigido de vuelta a página de login")
+            raise RuntimeError("Login fallido: redirigido de vuelta a página de login")
 
         logger.debug("Login exitoso")
 
@@ -143,7 +178,16 @@ def run_scraper(cfg: dict) -> Path:
                 logger.error("Archivo descargado vacío")
                 raise ValueError("Archivo descargado vacío")
 
-            logger.debug(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
+            # Validar que sea un xlsx real, no una página HTML de error
+            if is_html_response(data):
+                logger.error("La descarga retornó HTML en lugar de xlsx (posible error de autenticación o sesión expirada)")
+                raise ValueError("La descarga retornó HTML en lugar de xlsx")
+
+            if not is_valid_xlsx(data):
+                logger.error("El archivo descargado no es un xlsx válido (magic bytes incorrectos)")
+                raise ValueError("El archivo descargado no es un xlsx válido")
+
+            logger.debug(f"Descarga exitosa ({len(data)/1024:.1f} KB) - Formato xlsx verificado")
             break
 
         except Exception as e:
