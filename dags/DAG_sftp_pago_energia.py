@@ -16,7 +16,7 @@ from sources.sftp_pago_energia.loader import load_sftp_pago_energia
 from sources.sftp_pago_energia.run_sp import correr_sftp_pago_energia
 from sources.sftp_pago_energia.geterrortable import get_save_errors_energia
 
-setup_logging("INFO")
+setup_logging()
 
 def validar_archivo_sftp_pago_energia(**kwargs):
     """Verifica si la extracción generó un archivo válido y corta el DAG si no existe"""

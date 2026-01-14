@@ -13,21 +13,59 @@ from . import helpers as core_helpers
 
 logger = logging.getLogger(__name__)
 
- # Funciones globales 
-def setup_logging(level: str = "DEBUG") -> None:
-    handler = logging.StreamHandler(sys.stdout)  # 
+ # Funciones globales
+def _get_logging_level_from_airflow() -> str | None:
+    """
+    Obtiene el nivel de logging desde Airflow Variable LOGGING_LEVEL.
+
+    Returns:
+        Nivel de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL) o None si no está disponible
+    """
+    try:
+        from airflow.sdk import Variable
+        level = Variable.get("LOGGING_LEVEL", default_var=None)
+        if level:
+            return level.upper()
+    except ImportError:
+        pass  # Airflow no disponible
+    except Exception:
+        pass  # Variable no existe o error
+    return None
+
+
+def setup_logging(level: str = None) -> None:
+    """
+    Configura el logging para el proyecto.
+
+    El nivel se determina en el siguiente orden de prioridad:
+    1. Airflow Variable LOGGING_LEVEL (si está en Airflow)
+    2. Variable de entorno LOGGING_LEVEL
+    3. Parámetro `level` pasado a la función
+    4. Por defecto: INFO
+
+    Args:
+        level: Nivel de logging opcional (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    # Determinar nivel con prioridad: Airflow > env var > parámetro > default
+    resolved_level = (
+        _get_logging_level_from_airflow()
+        or os.getenv("LOGGING_LEVEL")
+        or level
+        or "INFO"
+    ).upper()
+
+    handler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 
     handler.setFormatter(formatter)
     logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
+        level=getattr(logging, resolved_level, logging.INFO),
         handlers=[handler]
     )
     # Silenciar logs molestos de librerías externas
-    logging.getLogger("paramiko").setLevel(logging.CRITICAL)
-    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-    logging.getLogger("requests").setLevel(logging.CRITICAL)
     logging.getLogger("paramiko").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
 
 def _is_airflow_available() -> bool:

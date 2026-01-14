@@ -29,7 +29,7 @@ from energiafacilities.sources.autin_checklist.loader import (
     TABLAS_DYNAMIC_CHECKLIST
 )
 
-setup_logging("INFO")
+setup_logging()
 
 logger = logging.getLogger(__name__)
 

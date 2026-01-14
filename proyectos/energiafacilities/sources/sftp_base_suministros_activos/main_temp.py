@@ -3,7 +3,7 @@ from sources.sftp_base_suministros_activos.stractor import extraer_base_suminist
 from sources.sftp_base_suministros_activos.loader import load_base_suministros_activos
 from core.utils import setup_logging
 
-setup_logging("INFO")
+setup_logging()
 
 # Extraer archivo desde SFTP
 pathextraida = extraer_base_suministros_activos()

@@ -16,7 +16,7 @@ from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_
 from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA
 from sources.sftp_energia.geterrortable import get_save_errors_PD, get_save_errors_DA
 
-setup_logging("INFO")
+setup_logging()
 logger = logging.getLogger(__name__)
 
 def procesar_load_sftp_energia_PD(**kwargs):

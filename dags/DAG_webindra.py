@@ -16,7 +16,7 @@ from sources.webindra.loader import load_indra
 from sources.webindra.run_sp import correr_sp_webindra
 from sources.webindra.geterrortable import get_save_errors_indra
 
-setup_logging("INFO")
+setup_logging()
 
 def procesar_load_webindra(**kwargs):
     linkdata = get_xcom_result(kwargs, 'extract_webindra')

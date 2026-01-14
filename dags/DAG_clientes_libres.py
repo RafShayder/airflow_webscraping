@@ -16,7 +16,7 @@ from sources.clientes_libres.transformer import transformer_clienteslibres
 from sources.clientes_libres.loader import load_clienteslibres
 from sources.clientes_libres.run_sp import correr_sp_clienteslibres
 
-setup_logging("INFO")
+setup_logging()
 
 def procesar_transform_clientes_libres(**kwargs):
     path_extraido = get_xcom_result(kwargs, 'extract_clientes_libres')

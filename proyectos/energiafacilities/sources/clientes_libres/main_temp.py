@@ -6,7 +6,7 @@ from sources.clientes_libres.run_sp import correr_sp_clienteslibres
 from core.utils import setup_logging
 
 
-setup_logging("INFO")
+setup_logging()
 
 pathextraida=extraersftp_clienteslibres()
 print(pathextraida)

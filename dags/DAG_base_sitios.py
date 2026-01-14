@@ -15,7 +15,7 @@ from sources.base_sitios.stractor import extraer_basedesitios
 from sources.base_sitios.loader import loader_basesitios, loader_bitacora_basesitios
 from sources.base_sitios.run_sp import correr_sp_basesitios, correr_sp_bitacora
 
-setup_logging("INFO")
+setup_logging()
 
 def procesar_load_base_sitios(**kwargs):
     ruta = get_xcom_result(kwargs, 'extract_base_sitios')

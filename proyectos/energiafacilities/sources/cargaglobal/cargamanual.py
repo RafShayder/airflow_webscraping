@@ -1,9 +1,8 @@
 import logging
 
 from core.base_loader import BaseLoaderPostgres
-from core.utils import load_config, setup_logging
+from core.utils import load_config
 
-setup_logging(level="INFO")
 logger = logging.getLogger(__name__)
 
 

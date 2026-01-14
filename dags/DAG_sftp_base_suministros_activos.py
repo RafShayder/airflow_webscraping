@@ -14,7 +14,7 @@ from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_base_suministros_activos.stractor import extraer_base_suministros_activos
 from sources.sftp_base_suministros_activos.loader import load_base_suministros_activos
 
-setup_logging("INFO")
+setup_logging()
 
 def procesar_load_base_suministros_activos(**kwargs):
     """Procesa la carga de datos Base Suministros Activos desde el archivo extraído"""

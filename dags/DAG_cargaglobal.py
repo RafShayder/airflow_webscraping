@@ -14,7 +14,7 @@ from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.base_run_sp import run_sp
 from sources.cargaglobal.cargamanual import load_manual
 
-setup_logging("INFO")
+setup_logging()
 
 
 def ejecutar(**kwargs):

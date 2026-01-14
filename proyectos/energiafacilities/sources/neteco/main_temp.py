@@ -1,6 +1,6 @@
 import logging
 from core.utils import setup_logging
-setup_logging(level="INFO")
+setup_logging()
 logger = logging.getLogger("sources.neteco.main_temp")
 logger.info("Iniciando flujo NetEco (simulado)")
 

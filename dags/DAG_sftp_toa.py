@@ -15,7 +15,7 @@ from sources.sftp_toa.stractor import extraer_toa
 from sources.sftp_toa.loader import load_toa
 from sources.sftp_toa.run_sp import correr_sp_toa
 
-setup_logging("INFO")
+setup_logging()
 
 def procesar_load_toa(**kwargs):
     """Procesa la carga de datos TOA desde el archivo extraído"""

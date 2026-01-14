@@ -21,7 +21,7 @@ from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.helpers import get_xcom_result
 from energiafacilities.sources.autin_gde.loader import load_gde
 
-setup_logging("INFO")
+setup_logging()
 
 logger = logging.getLogger(__name__)
 

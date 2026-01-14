@@ -19,7 +19,7 @@ from sources.neteco.transformer import transformer_neteco
 from sources.neteco.loader import load_neteco
 from sources.neteco.run_sp import correr_sp_neteco
 
-setup_logging("INFO")
+setup_logging()
 
 def run_neteco_scraper() -> str:
     return str(scraper_neteco())

@@ -74,7 +74,7 @@ def extraer_base_suministros_activos():
 # Para producción, usar los DAGs de Airflow
 # El entorno se determina automáticamente desde ENV_MODE o usa "dev" por defecto
 if __name__ == "__main__":
-    setup_logging(level="INFO")
+    setup_logging()
     try:
         ruta = extraer_base_suministros_activos()
         logger.info(f"✅ Extracción exitosa. Archivo guardado en: {ruta}")

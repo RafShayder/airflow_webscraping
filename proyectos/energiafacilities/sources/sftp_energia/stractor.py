@@ -1,9 +1,9 @@
 import logging
 
 from core.base_stractor import BaseExtractorSFTP
-from core.utils import load_config, setup_logging
+from core.utils import load_config
 from core.helpers import generar_archivo_especifico
-setup_logging(level="INFO")
+
 logger = logging.getLogger(__name__)
 
 def extraersftp_energia(specific_file_config: str ,periodo: str=None):
