@@ -8,130 +8,18 @@ Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a
 
 1. [Instalación de Docker CE (Requisito previo)](#instalación-de-docker-ce-requisito-previo)
 2. [Despliegue offline en el servidor](#despliegue-offline-en-el-servidor-linux-amd64)
-3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
-4. [Configuración y credenciales](#configuración-y-credenciales)
-5. [Notas de operación](#notas-de-operación)
-6. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
-7. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
+3. [Actualizar código y reiniciar servicios](#actualizar-código-y-reiniciar-servicios)
+4. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
+5. [Configuración y credenciales](#configuración-y-credenciales)
+6. [Notas de operación](#notas-de-operación)
+7. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
+8. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
 
 ---
 
 ## Instalación de Docker CE (Requisito previo)
 
-Si el servidor no tiene Docker instalado, sigue estos pasos para instalarlo sin conexión a Internet.
-
-### Requisitos previos
-- Servidor con **RHEL 9.x (x86_64)** sin conexión a Internet.
-- Una máquina con Internet para descargar los paquetes.
-- Acceso al servidor mediante SFTP.
-
-### 1. Descargar los paquetes RPM en una máquina con Internet
-
-```bash
-mkdir -p ~/docker_rpms_x86_64
-cd ~/docker_rpms_x86_64
-
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/containerd.io-1.7.28-2.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-cli-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-buildx-plugin-0.29.1-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-compose-plugin-2.29.7-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-rootless-extras-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/container-selinux-2.237.0-2.el9_6.noarch.rpm
-```
-
-### 2. Crear un paquete comprimido
-
-```bash
-cd ..
-tar czf docker_rpms_x86_64.tar.gz docker_rpms_x86_64
-```
-
-Transferir el archivo al servidor:
-
-```bash
-scp docker_rpms_x86_64.tar.gz usuario@ip_servidor:/home/usuario/
-```
-
-### 3. Extraer los RPM en el servidor
-
-```bash
-cd ~
-tar xzf docker_rpms_x86_64.tar.gz
-cd docker_rpms_x86_64
-ls -1
-```
-
-### 4. Instalar Docker CE desde los paquetes locales
-
-```bash
-sudo dnf install -y --disablerepo='*' --skip-broken ./*.rpm
-```
-
-### 5. Habilitar y arrancar Docker
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now docker
-sudo systemctl status docker
-```
-
-### 6. Verificar la instalación
-
-```bash
-docker --version
-sudo docker info
-```
-
-### 7. Limpieza opcional
-
-```bash
-sudo dnf clean all
-rm -rf ~/docker_rpms_x86_64
-```
-
-### Cambiar la carpeta de datos de Docker
-
-Si necesitas mover el almacenamiento de imágenes/volúmenes a otra ruta (por ejemplo, `/daas1/docker`), sigue estos pasos:
-
-1. **Detener Docker**
-   ```bash
-   sudo systemctl stop docker
-   sudo systemctl stop docker.socket
-   ```
-
-2. **Verificar que `dockerd` no esté en ejecución**
-   ```bash
-   ps aux | grep dockerd
-   ```
-
-3. **Crear el nuevo directorio**
-   ```bash
-   sudo mkdir -p /daas1/docker
-   sudo chown root:root /daas1/docker
-   sudo chmod 711 /daas1/docker
-   ```
-
-4. **Configurar `data-root`**
-   ```bash
-   sudo vi /etc/docker/daemon.json
-   ```
-   Contenido:
-   ```json
-   {
-     "data-root": "/daas1/docker"
-   }
-   ```
-
-5. **Confirmar la configuración**
-   ```bash
-   sudo cat /etc/docker/daemon.json
-   ```
-
-6. **Iniciar Docker nuevamente**
-   ```bash
-   sudo systemctl start docker
-   ```
+Si el servidor no tiene Docker instalado, consulta la guía completa en **[docs/DOCKER_INSTALL.md](docs/DOCKER_INSTALL.md)**.
 
 ---
 
@@ -183,6 +71,73 @@ Si necesitas mover el almacenamiento de imágenes/volúmenes a otra ruta (por ej
    - UI de Airflow: `http://<host>:9095` (usuario/clave por defecto: `airflow` / `airflow`).
    - Logs: `sudo docker compose logs -f airflow-worker`.
    - Detener servicios: `sudo docker compose down` (usa `-v` si deseas borrar volúmenes).
+
+---
+
+## Actualizar código y reiniciar servicios
+
+Cuando realices cambios en el código (DAGs, módulos en `proyectos/`, etc.), debes aplicarlos al servidor.
+
+### Actualizar código con Git
+
+```bash
+cd /daas1/analytics
+sudo git pull origin main
+```
+
+### Reiniciar servicios de Airflow
+
+**Reinicio rápido (recomendado para cambios de código):**
+
+```bash
+cd /daas1/analytics
+sudo docker compose restart airflow-webserver airflow-scheduler airflow-worker
+```
+
+**Reinicio completo (si hay problemas persistentes):**
+
+```bash
+cd /daas1/analytics
+sudo docker compose down
+sudo docker compose up -d --pull never
+```
+
+### Verificar que los DAGs cargaron correctamente
+
+1. **Ver logs del scheduler:**
+   ```bash
+   sudo docker compose logs -f airflow-scheduler --tail=50
+   ```
+
+2. **Buscar errores de importación:**
+   ```bash
+   sudo docker compose logs airflow-scheduler 2>&1 | grep -i "error\|import"
+   ```
+
+3. **Ver estado de los contenedores:**
+   ```bash
+   sudo docker compose ps
+   ```
+
+### Problemas comunes
+
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| DAGs desaparecen | Error de sintaxis o import en algún DAG | Revisar logs del scheduler |
+| `ImportError: cannot import name 'X'` | Código desactualizado en servidor | `git pull` + restart |
+| DAGs no se actualizan | Caché de Airflow | Reinicio completo |
+| Contenedor en estado "Restarting" | Error en configuración | `docker compose logs <servicio>` |
+
+### Limpiar caché de DAGs (último recurso)
+
+Si los DAGs siguen sin actualizarse después de reiniciar:
+
+```bash
+cd /daas1/analytics
+sudo docker compose down
+sudo rm -rf logs/__pycache__ proyectos/**/__pycache__
+sudo docker compose up -d --pull never
+```
 
 ---
 
