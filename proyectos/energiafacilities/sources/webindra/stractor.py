@@ -118,6 +118,7 @@ def run_scraper(cfg: dict) -> Path:
         r2.raise_for_status()
 
         if not any(c.name == "ci_session" for c in session.cookies):
+            logger.error("Login fallido: no se estableció cookie de sesión")
             raise RuntimeError("Login fallido: no se estableció cookie de sesión")
 
         logger.debug("Login exitoso")
@@ -139,6 +140,7 @@ def run_scraper(cfg: dict) -> Path:
 
             data = b"".join(r.iter_content(chunk_size=1024 * 512))
             if not data:
+                logger.error("Archivo descargado vacío")
                 raise ValueError("Archivo descargado vacío")
 
             logger.debug(f"Descarga exitosa ({len(data)/1024:.1f} KB)")
