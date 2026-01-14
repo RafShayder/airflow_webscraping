@@ -34,9 +34,9 @@ def extraer_toa():
     ]
     
     if not archivos_filtrados:
-        raise FileNotFoundError(
-            f"No se encontraron archivos que contengan '{basearchivo}' en el directorio SFTP"
-        )
+        msg = f"No se encontraron archivos que contengan '{basearchivo}' en el directorio SFTP"
+        logger.error(msg)
+        raise FileNotFoundError(msg)
     
     # Seleccionar el archivo más reciente por fecha de modificación
     archivo_mas_reciente = max(archivos_filtrados, key=lambda x: x["fecha_modificacion"])
@@ -45,7 +45,10 @@ def extraer_toa():
     logger.info(f"Archivo seleccionado: {nombrearchivoextraer} (modificado: {archivo_mas_reciente['fecha_modificacion']})")
     
     metastraccion = Extractor.extract(specific_file=nombrearchivoextraer)
-    return metastraccion['ruta']
+    if not isinstance(metastraccion, dict) or "ruta" not in metastraccion:
+        logger.error("Extracción TOA no retornó resultado válido: %s", metastraccion)
+        raise RuntimeError("Extracción SFTP TOA no retornó ruta de archivo")
+    return metastraccion["ruta"]
 
 
 # Ejecución local (desarrollo/testing)
