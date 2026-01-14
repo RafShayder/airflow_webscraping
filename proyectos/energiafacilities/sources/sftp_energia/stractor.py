@@ -17,9 +17,17 @@ def extraersftp_energia(specific_file_config: str ,periodo: str=None):
     Extractor.validar_conexion()
     Extractor.validate() #validar datos del sftp
     archivos_atributos= Extractor.listar_archivos_atributos()
+
+    # Validar que exista la config del archivo específico
+    basearchivo = sftp_config_others.get(specific_file_config)
+    if not basearchivo:
+        msg = f"Configuración '{specific_file_config}' no encontrada en sftp_energia"
+        logger.error(msg)
+        raise ValueError(msg)
+
     archivoextraer = generar_archivo_especifico(
         lista_archivos=archivos_atributos,
-        basearchivo=sftp_config_others[specific_file_config],
+        basearchivo=basearchivo,
         periodo=periodo,
     )
     if not archivoextraer:
@@ -31,8 +39,14 @@ def extraersftp_energia(specific_file_config: str ,periodo: str=None):
 
 def extraersftp_energia_PD(periodo: str=None):
     metastraccion = extraersftp_energia("specific_filename", periodo=periodo)
-    return metastraccion.get("ruta") if isinstance(metastraccion, dict) else None
+    if not isinstance(metastraccion, dict) or "ruta" not in metastraccion:
+        logger.error("Extracción PD no retornó resultado válido: %s", metastraccion)
+        raise RuntimeError("Extracción SFTP energía PD no retornó ruta de archivo")
+    return metastraccion["ruta"]
 
 def extraersftp_energia_DA(periodo: str=None):
     metastraccion = extraersftp_energia("specific_filename2", periodo=periodo)
-    return metastraccion.get("ruta") if isinstance(metastraccion, dict) else None
+    if not isinstance(metastraccion, dict) or "ruta" not in metastraccion:
+        logger.error("Extracción DA no retornó resultado válido: %s", metastraccion)
+        raise RuntimeError("Extracción SFTP energía DA no retornó ruta de archivo")
+    return metastraccion["ruta"]
