@@ -64,7 +64,10 @@ def extraer_base_suministros_activos():
     logger.info(f"Archivo seleccionado: {nombrearchivoextraer} (modificado: {archivo_mas_reciente['fecha_modificacion']})")
     
     metastraccion = Extractor.extract(specific_file=nombrearchivoextraer)
-    return metastraccion['ruta']
+    if not isinstance(metastraccion, dict) or "ruta" not in metastraccion:
+        logger.error("Extracción base suministros activos no retornó resultado válido: %s", metastraccion)
+        raise RuntimeError("Extracción SFTP base suministros activos no retornó ruta de archivo")
+    return metastraccion["ruta"]
 
 
 # Ejecución local (desarrollo/testing)

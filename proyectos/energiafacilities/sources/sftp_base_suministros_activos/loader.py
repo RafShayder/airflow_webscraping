@@ -57,6 +57,7 @@ def load_base_suministros_activos(filepath: Optional[str] = None):
         # Buscar el archivo más reciente que contenga el texto base en el directorio local
         local_dir_path = Path(local_dir)
         if not local_dir_path.exists():
+            logger.error("No existe el directorio: %s", local_dir_path)
             raise FileNotFoundError(f"No existe el directorio: {local_dir_path}")
         
         # Buscar archivos Excel que contengan el texto base
@@ -66,9 +67,9 @@ def load_base_suministros_activos(filepath: Optional[str] = None):
         ]
         
         if not archivos_encontrados:
-            raise FileNotFoundError(
-                f"No se encontraron archivos que contengan '{specific_filename}' en {local_dir_path}"
-            )
+            msg = f"No se encontraron archivos que contengan '{specific_filename}' en {local_dir_path}"
+            logger.error(msg)
+            raise FileNotFoundError(msg)
         
         # Seleccionar el archivo más reciente por fecha de modificación
         archivo_mas_reciente = max(archivos_encontrados, key=lambda f: f.stat().st_mtime)
