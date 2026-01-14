@@ -12,7 +12,7 @@ sys.path.insert(0, "/opt/airflow/proyectos")
 from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.helpers import get_xcom_result
 from sources.sftp_pago_energia.stractor import extraersftp_pago_energia
-from sources.sftp_pago_energia.loader import load_sftp_base_sitos
+from sources.sftp_pago_energia.loader import load_sftp_pago_energia
 from sources.sftp_pago_energia.run_sp import correr_sftp_pago_energia
 from sources.sftp_pago_energia.geterrortable import get_save_errors_energia
 
@@ -36,7 +36,7 @@ def procesar_load_sftp_pago_energia(**kwargs):
     if not ruta:
         return None  # Salvaguarda adicional
 
-    return load_sftp_base_sitos(filepath=ruta)
+    return load_sftp_pago_energia(filepath=ruta)
 
 config = {
     "owner": "SigmaAnalytics",
