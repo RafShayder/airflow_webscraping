@@ -8,8 +8,10 @@ CLAUDE.md
 # Archivos de configuración sensibles
 .env
 *.env
+.env.sftp
 !env.airflow.example
 !env.example
+!.env.sftp.example
 config_local.py
 proyectos/energiafacilities/config/config_*.yaml
 proyectos/energiafacilities/config/config_*.yml
