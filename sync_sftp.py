@@ -49,6 +49,12 @@ ALWAYS_IGNORE = [
     ".DS_Store",
 ]
 
+# Solo sincronizar estas carpetas (None = todo el proyecto)
+INCLUDE_ONLY = [
+    "dags",
+    "proyectos",
+]
+
 
 # ==============================================================================
 # FUNCIONES DE UTILIDAD
@@ -138,39 +144,57 @@ def should_ignore(path: str, patterns: List[str]) -> bool:
     return False
 
 
-def get_local_files(base_path: Path, ignore_patterns: List[str]) -> Set[str]:
+def get_local_files(base_path: Path, ignore_patterns: List[str], include_only: List[str] = None) -> Set[str]:
     """Obtiene lista de archivos locales a sincronizar."""
     files = set()
 
-    for root, dirs, filenames in os.walk(base_path):
-        # Calcular path relativo
-        rel_root = Path(root).relative_to(base_path)
-        rel_root_str = str(rel_root) if str(rel_root) != "." else ""
+    # Si hay filtro de carpetas, solo escanear esas
+    if include_only:
+        dirs_to_scan = [base_path / d for d in include_only if (base_path / d).exists()]
+    else:
+        dirs_to_scan = [base_path]
 
-        # Filtrar directorios a ignorar (modifica dirs in-place para os.walk)
-        dirs[:] = [
-            d for d in dirs
-            if not should_ignore(
-                f"{rel_root_str}/{d}".lstrip("/") if rel_root_str else d,
-                ignore_patterns
-            )
-        ]
+    for scan_dir in dirs_to_scan:
+        for root, dirs, filenames in os.walk(scan_dir):
+            # Calcular path relativo desde base_path
+            rel_root = Path(root).relative_to(base_path)
+            rel_root_str = str(rel_root) if str(rel_root) != "." else ""
 
-        for filename in filenames:
-            if rel_root_str:
-                rel_path = f"{rel_root_str}/{filename}"
-            else:
-                rel_path = filename
+            # Filtrar directorios a ignorar (modifica dirs in-place para os.walk)
+            dirs[:] = [
+                d for d in dirs
+                if not should_ignore(
+                    f"{rel_root_str}/{d}".lstrip("/") if rel_root_str else d,
+                    ignore_patterns
+                )
+            ]
 
-            if not should_ignore(rel_path, ignore_patterns):
-                files.add(rel_path)
+            for filename in filenames:
+                if rel_root_str:
+                    rel_path = f"{rel_root_str}/{filename}"
+                else:
+                    rel_path = filename
+
+                if not should_ignore(rel_path, ignore_patterns):
+                    files.add(rel_path)
 
     return files
 
 
-def get_remote_files(sftp: paramiko.SFTPClient, remote_path: str, base_path: str = "") -> Set[str]:
+def get_remote_files(sftp: paramiko.SFTPClient, remote_path: str, base_path: str = "", include_only: List[str] = None) -> Set[str]:
     """Obtiene lista de archivos en el servidor SFTP recursivamente."""
     files = set()
+
+    # Si estamos en la raíz y hay filtro, solo escanear esas carpetas
+    if not base_path and include_only:
+        for folder in include_only:
+            folder_path = f"{remote_path}/{folder}"
+            try:
+                sftp.stat(folder_path)
+                files.update(get_remote_files(sftp, folder_path, folder, None))
+            except IOError:
+                pass  # Carpeta no existe en remoto
+        return files
 
     try:
         items = sftp.listdir_attr(remote_path)
@@ -181,9 +205,9 @@ def get_remote_files(sftp: paramiko.SFTPClient, remote_path: str, base_path: str
         item_path = f"{remote_path}/{item.filename}"
         rel_path = f"{base_path}/{item.filename}".lstrip("/") if base_path else item.filename
 
-        if stat.S_ISDIR(item.st_mode):
+        if stat.S_ISDIR(item.st_mode if item.st_mode else 0):
             # Recursión para directorios
-            files.update(get_remote_files(sftp, item_path, rel_path))
+            files.update(get_remote_files(sftp, item_path, rel_path, None))
         else:
             files.add(rel_path)
 
@@ -318,6 +342,7 @@ def main():
     print(f"Destino: {remote_base}")
     print(f"Modo: {'DRY-RUN (sin cambios)' if args.dry_run else 'REAL'}")
     print(f"Eliminar huérfanos: {'No' if args.no_delete else 'Sí'}")
+    print(f"Carpetas a sincronizar: {', '.join(INCLUDE_ONLY) if INCLUDE_ONLY else 'Todo'}")
     print("=" * 60)
 
     # Cargar patrones de exclusión
@@ -327,7 +352,7 @@ def main():
 
     # Obtener archivos locales
     print("\n[1/4] Escaneando archivos locales...")
-    local_files = get_local_files(SCRIPT_DIR, ignore_patterns)
+    local_files = get_local_files(SCRIPT_DIR, ignore_patterns, INCLUDE_ONLY)
     print(f"      Archivos a sincronizar: {len(local_files)}")
 
     # Conectar a SFTP
@@ -346,7 +371,7 @@ def main():
 
         # Obtener archivos remotos
         print("\n[3/4] Escaneando archivos remotos...")
-        remote_files = get_remote_files(sftp, remote_base)
+        remote_files = get_remote_files(sftp, remote_base, "", INCLUDE_ONLY)
         print(f"      Archivos en servidor: {len(remote_files)}")
 
         # Calcular diferencias
