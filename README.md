@@ -98,25 +98,26 @@ Para cargar múltiples connections de forma masiva:
    }
    ```
 
-2. **Copiar el archivo al contenedor:**
+2. **Copiar el archivo al directorio del proyecto** (se monta automáticamente):
    ```bash
-   sudo docker cp connections.json airflow-webserver:/tmp/connections.json
+   cp connections.json /daas1/analytics/config/
    ```
 
 3. **Importar las connections:**
    ```bash
-   sudo docker exec airflow-webserver airflow connections import /tmp/connections.json
+   cd /daas1/analytics
+   sudo docker compose exec airflow-webserver airflow connections import /opt/airflow/config/connections.json
    ```
 
 4. **Verificar que se importaron:**
    ```bash
-   sudo docker exec airflow-webserver airflow connections list
+   sudo docker compose exec airflow-webserver airflow connections list
    ```
 
 **Nota:** Si una connection ya existe, será sobrescrita. Para exportar connections existentes:
 ```bash
-sudo docker exec airflow-webserver airflow connections export /tmp/backup.json
-sudo docker cp airflow-webserver:/tmp/backup.json ./backup_connections.json
+sudo docker compose exec airflow-webserver airflow connections export /tmp/backup.json
+sudo docker compose cp airflow-webserver:/tmp/backup.json ./backup_connections.json
 ```
 
 ---
