@@ -41,6 +41,10 @@ envyaml==1.10.211231
 # === HTTP & NETWORKING ===
 # requests (incluido en Airflow con versión correcta)
 
+# === TESTING ===
+pytest==8.3.5
+pytest-cov==6.0.0
+
 # === UTILITIES & AUTOMATION ===
 invoke==2.2.1
 python-dateutil==2.9.0.post0
