@@ -18,14 +18,15 @@ Guía para instalar Docker CE en servidores RHEL 9.x sin conexión a Internet.
 mkdir -p ~/docker_rpms_x86_64
 cd ~/docker_rpms_x86_64
 
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/containerd.io-1.7.28-2.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-cli-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-buildx-plugin-0.29.1-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-compose-plugin-2.29.7-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-rootless-extras-28.0.0-1.el9.x86_64.rpm
-curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/container-selinux-2.237.0-2.el9_6.noarch.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/containerd.io-2.2.1-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-29.1.4-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-cli-29.1.4-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-buildx-plugin-0.30.1-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-compose-plugin-5.0.1-1.el9.x86_64.rpm
+curl -LO https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/docker-ce-rootless-extras-29.1.4-1.el9.x86_64.rpm
 ```
+
+> **Nota:** Verifica las últimas versiones en [download.docker.com/linux/rhel/9/x86_64/stable/Packages/](https://download.docker.com/linux/rhel/9/x86_64/stable/Packages/)
 
 ---
 
