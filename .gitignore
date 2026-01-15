@@ -134,7 +134,9 @@ cython_debug/
 *.log
 debug_*.py
 temp_*.py
-test_*.py
+# test_*.py en raíz (pero permitir en carpetas tests/)
+/test_*.py
+!/proyectos/**/tests/test_*.py
 
 # Archivos de configuración del sistema
 .DS_Store
