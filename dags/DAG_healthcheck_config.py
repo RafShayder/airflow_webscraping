@@ -24,6 +24,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.http.hooks.http import HttpHook
 import paramiko
 import requests
+import subprocess
 
 
 logger = logging.getLogger(__name__)
@@ -578,6 +579,101 @@ def check_connectivity() -> Dict[str, Any]:
     return {"summary": summary, "detail": results}
 
 
+def run_unit_tests() -> Dict[str, Any]:
+    """
+    Ejecuta los tests unitarios de energiafacilities usando pytest.
+    Retorna un resumen con el resultado de los tests.
+    """
+    logger.info("=" * 80)
+    logger.info("EJECUTANDO TESTS UNITARIOS")
+    logger.info("=" * 80)
+
+    # Ruta a los tests
+    tests_path = "/opt/airflow/proyectos/energiafacilities/tests"
+
+    try:
+        # Ejecutar pytest con output verbose
+        result = subprocess.run(
+            ["python", "-m", "pytest", tests_path, "-v", "--tb=short"],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minutos máximo
+        )
+
+        # Parsear output
+        output = result.stdout + result.stderr
+        logger.info(output)
+
+        # Buscar resumen en el output (ej: "67 passed in 0.34s")
+        passed = 0
+        failed = 0
+        errors = 0
+
+        for line in output.split("\n"):
+            if "passed" in line and ("failed" in line or "error" in line or line.strip().startswith("=")):
+                # Línea de resumen tipo "67 passed, 2 failed in 0.34s"
+                import re
+                passed_match = re.search(r"(\d+) passed", line)
+                failed_match = re.search(r"(\d+) failed", line)
+                error_match = re.search(r"(\d+) error", line)
+
+                if passed_match:
+                    passed = int(passed_match.group(1))
+                if failed_match:
+                    failed = int(failed_match.group(1))
+                if error_match:
+                    errors = int(error_match.group(1))
+            elif "passed" in line and "in" in line:
+                # Línea simple tipo "67 passed in 0.34s"
+                import re
+                passed_match = re.search(r"(\d+) passed", line)
+                if passed_match:
+                    passed = int(passed_match.group(1))
+
+        status = "OK" if result.returncode == 0 else "FAILED"
+
+        if status == "OK":
+            logger.info("✅ Tests completados exitosamente: %d passed", passed)
+        else:
+            logger.error("❌ Tests fallidos: %d passed, %d failed, %d errors", passed, failed, errors)
+
+        return {
+            "status": status,
+            "return_code": result.returncode,
+            "summary": {
+                "passed": passed,
+                "failed": failed,
+                "errors": errors,
+            },
+            "output": output[-2000:] if len(output) > 2000 else output  # Últimos 2000 chars
+        }
+
+    except subprocess.TimeoutExpired:
+        logger.error("❌ Tests timeout después de 5 minutos")
+        return {
+            "status": "TIMEOUT",
+            "return_code": -1,
+            "summary": {"passed": 0, "failed": 0, "errors": 1},
+            "output": "Tests excedieron el tiempo límite de 5 minutos"
+        }
+    except FileNotFoundError:
+        logger.error("❌ pytest no encontrado o ruta de tests inválida")
+        return {
+            "status": "ERROR",
+            "return_code": -1,
+            "summary": {"passed": 0, "failed": 0, "errors": 1},
+            "output": f"No se encontró pytest o la ruta {tests_path} no existe"
+        }
+    except Exception as exc:
+        logger.error("❌ Error ejecutando tests: %s", exc)
+        return {
+            "status": "ERROR",
+            "return_code": -1,
+            "summary": {"passed": 0, "failed": 0, "errors": 1},
+            "output": str(exc)
+        }
+
+
 with DAG(
     "dag_healthcheck_config",
     default_args=DEFAULT_ARGS,
@@ -601,5 +697,10 @@ with DAG(
         python_callable=check_connectivity,
     )
 
-    # Orden: primero variables, luego existencia de connections y finalmente pruebas de conectividad
-    check_vars_task >> check_conns_task >> check_connectivity_task
+    run_tests_task = PythonOperator(
+        task_id="run_unit_tests",
+        python_callable=run_unit_tests,
+    )
+
+    # Orden: variables -> connections -> conectividad -> tests unitarios
+    check_vars_task >> check_conns_task >> check_connectivity_task >> run_tests_task
