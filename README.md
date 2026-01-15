@@ -71,6 +71,54 @@ Si el servidor no tiene Docker instalado, consulta la guía completa en **[docs/
    - Logs: `sudo docker compose logs -f airflow-worker`.
    - Detener servicios: `sudo docker compose down` (usa `-v` si deseas borrar volúmenes).
 
+### Importar Connections desde JSON
+
+Para cargar múltiples connections de forma masiva:
+
+1. **Crear archivo JSON con las connections** (ejemplo `connections.json`):
+   ```json
+   {
+     "postgres_siom_prod": {
+       "conn_type": "postgres",
+       "host": "10.226.17.162",
+       "port": 5425,
+       "schema": "siom_prod",
+       "login": "usuario",
+       "password": "password123",
+       "extra": "{\"application_name\": \"airflow\"}"
+     },
+     "sftp_daas_prod": {
+       "conn_type": "sftp",
+       "host": "10.226.17.100",
+       "port": 22,
+       "login": "usuario_sftp",
+       "password": "password_sftp",
+       "extra": "{\"default_remote_dir\": \"/daas/prod/\"}"
+     }
+   }
+   ```
+
+2. **Copiar el archivo al contenedor:**
+   ```bash
+   sudo docker cp connections.json airflow-webserver:/tmp/connections.json
+   ```
+
+3. **Importar las connections:**
+   ```bash
+   sudo docker exec airflow-webserver airflow connections import /tmp/connections.json
+   ```
+
+4. **Verificar que se importaron:**
+   ```bash
+   sudo docker exec airflow-webserver airflow connections list
+   ```
+
+**Nota:** Si una connection ya existe, será sobrescrita. Para exportar connections existentes:
+```bash
+sudo docker exec airflow-webserver airflow connections export /tmp/backup.json
+sudo docker cp airflow-webserver:/tmp/backup.json ./backup_connections.json
+```
+
 ---
 
 ## Generar el paquete offline (Dev)
