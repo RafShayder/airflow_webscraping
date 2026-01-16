@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/Selenium-Chrome-43B02A?logo=selenium&logoColor=white" alt="Selenium">
+  <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
 </p>
 
 ---
