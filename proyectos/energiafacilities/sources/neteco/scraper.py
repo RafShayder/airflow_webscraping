@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo as TzInfo
 import time
 import logging
 import os
 import shutil
-from typing import Optional
 
 try:
     from zoneinfo import ZoneInfo
@@ -48,14 +47,14 @@ logger = logging.getLogger(__name__)
 # URL de NetEco
 NETECO_BASE_URL = "https://10.125.129.82:31943"
 NETECO_SUCCESS_URL = "https://10.125.129.82:31943/netecodashboard/assets/build/index.html#/dashboard/overview"
-NETECO_PM_VIEW_URL = "https://10.125.129.82:31943/netecopm/pmview/performModule/view/site/pmView.html?curMenuId=com.huawei.neteco.pm.data"
-FILTER_BUTTON_CLASS = "nco-search-container-buttons"
-# XPath para el elemento de NetEco Monitor
-NETECO_MONITOR_XPATH = '//*[@id="refr.mm.NetEco_Monitor"]/span'
-NETECO_MONITOR_XPATH_FALLBACK = '/html/body/div[2]/div/div[3]/div/div/div[2]/span[1]/span'
+
+# IDs específicos de checkboxes en el árbol de selección (ZTree)
+CHECKBOX_ROOT_ID = "deviceTree_element_1_check"
+CHECKBOX_MAINS_ID = "deviceTypesTree_element_4_check"
+CHECKBOX_ALL_INSTANCES_ID = "instanceTree_element_1_check"
 
 
-def _resolve_timezone(config_neteco: dict) -> Optional[object]:
+def _resolve_timezone(config_neteco: dict) -> TzInfo | None:
     tz_name = (config_neteco.get("timezone") or config_neteco.get("tz") or "America/Lima")
     if ZoneInfo is None:
         logger.warning("zoneinfo no disponible; usando hora local del sistema")
@@ -132,42 +131,31 @@ def _fill_input(driver, field, value, label=None):
             pass
 
 
-def _find_checkbox_by_texts(driver, labels):
-    if isinstance(labels, str):
-        labels = [labels]
-    for label in labels:
-        try:
-            elements = driver.find_elements(
-                By.XPATH,
-                f"//*[normalize-space(text())='{label}' or contains(normalize-space(text()), '{label}')]",
-            )
-        except Exception:
-            continue
-        for element in elements:
-            try:
-                if not element.is_displayed():
-                    continue
-            except Exception:
-                continue
-            for parent_xpath in ("./..", "./../.."):
-                try:
-                    container = element.find_element(By.XPATH, parent_xpath)
-                except Exception:
-                    continue
-                try:
-                    checkboxes = container.find_elements(
-                        By.XPATH,
-                        ".//input[@type='checkbox'] | .//*[contains(@class, 'checkbox')] | .//span[contains(@class, 'check')]",
-                    )
-                except Exception:
-                    continue
-                for cb in checkboxes:
-                    try:
-                        if cb.is_displayed():
-                            return cb
-                    except Exception:
-                        continue
-    return None
+def _click_checkbox_by_id(driver, element_id: str, label: str, wait_seconds: float = 2.0) -> bool:
+    """
+    Hace click en un checkbox usando su ID específico.
+    Retorna True si el click fue exitoso, False si no se encontró el elemento.
+    """
+    wait = WebDriverWait(driver, wait_seconds)
+    try:
+        checkbox = wait.until(EC.presence_of_element_located((By.ID, element_id)))
+        _scroll_into_view(driver, checkbox)
+        is_checked = driver.execute_script(
+            "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
+            checkbox,
+        )
+        if not is_checked:
+            _js_click(driver, checkbox)
+            logger.debug(f"Click realizado en checkbox '{label}'")
+        else:
+            logger.debug(f"Checkbox '{label}' ya estaba marcado")
+        return True
+    except TimeoutException:
+        logger.error(f"No se encontró el checkbox '{label}' con ID: {element_id}")
+        return False
+    except Exception as e:
+        logger.error(f"Error al hacer click en checkbox '{label}': {e}")
+        return False
 
 
 def _rename_downloaded(downloaded: Path, desired_name: str, overwrite: bool) -> Path:
@@ -193,70 +181,69 @@ def _find_task_name_field_in_context(driver):
 
 
 def _find_task_name_field(driver):
-    field, strategy = _find_task_name_field_in_context(driver)
-    if field:
-        return field, strategy
-
-    iframes = driver.find_elements(By.TAG_NAME, "iframe")
-    for idx, iframe in enumerate(iframes, start=1):
-        try:
-            driver.switch_to.frame(iframe)
-            field, strategy = _find_task_name_field_in_context(driver)
-            if field:
-                return field, f"iframe[{idx}]::{strategy}"
-        except Exception:
-            continue
-        finally:
-            try:
-                driver.switch_to.default_content()
-            except Exception:
-                pass
-
-    return None, None
+    """Busca el campo Task Name en el modal de exportación."""
+    return _find_task_name_field_in_context(driver)
 
 def _set_datetime_field(driver, xpath, value, label):
     try:
         field = driver.find_element(By.XPATH, xpath)
     except Exception as e:
-        logger.debug(f"No se encontró el campo {label}: {e}")
-        return
+        logger.warning(f"No se encontró el campo {label}: {e}")
+        return False
 
-    logger.debug(f"Llenando {label} con {value}...")
-    _fill_input(driver, field, value, label=label)
+    logger.info(f"Llenando {label} con valor: {value}")
 
+    # Intentar limpiar y llenar el campo
+    _scroll_into_view(driver, field)
+    try:
+        field.click()
+        time.sleep(0.3)
+    except Exception:
+        pass
 
-def _click_until_visible(driver, click_xpath, target_xpath, label, max_attempts=5, wait_seconds=1.5):
-    for attempt in range(1, max_attempts + 1):
-        try:
-            target = driver.find_elements(By.XPATH, target_xpath)
-            if any(elem.is_displayed() for elem in target):
-                logger.debug(f"Objetivo visible antes de click en {label} (intento {attempt})")
-                return True
-        except Exception:
-            pass
+    # Limpiar el campo existente
+    try:
+        field.clear()
+    except Exception:
+        pass
 
-        try:
-            button = driver.find_element(By.XPATH, click_xpath)
-            if button.is_displayed():
-                logger.debug(f"Haciendo click en {label} (intento {attempt})")
-                _js_click(driver, button)
-            else:
-                logger.debug(f"Botón {label} no visible (intento {attempt})")
-        except Exception as e:
-            logger.warning(f"Error haciendo click en {label} (intento {attempt}): {e}")
+    # Intentar con JavaScript para asegurar que se establece el valor
+    try:
+        driver.execute_script(
+            """
+            var field = arguments[0];
+            var value = arguments[1];
+            field.value = value;
+            field.dispatchEvent(new Event('input', {bubbles: true}));
+            field.dispatchEvent(new Event('change', {bubbles: true}));
+            field.dispatchEvent(new Event('blur', {bubbles: true}));
+            """,
+            field,
+            value,
+        )
+    except Exception as e:
+        logger.warning(f"Error al establecer {label} via JS: {e}")
 
-        time.sleep(wait_seconds)
+    # También intentar con send_keys
+    try:
+        field.clear()
+        field.send_keys(value)
+    except Exception:
+        pass
 
-        try:
-            target = driver.find_elements(By.XPATH, target_xpath)
-            if any(elem.is_displayed() for elem in target):
-                logger.debug(f"Objetivo visible después de click en {label} (intento {attempt})")
-                return True
-        except Exception:
-            pass
-
-    logger.warning(f"No apareció el objetivo después de {max_attempts} intentos: {target_xpath}")
-    return False
+    # Verificar que el valor se estableció correctamente
+    time.sleep(0.5)
+    try:
+        actual_value = field.get_attribute("value")
+        if actual_value == value:
+            logger.info(f"{label} establecido correctamente: {actual_value}")
+            return True
+        else:
+            logger.warning(f"{label} tiene valor diferente. Esperado: {value!r}, Actual: {actual_value!r}")
+            return False
+    except Exception as e:
+        logger.warning(f"No se pudo verificar {label}: {e}")
+        return False
 
 
 def _wait_and_click_download(
@@ -400,10 +387,21 @@ def _wait_and_click_download(
     logger.warning(f"Timeout esperando Download para {task_name}")
     return None
 
-def scraper_neteco():
+def scraper_neteco(
+    date_mode_override: str | None = None,
+    start_time_override: str | None = None,
+    end_time_override: str | None = None,
+):
     """
-    Función de prueba para login y navegación básica.
-    Útil para debugging y pruebas rápidas.
+    Scraper de NetEco para extracción de datos históricos.
+
+    Args:
+        date_mode_override: Sobrescribe el modo de fecha del config ("auto" o "manual")
+        start_time_override: Sobrescribe la fecha de inicio (formato: YYYY-MM-DD HH:MM:SS)
+        end_time_override: Sobrescribe la fecha de fin (formato: YYYY-MM-DD HH:MM:SS)
+
+    Returns:
+        Path al archivo descargado
     """
     task_name_value = None
     downloaded_path = None
@@ -424,9 +422,41 @@ def scraper_neteco():
             or None
         )
         headless = bool(config_neteco.get("headless", False))
-        configured_start_time = config_neteco.get("start_time")
-        configured_end_time = config_neteco.get("end_time")
-        date_mode = (config_neteco.get("date_mode") or "manual").strip().lower()
+
+        # Usar overrides si se proporcionan, sino usar config
+        configured_start_time = start_time_override or config_neteco.get("start_time")
+        configured_end_time = end_time_override or config_neteco.get("end_time")
+        date_mode = (date_mode_override or config_neteco.get("date_mode") or "manual").strip().lower()
+
+        if date_mode_override:
+            logger.info(f"Usando date_mode desde parámetro DAG: {date_mode}")
+        if start_time_override or end_time_override:
+            logger.info(f"Usando fechas desde parámetros DAG: {configured_start_time} - {configured_end_time}")
+
+        # Validar rango de fechas antes de iniciar el navegador
+        if date_mode == "auto":
+            tzinfo = _resolve_timezone(config_neteco)
+            now_ref = datetime.now(tzinfo) if tzinfo else datetime.now()
+            yesterday = now_ref - timedelta(days=1)
+            start_time_value = yesterday.replace(hour=0, minute=0, second=1, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+            end_time_value = yesterday.replace(hour=23, minute=59, second=59, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+        elif configured_start_time and configured_end_time:
+            start_time_value = configured_start_time
+            end_time_value = configured_end_time
+        else:
+            raise ValueError("Faltan start_time/end_time para modo manual en NetEco")
+
+        # Validar que el rango no exceda 31 días
+        start_dt = datetime.strptime(start_time_value, "%Y-%m-%d %H:%M:%S")
+        end_dt = datetime.strptime(end_time_value, "%Y-%m-%d %H:%M:%S")
+        date_diff = (end_dt - start_dt).days
+        if date_diff > 31:
+            raise ValueError(
+                f"El rango de fechas excede el límite de 31 días. "
+                f"Rango actual: {date_diff} días ({start_time_value} a {end_time_value})"
+            )
+        logger.info(f"Rango de fechas válido: {start_time_value} a {end_time_value} ({date_diff} días)")
+
         download_button_wait_seconds = int(config_neteco.get("download_button_wait_seconds", 240))
         download_file_timeout_seconds = int(config_neteco.get("download_file_timeout_seconds", 300))
         download_poll_seconds = int(config_neteco.get("download_poll_seconds", 3))
@@ -453,173 +483,63 @@ def scraper_neteco():
         auth.login(usuario, password)
         logger.info("Login completado")
 
-        # Navegar a los filtros
         wait = WebDriverWait(driver, 30)
-        filtro = wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, FILTER_BUTTON_CLASS))
-        )
-        filtro.click()
-        logger.debug("Filtro abierto")
-        
-        # Hacer hover sobre el elemento de NetEco Monitor para abrir el menú
-        monitor_element = None
-        try:
-            monitor_element = wait.until(
-                EC.presence_of_element_located((By.XPATH, NETECO_MONITOR_XPATH))
-            )
-            logger.debug("Elemento Monitor encontrado (XPath principal)")
-        except TimeoutException:
-            logger.debug("XPath principal no encontrado, intentando con fallback...")
-            try:
-                monitor_element = wait.until(
-                    EC.presence_of_element_located((By.XPATH, NETECO_MONITOR_XPATH_FALLBACK))
-                )
-                logger.debug("Elemento Monitor encontrado (XPath fallback)")
-            except TimeoutException:
-                logger.error("No se encontró el elemento de NetEco Monitor")
-                raise RuntimeError("No se encontró el elemento de NetEco Monitor")
-        
-        # Hacer hover para mantener el menú abierto
-        logger.debug("Haciendo hover sobre Monitor para abrir el menú...")
-        ActionChains(driver).move_to_element(monitor_element).perform()
-        time.sleep(1)  # Esperar a que el menú se abra
-        
-        # Buscar y hacer click en "Historical Data"
-        logger.debug("Buscando 'Historical Data' en el menú...")
-        xpath_strategies = [
-            "//*[contains(text(), 'Historical Data')]",
-            "//span[contains(text(), 'Historical Data')]",
-            "//div[contains(text(), 'Historical Data')]",
-            "//a[contains(text(), 'Historical Data')]",
-            "//li[contains(text(), 'Historical Data')]",
-        ]
-        
-        historical_data_element = None
-        for xpath_strategy in xpath_strategies:
-            try:
-                historical_data_element = wait.until(
-                    EC.element_to_be_clickable((By.XPATH, xpath_strategy))
-                )
-                logger.debug(f"Elemento encontrado con: {xpath_strategy}")
-                break
-            except TimeoutException:
-                continue
-        
-        if historical_data_element:
-            # Usar JavaScript click para evitar que el menú se cierre
-            _js_click(driver, historical_data_element)
-            logger.debug("Click realizado en 'Historical Data'")
-            time.sleep(2)  # Esperar navegación
-        else:
-            logger.error("No se encontró el elemento 'Historical Data' en el menú")
-            raise RuntimeError("No se encontró el elemento 'Historical Data' en el menú")
-        
-        # Esperar a que cargue la página de PM View
-        logger.debug("Esperando a que cargue la página de PM View...")
-        wait.until(EC.url_contains("pmView.html"))
-        logger.debug("URL de PM View detectada")
-        time.sleep(2)  # Esperar carga completa
-        
-        # Esperar a que el documento esté completamente cargado
-        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-        time.sleep(1)
-        logger.debug("Página cargada completamente")
-        
-        # Buscar y hacer click en el checkbox "Root"
-        root_checkbox = _find_checkbox_by_texts(driver, "Root")
-        if root_checkbox:
-            logger.debug("Haciendo click en checkbox Root")
-            _scroll_into_view(driver, root_checkbox)
-            is_checked = driver.execute_script(
-                "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
-                root_checkbox,
-            )
-            if not is_checked:
-                _js_click(driver, root_checkbox)
-                logger.debug("Click realizado en checkbox 'Root'")
-                time.sleep(1)
-            else:
-                logger.debug("Checkbox 'Root' ya estaba marcado")
-        else:
-            logger.error("No se encontró el checkbox 'Root'")
-            raise RuntimeError("No se encontró el checkbox 'Root'")
 
+        # Esperar a que cargue el dashboard completamente
+        logger.debug("Esperando carga del dashboard...")
+        wait.until(EC.url_contains("dashboard"))
+        time.sleep(3)
+
+        # Navegar a Historical Data: hover sobre "Monitor" y click en "Historical Data"
+        logger.debug("Navegando a Historical Data...")
+
+        # Buscar "Monitor" en la barra de navegación superior (puede ser div o span)
+        monitor_element = wait.until(
+            EC.presence_of_element_located((By.XPATH, "//*[normalize-space(text())='Monitor']"))
+        )
+        logger.debug("Elemento 'Monitor' encontrado")
+
+        # Hacer hover sobre Monitor para abrir el submenú
+        ActionChains(driver).move_to_element(monitor_element).perform()
+        time.sleep(1.5)
+
+        # Esperar y click en "Historical Data" (es un link <a>)
+        historical_data_link = wait.until(
+            EC.element_to_be_clickable((By.LINK_TEXT, "Historical Data"))
+        )
+        _js_click(driver, historical_data_link)
+        logger.debug("Click realizado en 'Historical Data'")
+
+        # Esperar a que cargue la página de PM View
+        wait.until(EC.url_contains("pmView.html"))
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+        time.sleep(2)
+        logger.debug("Página PM View cargada")
+
+        # Seleccionar checkboxes usando IDs específicos (ZTree components)
+        # Paso 1: Seleccionar "Root" en la primera columna (Sitios)
+        if not _click_checkbox_by_id(driver, CHECKBOX_ROOT_ID, "Root", wait_seconds=10):
+            raise RuntimeError(f"No se encontró el checkbox 'Root' con ID: {CHECKBOX_ROOT_ID}")
         time.sleep(2)
 
-        # Buscar y hacer click en el checkbox "Mains"
-        mains_checkbox = _find_checkbox_by_texts(driver, "Mains")
-        if mains_checkbox:
-            logger.debug("Haciendo click en checkbox 'Mains'")
-            _scroll_into_view(driver, mains_checkbox)
-            is_checked = driver.execute_script(
-                "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
-                mains_checkbox,
-            )
-            if not is_checked:
-                _js_click(driver, mains_checkbox)
-                logger.debug("Click realizado en checkbox 'Mains'")
-                time.sleep(2)
-            else:
-                logger.debug("Checkbox 'Mains' ya estaba marcado")
-                time.sleep(1)
-        else:
-            logger.error("No se encontró el checkbox 'Mains'")
-            raise RuntimeError("No se encontró el checkbox 'Mains'")
+        # Paso 2: Seleccionar "Mains" en la segunda columna (Device Types)
+        if not _click_checkbox_by_id(driver, CHECKBOX_MAINS_ID, "Mains", wait_seconds=10):
+            raise RuntimeError(f"No se encontró el checkbox 'Mains' con ID: {CHECKBOX_MAINS_ID}")
+        time.sleep(2)
 
-        time.sleep(6)
+        # Paso 3: Seleccionar "(All) Device Instances" en la tercera columna
+        if not _click_checkbox_by_id(driver, CHECKBOX_ALL_INSTANCES_ID, "(All) Device Instances", wait_seconds=10):
+            logger.warning(f"No se encontró el checkbox '(All) Device Instances' con ID: {CHECKBOX_ALL_INSTANCES_ID}")
 
-        # Buscar y hacer click en el checkbox "(All) Device Instances"
-        all_device_types_checkbox = _find_checkbox_by_texts(
-            driver, ["(All) Device Instances", "All Device Instances"]
-        )
-        if all_device_types_checkbox:
-            logger.debug("Haciendo click en '(All) Device Instances'")
-            _scroll_into_view(driver, all_device_types_checkbox)
-            is_checked = driver.execute_script(
-                "return arguments[0].checked || arguments[0].getAttribute('aria-checked') === 'true';",
-                all_device_types_checkbox,
-            )
-            if not is_checked:
-                _js_click(driver, all_device_types_checkbox)
-                logger.debug("Click realizado en checkbox '(All) Device Instances'")
-                time.sleep(1)
-            else:
-                logger.debug("Checkbox '(All) Device Instances' ya estaba marcado")
-        else:
-            logger.warning("No se encontró el checkbox '(All) Device Instances' en la nueva interfaz")
-
-        # Después de seleccionar (All) Device Instances, buscar y hacer click en el botón Export
+        # Click en el botón Export
         logger.info("Buscando botón Export")
         try:
-            # Esperar un poco para que se actualice la interfaz
             time.sleep(2)
 
-            # Buscar botón Export con diferentes estrategias
-            export_button = None
-
-            # Estrategia 1: Buscar por texto "Export"
-            export_strategies = [
-                "//button[contains(text(), 'Export')]",
-                "//input[@value='Export']",
-                "//a[contains(text(), 'Export')]",
-                "//span[contains(text(), 'Export')]",
-                "//div[contains(text(), 'Export')]",
-                "//*[contains(@class, 'export')]",
-                "//button[contains(@title, 'Export')]"
-            ]
-
-            for xpath in export_strategies:
-                try:
-                    buttons = driver.find_elements(By.XPATH, xpath)
-                    for button in buttons:
-                        if button.is_displayed():
-                            export_button = button
-                            logger.debug(f"Botón Export encontrado con: {xpath}")
-                            break
-                    if export_button:
-                        break
-                except Exception:
-                    continue
+            # Buscar botón Export por role (más estable que XPath)
+            export_button = wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Export')]"))
+            )
 
             if export_button:
                 # Hacer click en el botón Export
@@ -648,45 +568,39 @@ def scraper_neteco():
                     logger.error("No se encontró el campo Task Name en el modal de exportación")
                     raise RuntimeError("No se encontró el campo Task Name en el modal de exportación")
 
-                # Llenar Start Time y End Time
+                # Llenar Start Time y End Time (ya validados al inicio)
                 start_time_xpath = "//*[@id='startdatepicker_value']"
                 end_time_xpath = "//*[@id='enddatepicker_value']"
-                if date_mode == "auto":
-                    tzinfo = _resolve_timezone(config_neteco)
-                    now_ref = datetime.now(tzinfo) if tzinfo else datetime.now()
-                    yesterday = now_ref - timedelta(days=1)
-                    start_time_value = yesterday.replace(hour=0, minute=0, second=1, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
-                    end_time_value = yesterday.replace(hour=23, minute=59, second=59, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
-                elif configured_start_time and configured_end_time:
-                    start_time_value = configured_start_time
-                    end_time_value = configured_end_time
-                else:
-                    logger.error("Faltan start_time/end_time para modo manual en NetEco")
-                    raise ValueError("Faltan start_time/end_time para modo manual en NetEco")
 
-                _set_datetime_field(driver, start_time_xpath, start_time_value, "Start Time")
-                _set_datetime_field(driver, end_time_xpath, end_time_value, "End Time")
+                start_ok = _set_datetime_field(driver, start_time_xpath, start_time_value, "Start Time")
+                end_ok = _set_datetime_field(driver, end_time_xpath, end_time_value, "End Time")
 
-                ok_button_xpath = "//*[@id='startDown_button']"
-                confirm_button_xpath = "//*[@id='exportConfigWindow']/div[2]/div[2]/span"
-                export_confirmed = _click_until_visible(
-                    driver,
-                    ok_button_xpath,
-                    confirm_button_xpath,
-                    "OK",
-                    max_attempts=6,
-                    wait_seconds=1.5,
+                if not start_ok or not end_ok:
+                    logger.warning("Los campos de fecha pueden no haberse llenado correctamente. Continuando de todos modos...")
+
+                # Esperar un momento para que la UI procese los cambios
+                time.sleep(1)
+
+                # Click en el botón OK del modal "Create Export Task"
+                # Buscar el botón OK por texto dentro del contenedor del modal
+                ok_button = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, "//*[@id='startDown_button']//*[normalize-space(text())='OK']"))
                 )
-                if export_confirmed:
-                    try:
-                        confirm_button = driver.find_element(By.XPATH, confirm_button_xpath)
-                        if confirm_button.is_displayed():
-                            logger.debug("Haciendo click en botón de confirmación")
-                            _js_click(driver, confirm_button)
-                    except Exception:
-                        logger.warning("No se pudo hacer click en el botón de confirmación")
-                else:
-                    logger.warning("No apareció el botón de confirmación luego de presionar OK")
+                logger.info("Haciendo click en botón OK")
+                _js_click(driver, ok_button)
+                time.sleep(2)
+
+                # Después de OK aparece un modal de confirmación - click en "View Task"
+                # Este botón abre la tabla de tareas donde esperamos el Download
+                try:
+                    view_task_button = wait.until(
+                        EC.element_to_be_clickable((By.XPATH, "//*[normalize-space(text())='View Task']"))
+                    )
+                    logger.info("Haciendo click en 'View Task'")
+                    _js_click(driver, view_task_button)
+                    time.sleep(1)
+                except TimeoutException:
+                    logger.warning("No apareció el botón 'View Task', la tabla de descargas puede ya estar visible")
 
                 if task_name_value:
                     logger.info(f"Esperando Download para {task_name_value!r}")

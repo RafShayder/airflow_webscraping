@@ -5,6 +5,12 @@
 # Claude Code
 CLAUDE.md
 
+# Playwright MCP
+.playwright-mcp/
+
+# Benchmarks
+.benchmarks/
+
 # Archivos de configuración sensibles
 .env
 *.env
@@ -19,6 +25,7 @@ airflow_connections_import_dict.json
 airflow_connections_import_dict_dev.json
 airflow_connections_import_dict_staging.json
 airflow_connections_import_dict_prod.json
+docs/airflow_connections_*.json
 AIRFLOW_SETUP_DEV.md
 AIRFLOW_SETUP_STAGING.md
 AIRFLOW_SETUP_PROD.md

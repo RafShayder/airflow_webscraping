@@ -13,7 +13,8 @@ from typing import Optional
 import pandas as pd
 
 # Ensure local execution can resolve energiafacilities imports.
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[2]  # energiafacilities/
+PROJECT_ROOT = Path(__file__).resolve().parents[4]  # scraper-integratel/
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
@@ -28,6 +29,8 @@ DEFAULT_WINDOW_DAYS = 30  # Dias recientes usados para calcular la mediana/MAD p
 DEFAULT_Z_THRESHOLD = 3.5  # Umbral de z-score robusto para marcar anomalia alta.
 DEFAULT_RECENT_DAYS = 7  # Dias recientes a reportar desde la ultima fecha disponible.
 DEFAULT_NORMAL_STREAK = 3  # Registros normales consecutivos que cierran la alerta.
+DEFAULT_PCT_THRESHOLD = 0.80  # Umbral de variación porcentual (80%) para marcar anomalía.
+DEFAULT_CV_MAX = 0.5  # CV máximo para considerar baseline confiable (< 0.5 = estable).
 RECENT_COL_PREFIX = "consumo_dia_"  # Prefijo para columnas (1 = mas antiguo, N = mas reciente).
 
 SQL_BASE_NETECO = """
@@ -44,8 +47,9 @@ COLUMN_NAME_MAP = {
     "fecha": "Fecha",
     "energy_consumption_per_day_kwh": "Consumo Diario kWh",
     "median_30d": "Mediana 30d",
-    "mad_30d": "MAD 30d",
-    "z_score": "Z Score",
+    "std_30d": "Std Dev 30d",
+    "cv": "CV",
+    "pct_diff": "Variación %",
     "window_start": "Ventana Inicio",
     "window_end": "Ventana Fin",
     "window_samples": "Muestras Ventana",
@@ -59,14 +63,15 @@ def get_report_dir(output_dir: Optional[str | Path] = None) -> Path:
     airflow_home = os.environ.get("AIRFLOW_HOME")
     if airflow_home:
         return Path(airflow_home) / "tmp" / "neteco-reports"
-    return BASE_DIR / "tmp" / "neteco-reports"
+    return PROJECT_ROOT / "tmp" / "neteco-reports"
 
 
 def build_anomaly_dataframe(
     df_raw: pd.DataFrame,
     *,
     window_days: int = DEFAULT_WINDOW_DAYS,
-    z_threshold: float = DEFAULT_Z_THRESHOLD,
+    pct_threshold: float = DEFAULT_PCT_THRESHOLD,
+    cv_max: float = DEFAULT_CV_MAX,
     recent_days: int = DEFAULT_RECENT_DAYS,
     normal_streak: int = DEFAULT_NORMAL_STREAK,
 ) -> pd.DataFrame:
@@ -97,30 +102,39 @@ def build_anomaly_dataframe(
         .rename("median_30d")
     )
     df_window_all = df_window_all.join(median, on="site_name")
-    df_window_all["abs_dev"] = (
-        df_window_all["energy_consumption_per_day_kwh"] - df_window_all["median_30d"]
-    ).abs()
-    mad = df_window_all.groupby("site_name")["abs_dev"].median().rename("mad_30d")
-    df_window_all = df_window_all.join(mad, on="site_name")
 
-    mad_positive = df_window_all["mad_30d"] > 0
-    df_window_all["z_score"] = pd.NA
-    df_window_all.loc[mad_positive, "z_score"] = (
-        0.6745
-        * (
-            df_window_all.loc[mad_positive, "energy_consumption_per_day_kwh"]
-            - df_window_all.loc[mad_positive, "median_30d"]
-        )
-        / df_window_all.loc[mad_positive, "mad_30d"]
+    # Calcular desviación estándar por sitio
+    std_dev = (
+        df_window_all.groupby("site_name")["energy_consumption_per_day_kwh"]
+        .std()
+        .rename("std_30d")
+    )
+    df_window_all = df_window_all.join(std_dev, on="site_name")
+
+    # Calcular Coeficiente de Variación (CV = std / median)
+    df_window_all["cv"] = pd.NA
+    median_positive = df_window_all["median_30d"] > 0
+    df_window_all.loc[median_positive, "cv"] = (
+        df_window_all.loc[median_positive, "std_30d"]
+        / df_window_all.loc[median_positive, "median_30d"]
     )
 
+    # Calcular variación porcentual: ((consumo - mediana) / mediana) * 100
+    df_window_all["pct_diff"] = pd.NA
+    df_window_all.loc[median_positive, "pct_diff"] = (
+        (df_window_all.loc[median_positive, "energy_consumption_per_day_kwh"]
+         - df_window_all.loc[median_positive, "median_30d"])
+        / df_window_all.loc[median_positive, "median_30d"]
+        * 100  # Convertir a porcentaje
+    )
+
+    # Marcar como anomalía si:
+    # 1. Variación porcentual >= umbral (80%)
+    # 2. CV < cv_max (baseline confiable/estable)
     df_window_all["is_anomalia"] = False
-    df_window_all.loc[mad_positive, "is_anomalia"] = (
-        df_window_all.loc[mad_positive, "z_score"] >= z_threshold
-    )
-    df_window_all.loc[~mad_positive, "is_anomalia"] = (
-        df_window_all.loc[~mad_positive, "energy_consumption_per_day_kwh"]
-        > df_window_all.loc[~mad_positive, "median_30d"]
+    cv_valid = df_window_all["cv"] <= cv_max
+    df_window_all.loc[median_positive & cv_valid, "is_anomalia"] = (
+        df_window_all.loc[median_positive & cv_valid, "pct_diff"] >= (pct_threshold * 100)
     )
     samples = (
         df_window_all.groupby("site_name")["energy_consumption_per_day_kwh"]
@@ -173,8 +187,9 @@ def build_anomaly_dataframe(
             "fecha",
             "energy_consumption_per_day_kwh",
             "median_30d",
-            "mad_30d",
-            "z_score",
+            "std_30d",
+            "cv",
+            "pct_diff",
             "window_start",
             "window_end",
             "window_samples",
@@ -215,7 +230,8 @@ def run_reporte_anomalias_consumo(
     output_dir: Optional[str | Path] = None,
     *,
     window_days: int = DEFAULT_WINDOW_DAYS,
-    z_threshold: float = DEFAULT_Z_THRESHOLD,
+    pct_threshold: float = DEFAULT_PCT_THRESHOLD,
+    cv_max: float = DEFAULT_CV_MAX,
     recent_days: int = DEFAULT_RECENT_DAYS,
     normal_streak: int = DEFAULT_NORMAL_STREAK,
 ) -> str:
@@ -238,7 +254,8 @@ def run_reporte_anomalias_consumo(
     df_report = build_anomaly_dataframe(
         df_raw,
         window_days=window_days,
-        z_threshold=z_threshold,
+        pct_threshold=pct_threshold,
+        cv_max=cv_max,
         recent_days=recent_days,
         normal_streak=normal_streak,
     )
@@ -268,10 +285,16 @@ def _parse_args() -> argparse.Namespace:
         help="Dias usados para calcular la mediana/MAD por sitio",
     )
     parser.add_argument(
-        "--z-threshold",
+        "--pct-threshold",
         type=float,
-        default=DEFAULT_Z_THRESHOLD,
-        help="Umbral de z-score robusto para marcar anomalia alta",
+        default=DEFAULT_PCT_THRESHOLD,
+        help="Umbral de variacion porcentual para marcar anomalia (0.80 = 80%%)",
+    )
+    parser.add_argument(
+        "--cv-max",
+        type=float,
+        default=DEFAULT_CV_MAX,
+        help="CV maximo para considerar baseline confiable (0.5 = estable)",
     )
     parser.add_argument(
         "--recent-days",
@@ -296,7 +319,8 @@ def main() -> None:
         env=args.env,
         output_dir=args.output_dir,
         window_days=args.window_days,
-        z_threshold=args.z_threshold,
+        pct_threshold=args.pct_threshold,
+        cv_max=args.cv_max,
         recent_days=args.recent_days,
         normal_streak=args.normal_streak,
     )

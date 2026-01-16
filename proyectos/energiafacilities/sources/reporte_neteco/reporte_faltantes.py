@@ -14,7 +14,8 @@ import numpy as np
 import pandas as pd
 
 # Ensure local execution can resolve energiafacilities imports.
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[2]  # energiafacilities/
+PROJECT_ROOT = Path(__file__).resolve().parents[4]  # scraper-integratel/
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
@@ -72,7 +73,7 @@ def get_report_dir(output_dir: Optional[str | Path] = None) -> Path:
     airflow_home = os.environ.get("AIRFLOW_HOME")
     if airflow_home:
         return Path(airflow_home) / "tmp" / "neteco-reports"
-    return BASE_DIR / "tmp" / "neteco-reports"
+    return PROJECT_ROOT / "tmp" / "neteco-reports"
 
 
 def _week_params(reference_date: date) -> tuple[pd.Timestamp, pd.Timestamp, str]:
