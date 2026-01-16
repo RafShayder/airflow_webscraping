@@ -1,6 +1,18 @@
-# Airflow DAG
+<h1 align="center">
+  🔄 Scraper Integratel
+</h1>
 
-Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a Internet.
+<p align="center">
+  <strong>Stack de Apache Airflow para ETL offline en servidores Linux</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Apache%20Airflow-3.1.0-017CEE?logo=apacheairflow" alt="Airflow">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Selenium-Chrome-43B02A?logo=selenium&logoColor=white" alt="Selenium">
+</p>
 
 ---
 
