@@ -11,8 +11,8 @@ Stack de Apache Airflow para ejecutarse en servidores Linux `amd64` sin acceso a
 3. [Generar el paquete offline (Dev)](#generar-el-paquete-offline-dev)
 4. [Configuración y credenciales](#configuración-y-credenciales)
 5. [Notas de operación](#notas-de-operación)
-6. [Tablas finales por ingesta](#tablas-finales-por-ingesta)
-7. [Stored Procedures (SP) en `db/`](#stored-procedures-sp-en-db)
+6. [DAGs y Schedules](#dags-y-schedules)
+7. [Documentación adicional](#documentación-adicional)
 
 ---
 
@@ -178,140 +178,45 @@ Archivo de salida   : scraper-integratel-offline.tar.gz
 
 ## Configuración y credenciales
 
-El módulo `proyectos/energiafacilities/core/utils.py` proporciona la función `load_config()` que carga la configuración desde múltiples fuentes con la siguiente **prioridad**:
-
-1. **Airflow Variables** (mayor prioridad)
-2. **Airflow Connections** 
-3. **YAML** (`config/config_{env}.yaml`)
-4. **Variables de entorno** (usadas para reemplazo en YAML con `${VAR_NAME}`)
-
-### Prioridad de configuración
+El sistema carga configuración desde múltiples fuentes con la siguiente **prioridad**:
 
 ```
-Variables > Connection > YAML > Variables de entorno
+Airflow Variables > Airflow Connections > YAML > Variables de entorno
 ```
 
-Si tienes el mismo valor en múltiples fuentes, siempre ganará la Variable de Airflow.
+### Variables Requeridas
+
+| Variable | Descripción | Valores |
+|----------|-------------|---------|
+| `ENV_MODE` | Entorno actual | `dev`, `staging`, `prod` |
+| `LOGGING_LEVEL` | Nivel de logging | `INFO`, `DEBUG`, `WARNING`, `ERROR` |
 
 ### Airflow Connections
 
-Las Connections almacenan credenciales y configuración de conexión. Ejemplo para PostgreSQL:
+Las Connections almacenan credenciales. Formato: `{conn_id}_{env}` (ej: `postgres_siom_dev`).
 
-**Connection en Airflow (Admin → Connections):**
+**Ejemplo PostgreSQL:**
 ```
 Connection Id: postgres_siom_dev
 Connection Type: postgres
 Host: 10.226.17.162
 Port: 5425
 Schema: siom_dev
-Login: siom_dev
-Password: s10m#d3v
-Extra (JSON): {"application_name":"airflow","sslmode":"prefer"}
+Login: usuario
+Password: ********
+Extra (JSON): {"application_name":"airflow"}
 ```
 
-**En tu código:**
+### Uso en código
+
 ```python
 from energiafacilities.core.utils import load_config
 
 config = load_config(env='dev')
 postgres_config = config.get("postgress", {})
-# postgres_config ahora contiene: host, port, database, user, password, etc.
 ```
 
-### Airflow Variables
-
-Las Variables permiten sobrescribir valores específicos. Se buscan con prefijo basado en el nombre de la sección:
-
-**Variables en Airflow (Admin → Variables):**
-```
-ENV_MODE = "dev"
-LOGGING_LEVEL = "INFO"
-POSTGRES_HOST_DEV = "10.226.17.162"
-POSTGRES_PORT_DEV = "5425"
-TELEOWS_GDE_USERNAME_DEV = "usuario"  # Variables específicas para GDE
-TELEOWS_DC_USERNAME_DEV = "usuario"  # Variables específicas para Dynamic Checklist
-```
-
-### Auto-descubrimiento
-
-Para **nuevos módulos** que no estén registrados en `section_mapping`, el sistema usa **auto-descubrimiento**:
-
-1. **Connection**: Busca `{nombre_seccion}_{env}` (ej: `mi_api_dev`) o `{nombre_seccion}` (genérica)
-2. **Variables**: Busca con prefijo `{NOMBRE_SECCION}_` (ej: `MI_API_HOST_DEV`)
-
-**Ejemplo con nueva sección `mi_api_test`:**
-```python
-config = load_config(env='dev')
-mi_api_config = config.get("mi_api_test", {})
-# El sistema automáticamente busca:
-# - Connection: mi_api_test_dev
-# - Variables: MI_API_TEST_*
-```
-
-No necesitas modificar `utils.py` para agregar nuevas secciones; el auto-descubrimiento funciona automáticamente.
-
-### Configuración YAML
-
-Las configuraciones base están en `proyectos/energiafacilities/config/config_{env}.yaml`:
-
-```yaml
-postgress:
-  host: "10.226.17.162"
-  port: 5425
-  user: "${POSTGRES_USER}"
-  password: "${POSTGRES_PASS}"
-```
-
-Las variables de entorno se reemplazan automáticamente usando `${VAR_NAME}`.
-
-### Secciones mapeadas
-
-Algunas secciones tienen mapeo explícito en `section_mapping`:
-- `postgress` → Connection: `postgres_siom_{env}`, Variables: `POSTGRES_*`
-- `teleows` → Connection: `generic_autin_shared_{env}` (opcional, no recomendada), Variables: `TELEOWS_*`
-- `gde` → Connection: `generic_autin_gde_{env}`, Variables: `TELEOWS_GDE_*`
-- `dynamic_checklist` → Connection: `generic_autin_dc_{env}`, Variables: `TELEOWS_DC_*`
-- `sftp_energia_c` → Connection: `sftp_energia_{env}`, Variables: `SFTP_ENERGIA_*`
-- `sftp_energia` → Connection: `None` (usa `sftp_energia_c`), Variables: `SFTP_ENERGIA_*`
-- `sftp_daas_c` → Connection: `sftp_daas_{env}`, Variables: `SFTP_DAAS_*`
-- `sftp_base_sitios` → Connection: `sftp_base_sitios_{env}`, Variables: `SFTP_BASE_SITIOS_*`
-- `sftp_base_sitios_bitacora` → Connection: `sftp_base_sitios_bitacora_{env}`, Variables: `SFTP_BASE_SITIOS_BITACORA_*`
-- `webindra_energia` → Connection: `http_webindra_{env}`, Variables: `WEBINDRA_ENERGIA_*`
-- `clientes_libres` → Connection: `sftp_clientes_libres_{env}`, Variables: `CLIENTES_LIBRES_*`
-
-**Nota**: La connection `generic_autin_shared_{env}` es opcional y no recomendada. Los módulos GDE y Dynamic Checklist tienen sus propias connections específicas que incluyen toda la configuración necesaria.
-
-Las secciones no mapeadas (como `sftp_pago_energia`) usan auto-descubrimiento basado en convenciones.
-
-### Ejemplo completo
-
-```python
-from energiafacilities.core.utils import load_config
-
-# Carga config para entorno 'dev' (determinado automáticamente si no se especifica)
-config = load_config(env='dev')
-
-# Obtener configuración de PostgreSQL
-postgres = config.get("postgress", {})
-
-# Obtener configuración de nuevo módulo (auto-descubrimiento)
-mi_api = config.get("mi_api_test", {})
-# Busca automáticamente: mi_api_test_dev (Connection) y MI_API_TEST_* (Variables)
-```
-
-### Variables Requeridas
-
-**Variables globales que deben configurarse en Airflow:**
-- `ENV_MODE`: Define el entorno actual (`dev`, `staging`, o `prod`). **REQUERIDA**.
-- `LOGGING_LEVEL`: Nivel de logging (`INFO`, `DEBUG`, `WARNING`, `ERROR`, `CRITICAL`). **REQUERIDA**.
-
-### Notas importantes
-
-- El entorno se determina automáticamente desde `ENV_MODE` (Airflow Variable o variable de entorno), o usa `"dev"` por defecto.
-- Si una Connection o Variable no existe, el sistema continúa usando los valores del YAML sin error.
-- El campo `extra` de las Connections acepta JSON para parámetros adicionales (ej: `{"api_key": "abc123", "endpoint": "/api"}`).
-- Mantén `AIRFLOW_UID=50000` en el `.env` de la raíz del proyecto para evitar problemas de permisos en los volúmenes Docker.
-- **No es necesario crear la connection `generic_autin_shared_{env}`**. Los módulos GDE y Dynamic Checklist tienen sus propias connections específicas (`generic_autin_gde_{env}` y `generic_autin_dc_{env}`) que incluyen toda la configuración necesaria.
+Para documentación completa del sistema de configuración (secciones mapeadas, auto-descubrimiento, YAML), ver [proyectos/energiafacilities/README.md](proyectos/energiafacilities/README.md#configuración).
 
 ---
 
@@ -324,47 +229,57 @@ mi_api = config.get("mi_api_test", {})
 
 ---
 
-## Tablas finales por ingesta
+## DAGs y Schedules
 
-- Ver detalle en `docs/TABLAS_FINALES_INGESTAS.md`.
+| DAG | Descripción | Schedule | Frecuencia |
+|-----|-------------|----------|------------|
+| `DAG_neteco` | ETL NetEco (scraper + transform + load + SP) | `0 */3 * * *` | Cada 3 horas |
+| `DAG_neteco_alertas` | Reportes XLSX de alertas NetEco (faltantes y anomalías) | `None` | Manual |
+| `DAG_gde` | Scraper y carga de datos GDE | `0 */3 * * *` | Cada 3 horas |
+| `DAG_dynamic_checklist` | ETL completo para Dynamic Checklist | `0 2,5,8,11,14,17,20,23 * * *` | Cada 3h (desfasado +2h) |
+| `DAG_sftp_energia` | Recibos de energía SFTP (PD/DA) | `0 */3 * * *` | Cada 3 horas |
+| `DAG_sftp_pago_energia` | Pagos de energía SFTP | `0 */3 * * *` | Cada 3 horas |
+| `DAG_sftp_toa` | Reportes TOA SFTP | `0 */3 * * *` | Cada 3 horas |
+| `DAG_clientes_libres` | Clientes libres SFTP | `0 */3 * * *` | Cada 3 horas |
+| `DAG_base_sitios` | Base de sitios (base + bitácora) | `0 */3 * * *` | Cada 3 horas |
+| `DAG_sftp_base_suministros_activos` | Base suministros activos SFTP | `0 */3 * * *` | Cada 3 horas |
+| `DAG_webindra` | Recibos Indra web | `0 */3 * * *` | Cada 3 horas |
+| `DAG_cargaglobal` | Carga manual parametrizada | `None` | Manual |
+| `DAG_healthcheck_config` | Healthcheck de variables/connections | `None` | Manual |
+
+**Horarios de ejecución automática:**
+- **Cada 3 horas (estándar):** 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
+- **Cada 3 horas (desfasado):** 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00
 
 ---
 
-## DAGs principales
+## Documentación adicional
 
-- `dag_neteco`: ETL NetEco (scraper + transform + load + SP), schedule `0 */3 * * *`.
-- `dag_alertas_neteco`: reportes XLSX de alertas NetEco (faltantes y anomalias), manual (schedule `None`).
-- `dag_autin_gde`: scraper y carga de GDE, schedule `0 */3 * * *`.
-- `dag_autin_checklist`: Dynamic Checklist, schedule `0 2,5,8,11,14,17,20,23 * * *`.
-- `dag_recibos_sftp_energia`: recibos de energía SFTP (PD/DA), schedule `0 */3 * * *`.
-- `dag_etl_sftp_pago_energia`: pagos de energía SFTP, schedule `0 */3 * * *`.
-- `dag_etl_sftp_toa`: reportes TOA SFTP, schedule `0 */3 * * *`.
-- `dag_etl_clientes_libres`: clientes libres SFTP, schedule `0 */3 * * *`.
-- `dag_etl_base_sitios`: base de sitios (base + bitácora), schedule `0 */3 * * *`.
-- `dag_etl_sftp_base_suministros_activos`: base suministros activos, schedule `0 */3 * * *`.
-- `dag_etl_webindra`: recibos Indra, schedule `0 */3 * * *`.
-- `dag_cargaglobal`: carga manual parametrizada, manual (schedule `None`).
-- `dag_healthcheck_config`: healthcheck de variables/connections, manual (schedule `None`).
+| Documento | Descripción |
+|-----------|-------------|
+| [proyectos/energiafacilities/README.md](proyectos/energiafacilities/README.md) | Documentación del framework y módulos de extracción |
+| [docs/DOCKER_INSTALL.md](docs/DOCKER_INSTALL.md) | Guía de instalación de Docker CE |
+| [docs/TABLAS_FINALES_INGESTAS.md](docs/TABLAS_FINALES_INGESTAS.md) | Detalle de tablas RAW/ODS por ingesta |
+| [proyectos/energiafacilities/sources/reporte_neteco/README_anomalias_consumo.md](proyectos/energiafacilities/sources/reporte_neteco/README_anomalias_consumo.md) | Metodología del reporte de anomalías de consumo |
 
----
+### Stored Procedures
 
-## Stored Procedures (SP) en `db/`
+Los stored procedures están en `db/fase 3/ods/funcion/`. Definición de tablas en `db/fase 3/raw/` y `db/fase 3/ods/tabla/`.
 
-Dónde están:
-- Código de SPs: `db/fase 3/ods/funcion/`
-- Definición de tablas RAW/ODS: `db/fase 3/raw/` y `db/fase 3/ods/tabla/`
+<details>
+<summary>Ver tabla SP ↔ DAG</summary>
 
-SP ↔ DAG (tabla resumen):
+| DAG | SP(s) | Origen (RAW) | Destino (ODS) |
+|-----|-------|--------------|---------------|
+| DAG_neteco | `ods.sp_cargar_web_md_neteco` | `raw.web_md_neteco` | `ods.web_hd_neteco`, `ods.web_hd_neteco_diaria` |
+| DAG_gde | `ods.sp_cargar_gde_tasks` | `raw.web_mm_autin_infogeneral` | `ods.web_hm_autin_infogeneral` |
+| DAG_dynamic_checklist | `ods.sp_cargar_dynamic_checklist_tasks` | `raw.dynamic_checklist_tasks` | Tablas ODS checklist |
+| DAG_sftp_energia | `ods.sp_cargar_sftp_hm_consumo_suministro_da/pd` | `raw.sftp_mm_consumo_suministro_da/pd` | `ods.sftp_hm_consumo_suministro` |
+| DAG_sftp_pago_energia | `ods.sp_cargar_sftp_hm_pago_energia` | `raw.sftp_mm_pago_energia` | `ods.sftp_hm_pago_energia` |
+| DAG_sftp_toa | `ods.sp_cargar_sftp_hd_toa` | `raw.sftp_hd_toa` | `ods.sftp_hd_toa` |
+| DAG_clientes_libres | `ods.sp_cargar_sftp_hm_clientes_libres` | `raw.sftp_mm_clientes_libres` | `ods.sftp_hm_clientes_libres` |
+| DAG_base_sitios | `ods.sp_cargar_fs_hm_base_de_sitios` | `raw.fs_mm_base_de_sitios` | `ods.fs_hm_base_de_sitios` |
+| DAG_webindra | `ods.sp_cargar_web_hm_indra_energia` | `raw.web_mm_indra_energia` | `ods.web_hm_indra_energia` |
+| DAG_sftp_base_suministros_activos | (carga directa) | — | `ods.sftp_hm_base_suministros_activos` |
 
-| DAG | SP(s) | Origen (RAW) | Destino (ODS / otros) |
-| --- | --- | --- | --- |
-| dag_recibos_sftp_energia | ods.sp_cargar_sftp_hm_consumo_suministro_da / ods.sp_cargar_sftp_hm_consumo_suministro_pd | raw.sftp_mm_consumo_suministro_da / raw.sftp_mm_consumo_suministro_pd | ods.sftp_hm_consumo_suministro |
-| dag_etl_sftp_pago_energia | ods.sp_cargar_sftp_hm_pago_energia | raw.sftp_mm_pago_energia | ods.sftp_hm_pago_energia (errores en public.error_pago_energia) |
-| dag_etl_base_sitios | ods.sp_cargar_fs_hm_base_de_sitios / ods.sp_cargar_fs_hm_bitacora_base_sitios | raw.fs_mm_base_de_sitios / raw.fs_mm_bitacora_base_sitios | ods.fs_hm_base_de_sitios / ods.fs_hm_bitacora_base_sitios |
-| dag_etl_sftp_toa | ods.sp_cargar_sftp_hd_toa | raw.sftp_hd_toa | ods.sftp_hd_toa |
-| dag_etl_clientes_libres | ods.sp_cargar_sftp_hm_clientes_libres | raw.sftp_mm_clientes_libres | ods.sftp_hm_clientes_libres |
-| dag_autin_checklist | ods.sp_cargar_dynamic_checklist_tasks | raw.dynamic_checklist_tasks | Tablas ODS de checklist + validaciones extra |
-| dag_autin_gde | ods.sp_cargar_gde_tasks | raw.web_mm_autin_infogeneral | ods.web_hm_autin_infogeneral |
-| dag_etl_webindra | ods.sp_cargar_web_hm_indra_energia | raw.web_mm_indra_energia | ods.web_hm_indra_energia |
-| dag_etl_sftp_base_suministros_activos | (carga directa) | — | ods.sftp_hm_base_suministros_activos |
-| dag_neteco | ods.sp_cargar_web_md_neteco | raw.web_md_neteco | ods.web_hd_neteco / ods.web_hd_neteco_diaria |
+</details>
