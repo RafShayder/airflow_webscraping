@@ -5284,7 +5284,7 @@ BEGIN
   UPDATE ods.sftp_hm_pago_energia o
   SET
     nota_al_aprobador_char_40 = t.nota_al_aprobador_char_40,
-    concesionario             = t.concescionario,
+    concesionario             = t.concesionario,
     ruc_concesionario         = t.ruc_concesionario,
     numero_suministro         = t.numero_suministro,
     total_pagado              = t.total_pagado,
