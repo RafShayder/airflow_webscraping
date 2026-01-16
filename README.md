@@ -24,7 +24,8 @@
 4. [Configuración y credenciales](#configuración-y-credenciales)
 5. [Notas de operación](#notas-de-operación)
 6. [DAGs y Schedules](#dags-y-schedules)
-7. [Documentación adicional](#documentación-adicional)
+7. [Herramientas de desarrollo](#herramientas-de-desarrollo)
+8. [Documentación adicional](#documentación-adicional)
 
 ---
 
@@ -262,6 +263,75 @@ Para documentación completa del sistema de configuración (secciones mapeadas, 
 **Horarios de ejecución automática:**
 - **Cada 3 horas (estándar):** 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
 - **Cada 3 horas (desfasado):** 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00
+
+---
+
+## Herramientas de desarrollo
+
+### sync_sftp.py
+
+Script para sincronizar archivos locales (`dags/` y `proyectos/`) con uno o más servidores SFTP. Respeta `.gitignore` y opera en modo mirror (elimina archivos huérfanos en destino).
+
+**Requisitos:**
+```bash
+pip install paramiko
+```
+
+**Configuración:**
+
+Crear archivo `.env.sftp` en la raíz del proyecto:
+
+```bash
+# Un solo servidor
+SFTP_HOST=10.226.17.100
+SFTP_PORT=22
+SFTP_USER=usuario
+SFTP_PASS=contraseña
+SFTP_REMOTE_PATH=/daas1/analytics
+
+# Múltiples servidores
+SFTP_SERVERS=prod,staging
+SFTP_HOST_prod=10.226.17.100
+SFTP_PORT_prod=22
+SFTP_USER_prod=user_prod
+SFTP_PASS_prod=pass_prod
+SFTP_REMOTE_PATH_prod=/daas1/analytics
+
+SFTP_HOST_staging=10.226.17.101
+SFTP_PORT_staging=22
+SFTP_USER_staging=user_staging
+SFTP_PASS_staging=pass_staging
+SFTP_REMOTE_PATH_staging=/daas1/analytics-staging
+```
+
+**Uso:**
+
+```bash
+# Ver qué se sincronizaría (sin ejecutar cambios)
+python sync_sftp.py --dry-run
+
+# Sincronizar a todos los servidores
+python sync_sftp.py
+
+# Sincronizar solo a un servidor específico
+python sync_sftp.py --server prod
+
+# Sincronizar sin eliminar archivos huérfanos
+python sync_sftp.py --no-delete
+
+# Modo verbose (más detalle)
+python sync_sftp.py --verbose
+```
+
+**Opciones:**
+
+| Flag | Descripción |
+|------|-------------|
+| `--dry-run`, `-n` | Mostrar qué se haría sin ejecutar cambios |
+| `--no-delete` | No eliminar archivos huérfanos en destino |
+| `--server`, `-s` | Sincronizar solo a un servidor específico |
+| `--verbose`, `-v` | Mostrar más detalles |
+| `--env-file` | Usar archivo de configuración alternativo |
 
 ---
 
