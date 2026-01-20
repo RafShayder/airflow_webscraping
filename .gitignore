@@ -1,0 +1,194 @@
+# ===========================================
+# GITIGNORE PARA SCRAPER INTEGRATEL
+# ===========================================
+
+# Claude Code
+CLAUDE.md
+
+# Playwright MCP
+.playwright-mcp/
+
+# Benchmarks
+.benchmarks/
+
+# Archivos de configuración sensibles
+.env
+*.env
+.env.sftp
+!env.airflow.example
+!env.example
+!.env.sftp.example
+config_local.py
+proyectos/energiafacilities/config/config_*.yaml
+proyectos/energiafacilities/config/config_*.yml
+airflow_connections_import_dict.json
+airflow_connections_import_dict_dev.json
+airflow_connections_import_dict_staging.json
+airflow_connections_import_dict_prod.json
+docs/airflow_connections_*.json
+docs/connections_backup_*.json
+credenciales/
+AIRFLOW_SETUP_DEV.md
+AIRFLOW_SETUP_STAGING.md
+AIRFLOW_SETUP_PROD.md
+
+# Archivos de Chrome para Docker offline
+chrome_*.deb
+chromedriver-*.zip
+
+# Entorno virtual de Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Archivos de distribución / empaquetado
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+temp/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# celery beat schedule file
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Archivos específicos del proyecto
+*.log
+debug_*.py
+temp_*.py
+# test_*.py en raíz (pero permitir en carpetas tests/)
+/test_*.py
+!/proyectos/**/tests/test_*.py
+
+# Archivos de configuración del sistema
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archivos de IDE
+.vscode/
+.idea/
+.claude/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Archivos de Chrome/WebDriver
+chromedriver*
+geckodriver*
+*.crx
+*.xpi
+
+# Archivos de descarga del scraper
+*.pdf
+*.xlsx
+# Excepción: permitir archivos de documentación en docs/
+!docs/*.xlsx
+*.csv
+*.zip
+*.rar
+*.tar.gz
+*.tar
+
+# Logs del sistema
+logs/

@@ -1,0 +1,224 @@
+# =====================================================
+# StatsD Mapping - Configuración Optimizada
+# =====================================================
+# Mapea métricas de Airflow (StatsD) a formato Prometheus/Grafana
+#
+# Métricas incluidas:
+# 1. DAG Run Metrics (del plugin custom_metrics.py) - CRÍTICAS para dashboard
+# 2. Scheduler Health Metrics (monitoreo básico) - Salud del sistema
+# 3. Catch-all Metrics (debug) - Para descubrir métricas nuevas
+#
+# TOTAL: 10 métricas activas + 1 catch-all = 11 mappings
+# =====================================================
+
+mappings:
+  # ===================================================================
+  # MÉTRICAS DEL PLUGIN CUSTOM (custom_metrics.py)
+  # ===================================================================
+  # CRÍTICAS: Usadas directamente por el dashboard de Grafana para mostrar:
+  # - Estadísticas de éxito/error por DAG
+  # - Duraciones promedio de ejecución
+  # - Historial detallado de ejecuciones
+
+  # CONTADOR DE EJECUCIONES EXITOSAS POR DAG
+  # - Significado: Número total de veces que cada DAG se ejecutó exitosamente
+  # - Uso en dashboard: rate(airflow_dagrun_execution_total{state="success"}) para tasa de éxito
+  # - Plugin emite: Stats.incr(f"dagrun.execution.success.{dag_id}")
+  - match: "^airflow\\.dagrun\\.execution\\.success\\.(.+)$"
+    name: "airflow_dagrun_execution_total"
+    match_type: regex
+    labels:
+      dag_id: "$1"
+      state: "success"
+    help: "Contador acumulado de ejecuciones exitosas por DAG"
+
+  # CONTADOR DE EJECUCIONES FALLIDAS POR DAG
+  # - Significado: Número total de veces que cada DAG falló en su ejecución
+  # - Uso en dashboard: rate(airflow_dagrun_execution_total{state="failed"}) para tasa de error
+  # - Plugin emite: Stats.incr(f"dagrun.execution.failed.{dag_id}")
+  - match: "^airflow\\.dagrun\\.execution\\.failed\\.(.+)$"
+    name: "airflow_dagrun_execution_total"
+    match_type: regex
+    labels:
+      dag_id: "$1"
+      state: "failed"
+    help: "Contador acumulado de ejecuciones fallidas por DAG"
+
+  # DURACIÓN DE EJECUCIONES EXITOSAS (HISTOGRAMA)
+  # - Significado: Tiempo total que tardó cada DAG en ejecutarse exitosamente
+  # - Uso en dashboard: avg(airflow_dagrun_duration_seconds) para duración promedio
+  # - Buckets: 10s, 30s, 1m, 2m, 5m, 10m, 30m, 1h, 2h, 4h, 8h
+  # - Plugin emite: Stats.timing(f"dagrun.duration.success.{dag_id}", duration)
+  - match: "^airflow\\.dagrun\\.duration\\.success\\.(.+)$"
+    name: "airflow_dagrun_duration_seconds"
+    match_type: regex
+    timer_type: histogram
+    histogram_options:
+      buckets: [10, 30, 60, 120, 300, 600, 1800, 3600, 7200, 14400, 28800]
+    labels:
+      dag_id: "$1"
+      state: "success"
+    help: "Duración de ejecuciones exitosas de DAGs en segundos (histograma)"
+
+  # DURACIÓN DE EJECUCIONES FALLIDAS (HISTOGRAMA)
+  # - Significado: Tiempo que tardó cada DAG antes de fallar
+  # - Uso en dashboard: avg(airflow_dagrun_duration_seconds{state="failed"}) para fallos promedio
+  # - Buckets: 10s, 30s, 1m, 2m, 5m, 10m, 30m, 1h, 2h, 4h, 8h
+  # - Plugin emite: Stats.timing(f"dagrun.duration.failed.{dag_id}", duration)
+  - match: "^airflow\\.dagrun\\.duration\\.failed\\.(.+)$"
+    name: "airflow_dagrun_duration_seconds"
+    match_type: regex
+    timer_type: histogram
+    histogram_options:
+      buckets: [10, 30, 60, 120, 300, 600, 1800, 3600, 7200, 14400, 28800]
+    labels:
+      dag_id: "$1"
+      state: "failed"
+    help: "Duración de ejecuciones fallidas de DAGs en segundos (histograma)"
+
+  # INFORMACIÓN DETALLADA DE EJECUCIONES (PARA HISTORIAL)
+  # - Significado: Registro de cada ejecución individual con su estado final
+  # - Uso en dashboard: count(airflow_dagrun_info{state="success"}) para total de éxitos
+  # - Permite: Historial completo, filtrado por estado, análisis de patrones
+  # - Plugin emite: Stats.gauge(f"dagrun.info.{dag_id}.{run_id_hash}.{state}", 1)
+  - match: "^airflow\\.dagrun\\.info\\.([^.]+)\\.([^.]+)\\.([^.]+)$"
+    name: "airflow_dagrun_info"
+    match_type: regex
+    labels:
+      dag_id: "$1"
+      run_id_hash: "$2"
+      state: "$3"
+    help: "Registro detallado de cada ejecución individual de DAG por estado"
+
+  # TIMESTAMP DE INICIO DE EJECUCIÓN
+  # - Significado: Momento exacto cuando comenzó cada ejecución de DAG
+  # - Uso en dashboard: airflow_dagrun_end_timestamp - airflow_dagrun_start_timestamp
+  # - Permite: Cálculo preciso de duración, análisis de tiempos de espera
+  # - Plugin emite: Stats.gauge(f"dagrun.start_timestamp.{dag_id}.{run_id_hash}", timestamp)
+  - match: "^airflow\\.dagrun\\.start_timestamp\\.([^.]+)\\.([^.]+)$"
+    name: "airflow_dagrun_start_timestamp"
+    match_type: regex
+    labels:
+      dag_id: "$1"
+      run_id_hash: "$2"
+    help: "Timestamp UNIX de inicio de cada ejecución de DAG"
+
+  # TIMESTAMP DE FINALIZACIÓN DE EJECUCIÓN
+  # - Significado: Momento exacto cuando terminó cada ejecución de DAG
+  # - Uso en dashboard: Filtrado temporal, cálculo de duración total
+  # - Permite: Análisis de rendimiento por periodos, tendencias temporales
+  # - Plugin emite: Stats.gauge(f"dagrun.end_timestamp.{dag_id}.{run_id_hash}", timestamp)
+  - match: "^airflow\\.dagrun\\.end_timestamp\\.([^.]+)\\.([^.]+)$"
+    name: "airflow_dagrun_end_timestamp"
+    match_type: regex
+    labels:
+      dag_id: "$1"
+      run_id_hash: "$2"
+    help: "Timestamp UNIX de finalización de cada ejecución de DAG"
+
+  # ===================================================================
+  # MÉTRICAS DE SCHEDULER (Salud del Sistema Airflow)
+  # ===================================================================
+  # Monitorean la salud interna del scheduler de Airflow.
+  # Útiles para detectar cuellos de botella y problemas de rendimiento.
+
+  # TAREAS EN EJECUCIÓN ACTUALMENTE
+  # - Significado: Número de tareas que el scheduler está ejecutando en este momento
+  # - Uso: Detectar sobrecarga del sistema (valores persistentemente altos)
+  # - Umbral típico: Debe fluctuar según la carga de trabajo
+  - match: "airflow.scheduler.tasks.running"
+    name: "airflow_scheduler_tasks_running"
+    labels:
+      job: "airflow"
+    help: "Número de tareas actualmente en ejecución por el scheduler"
+
+  # TAREAS ESPERANDO RECURSOS (STARVING)
+  # - Significado: Tareas listas pero esperando slots/executor disponibles
+  # - Uso: Indica cuellos de botella en capacidad de ejecución
+  # - Umbral típico: > 0 indica posible falta de recursos
+  - match: "airflow.scheduler.tasks.starving"
+    name: "airflow_scheduler_tasks_starving"
+    labels:
+      job: "airflow"
+    help: "Número de tareas esperando recursos del sistema (slots/executor)"
+
+  # TAREAS LISTAS PARA EJECUTAR
+  # - Significado: Tareas que cumplen todas las condiciones y están en cola
+  # - Uso: Medir backlog de trabajo pendiente
+  # - Umbral típico: Aumento constante indica problemas de capacidad
+  - match: "airflow.scheduler.tasks.executable"
+    name: "airflow_scheduler_tasks_executable"
+    labels:
+      job: "airflow"
+    help: "Número de tareas listas para ejecutar (cola de ejecución)"
+
+  # DURACIÓN DE LA SECCIÓN CRÍTICA
+  # - Significado: Tiempo que el scheduler pasa en operaciones críticas (DB locks)
+  # - Uso: Detectar problemas de rendimiento en base de datos
+  # - Umbral típico: > 30s indica problemas de concurrencia
+  - match: "airflow.scheduler.critical_section_duration"
+    name: "airflow_scheduler_critical_section_duration_seconds"
+    labels:
+      job: "airflow"
+    help: "Duración de operaciones críticas del scheduler (locks, DB access)"
+
+  # DURACIÓN DEL LOOP PRINCIPAL DEL SCHEDULER
+  # - Significado: Tiempo total de cada ciclo completo del scheduler
+  # - Uso: Medir eficiencia general del scheduler
+  # - Umbral típico: Debe ser consistente según configuración
+  - match: "airflow.scheduler.scheduler_loop_duration"
+    name: "airflow_scheduler_loop_duration_seconds"
+    labels:
+      job: "airflow"
+    help: "Duración completa de cada ciclo del loop principal del scheduler"
+
+  # HEARTBEAT DEL SCHEDULER
+  # - Significado: Indicador de vida del proceso scheduler
+  # - Uso: Monitorear disponibilidad del servicio scheduler
+  # - Umbral típico: Debe incrementarse regularmente
+  - match: "airflow.scheduler.heartbeat"
+    name: "airflow_scheduler_heartbeat"
+    labels:
+      job: "airflow"
+    help: "Contador de heartbeat - indica que el scheduler está vivo y funcionando"
+
+  # TAREAS HUÉRFANAS LIMPIADAS
+  # - Significado: Tareas abandonadas que fueron limpiadas por el scheduler
+  # - Uso: Detectar problemas de estabilidad en workers/ejecutores
+  # - Umbral típico: Aumento indica inestabilidad en el cluster
+  - match: "airflow.scheduler.orphaned_tasks.cleared"
+    name: "airflow_scheduler_orphaned_tasks_cleared_total"
+    labels:
+      job: "airflow"
+    help: "Contador de tareas huérfanas que fueron limpiadas del sistema"
+
+  # TAREAS HUÉRFANAS ADOPTADAS
+  # - Significado: Tareas abandonadas que fueron reasignadas a otro worker
+  # - Uso: Monitorear recuperación automática de fallos
+  # - Umbral típico: Aumento indica recuperación de fallos en workers
+  - match: "airflow.scheduler.orphaned_tasks.adopted"
+    name: "airflow_scheduler_orphaned_tasks_adopted_total"
+    labels:
+      job: "airflow"
+    help: "Contador de tareas huérfanas que fueron adoptadas por otros workers"
+
+
+  # ===================================================================
+  # CATCH-ALL: CAPTURA DE MÉTRICAS NO MAPEADAS (DEBUG)
+  # ===================================================================
+  # PROPÓSITO: Capturar cualquier métrica de Airflow que no tenga mapping específico
+  # - Útil para: Descubrir nuevas métricas disponibles en versiones futuras
+  # - Funcionamiento: Cualquier métrica "airflow.*" que no coincida arriba llega aquí
+  # - Beneficio: No perder métricas nuevas, permite análisis exploratorio
+  # - Advertencia: Métricas aquí no tienen nombres optimizados para dashboards
+  #
+  # EJEMPLOS DE USO:
+  # - Monitorear métricas nuevas en upgrades de Airflow
+  # - Debug de métricas faltantes en dashboards
+  # - Descubrimiento de métricas útiles no consideradas inicialmente
+
+  - match: "airflow.*"
+    name: "airflow_unmatched_metric"
+    labels:
+      job: "airflow"
+    help: "Métricas de Airflow que no tienen un mapping específico definido"

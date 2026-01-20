@@ -1,0 +1,35 @@
+CREATE TABLE raw.ge_limp_interna_tk (
+    task_id varchar(255) NOT NULL,
+    site_id varchar(255) NOT NULL,
+    sub_wo_id varchar(255) NOT NULL,
+    tipo_de_tanque text NULL,
+    tipo_de_combustible text NULL,
+    capacidad_tanque_gal text NULL,
+    nivel_actual_tanque_gal text NULL,
+    consum_grupo_electr_gal_hora text NULL,
+    codigo_unico_tanque text NULL,
+    estado_del_tanque text NULL,
+    forma_de_tanque text NULL,
+    ancho_tanque_rectangular_cm text NULL,
+    largo_tanque_rectangular_cm text NULL,
+    altura_tanque_rectan_refere_es text NULL,
+    diametro_tanque_cilindrico_cm text NULL,
+    largo_tanque_cilindrico_cm text NULL,
+    estado_de_las_tuberias text NULL,
+    tiene_prefil_combus_tanque text NULL,
+    fecha_ultimo_cambio_prefil text NULL,
+    tipo_de_bomba text NULL,
+    tiene_poza_antiderrame text NULL,
+    tiene_sensor_de_nivel_o_boya text NULL,
+    nivel_inicia_combus_gal text NULL,
+    consum_grupo_electr_gal_hora_1 text NULL,
+    autono_nivel_inicia_hrs text NULL,
+    nivel_final_de_combustible_gal text NULL,
+    autonomia_con_nivel_final_hrs text NULL,
+    prueba_alarma_bajo_nivel text NULL,
+    observaciones text NULL,
+    fechacarga timestamp(0) NOT NULL
+);
+
+CREATE INDEX raw_ge_limp_interna_tk_fechacarga_idx
+ON raw.ge_limp_interna_tk USING btree (fechacarga);

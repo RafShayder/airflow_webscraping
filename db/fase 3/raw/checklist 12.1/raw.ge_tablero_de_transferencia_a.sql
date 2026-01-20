@@ -1,0 +1,35 @@
+CREATE TABLE raw.ge_tablero_de_transferencia_a (
+    task_id varchar(255) NOT NULL,
+    site_id varchar(255) NOT NULL,
+    sub_wo_id varchar(255) NOT NULL,
+    codigo_unico_de_tta text NULL,
+    tipo_de_tablero text NULL,
+    marca_de_tta text NULL,
+    modelo_de_tta text NULL,
+    serie_de_tta text NULL,
+    capacidad_de_tta_amp text NULL,
+    operacion_de_tta text NULL,
+    estado_de_tta text NULL,
+    tta_tiene_controlador text NULL,
+    marca_de_controlador text NULL,
+    modelo_de_controlador text NULL,
+    tta_esta_rotulado text NULL,
+    voltaje_vrs_v text NULL,
+    voltaje_vst_v text NULL,
+    voltaje_vrt_v text NULL,
+    voltaje_vrn_v text NULL,
+    voltaje_vsn_v text NULL,
+    voltaje_vtn_v text NULL,
+    intensidad_ir_a text NULL,
+    intensidad_is_a text NULL,
+    intensidad_it_a text NULL,
+    intensneutro_in_a text NULL,
+    frecuencia_hz text NULL,
+    tta_etiquetado_cod_unico text NULL,
+    tempor_partid_tranfe_parada text NULL,
+    observacion text NULL,
+    fechacarga timestamp(0) NOT NULL
+);
+
+CREATE INDEX raw_ge_tablero_de_transferencia_a_fechacarga_idx
+ON raw.ge_tablero_de_transferencia_a USING btree (fechacarga);

@@ -1,0 +1,33 @@
+{
+  "ods.sftp_hm_base_suministros_activos": {
+    "cod_unico_ing": "COD UNICO ING",
+    "id_sum": "ID SUM",
+    "suministro_actual": "SUMINISTRO ACTUAL",
+    "servicios": "SERVICIOS",
+    "tarifa": "TARIFA",
+    "local": "LOCAL",
+    "direccion": "DIRECCION",
+    "distribuidor": "DISTRIBUIDOR",
+    "proveedor": "PROVEEDOR",
+    "sistema_electrico": "SISTEMA ELECTRICO",
+    "alimentador": "ALIMENTADOR",
+    "tipo_conexion": "TIPO CONEXION",
+    "potencia_contratada": "POTENCIA CONTRATADA",
+    "estado_suministro": "ESTADO SUMINISTRO",
+    "departamento": "DEPARTAMENTO",
+    "provincia": "PROVINCIA",
+    "distrito": "DISTRITO",
+    "tipo_distribuidor": "TIPO DISTRIBUIDOR",
+    "motivo_desactivacion": "MOTIVO DESACTIVACION",
+    "grupo_serv": "GRUPO SERV",
+    "region": "REGION",
+    "latitud": "LATITUD",
+    "longitud": "LONGITUD",
+    "ceco": "CECO",
+    "tipo_tercero": "TIPO TERCERO",
+    "flm_actual": "FLM ACTUAL",
+    "grupo_debito": "GRUPO DEBITO",
+    "ipt": "IPT"
+  }
+}
+

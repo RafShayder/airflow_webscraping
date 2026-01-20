@@ -1,0 +1,65 @@
+# ==============================================
+# SCRAPER INTEGRATEL - DEPENDENCIAS COMPLETAS
+# ==============================================
+
+# === AIRFLOW PROVIDERS ===
+apache-airflow-providers-celery
+apache-airflow-providers-redis
+apache-airflow-providers-postgres
+
+# === OBSERVABILIDAD ===
+datadog==0.49.1
+airflow-exporter>=1.6.0
+
+# === SCRAPING & WEB AUTOMATION ===
+selenium==4.25.0
+webdriver-manager==4.0.2
+
+# === DATA PROCESSING & ANALYSIS ===
+pandas==2.3.3
+numpy==2.3.3
+openpyxl==3.1.5
+
+# === DATABASE CONNECTIVITY ===
+psycopg2-binary==2.9.11
+# Forzar SQLAlchemy 1.4.x para compatibilidad con Flask-SQLAlchemy
+SQLAlchemy>=1.4.0,<2.0.0
+Flask-SQLAlchemy>=2.5.0,<3.0.0
+
+# === CONFIGURATION & ENVIRONMENT ===
+python-dotenv==1.1.1
+PyYAML==6.0.3
+envyaml==1.10.211231
+
+# === SECURITY & CONNECTIONS ===
+# Usar versiones compatibles con Airflow providers
+# paramiko==3.5.0 (incluido en Airflow)
+# bcrypt (incluido en Airflow)
+# cryptography (incluido en Airflow)  
+# PyNaCl (incluido en Airflow)
+
+# === HTTP & NETWORKING ===
+# requests (incluido en Airflow con versión correcta)
+
+# === TESTING ===
+pytest==8.3.5
+pytest-cov==6.0.0
+
+# === UTILITIES & AUTOMATION ===
+invoke==2.2.1
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+six==1.17.0
+typing_extensions==4.15.0
+
+# === SYSTEM DEPENDENCIES ===
+# cffi (incluido en Airflow)
+# pycparser (incluido en Airflow)
+# greenlet (incluido en Airflow)
+et_xmlfile==2.0.0
+
+# ==============================================
+# NOTA: apache-airflow==3.1.0 ya está incluido
+# en la imagen base de Docker
+# ==============================================
