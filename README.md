@@ -17,6 +17,12 @@
 
 ---
 
+## Arquitectura
+
+![Arquitectura del sistema](docs/arquitectura.png)
+
+---
+
 ## Índice
 
 1. [Instalación de Docker CE (Requisito previo)](#instalación-de-docker-ce-requisito-previo)
