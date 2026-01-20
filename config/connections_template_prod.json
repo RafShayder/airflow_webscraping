@@ -1,0 +1,132 @@
+{
+  "generic_autin_dc_prod": {
+    "conn_type": "generic",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": null,
+    "port": null,
+    "schema": null,
+    "extra": "{\"proxy\": \"telefonica01.gp.inet:8080\", \"download_path\": \"tmp/teleows\", \"local_dir\": \"tmp/teleows\", \"specific_filename\": \"DynamicChecklist_SubPM.xlsx\", \"headless\": true, \"options_to_select\": [\"CM\", \"OPM\"], \"max_iframe_attempts\": 60, \"max_status_attempts\": 60, \"chunk_size\": 10000, \"date_mode\": 1, \"last_n_days\": 60, \"load_mode\": \"append\", \"schema\": \"raw\", \"table\": \"dynamic_checklist_tasks\", \"sp_carga\": \"ods.sp_cargar_dynamic_checklist_tasks\"}"
+  },
+  "generic_autin_gde_prod": {
+    "conn_type": "generic",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": null,
+    "port": null,
+    "schema": null,
+    "extra": "{\"proxy\": \"telefonica01.gp.inet:8080\", \"download_path\": \"tmp/teleows\", \"local_dir\": \"tmp/teleows\", \"specific_filename\": \"Console_GDE_export.xlsx\", \"headless\": true, \"chunk_size\": 10000, \"date_mode\": 1, \"last_n_days\": 45, \"if_exists\": \"replace\", \"schema\": \"raw\", \"table\": \"gde_tasks\", \"sp_carga\": \"ods.sp_cargar_gde_tasks\", \"options_to_select\": \"CM,OPM\"}"
+  },
+  "http_webindra_prod": {
+    "conn_type": "http",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": "https://recibosttr.com/sistema",
+    "port": null,
+    "schema": null,
+    "extra": "{\"headers\": {\"User-Agent\": \"Mozilla/5.0\", \"Accept\": \"*/*\", \"Connection\": \"keep-alive\"}, \"proxy\": \"telefonica01.gp.inet:8080\", \"timeout\": 120, \"export_template\": \"/sisReportes/exportarRecibosSpoutConsumo/{start}/{end}\", \"login_path\": \"/\", \"period_months\": 2, \"max_retries\": 3, \"specific_filename\": \"recibos_energia_indra.xlsx\", \"schema\": \"raw\", \"table\": \"web_mm_indra_energia\", \"sp_carga\": \"ods.sp_cargar_web_hm_indra_energia\", \"local_dir\": \"tmp/web_indra\"}"
+  },
+  "neteco_prod": {
+    "conn_type": "generic",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": null,
+    "port": null,
+    "schema": null,
+    "extra": "{\"local_dir\": \"tmp/neteco\", \"specific_filename\": \"neteco_diario.zip\", \"export_overwrite_files\": true, \"headless\": true, \"local_destination_dir\": \"tmp/neteco/processed/neteco_diario.xlsx\", \"date_mode\": \"manual\", \"start_time\": \"2025-12-18 00:00:00\", \"end_time\": \"2025-12-18 00:20:00\", \"schema\": \"raw\", \"table\": \"web_md_neteco\", \"sp_carga\": \"ods.sp_cargar_web_md_neteco\", \"download_button_wait_seconds\": \"10800\", \"download_file_timeout_seconds\": \"1200\"}"
+  },
+  "postgres_siom_prod": {
+    "conn_type": "postgres",
+    "description": "*VERIFICAR* - Credenciales deben configurarse segun ambiente PROD",
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": "10.226.17.146",
+    "port": 5425,
+    "schema": "siom_DB",
+    "extra": "{\"application_name\": \"airflow\", \"sslmode\": \"prefer\"}"
+  },
+  "sftp_base_sitios_bitacora_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_daas_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"default_remote_dir\": \"/daas/prod/energy-facilities/base-sitios/input\", \"default_local_dir\": \"tmp/sftp_base_sitios\", \"specific_filename\": \"BASE_SITIOS\", \"schema\": \"RAW\", \"table\": \"fs_mm_bitacora_base_sitios\", \"sp_carga\": \"ods.sp_cargar_fs_hm_bitacora_base_sitios\", \"if_exists\": \"replace\"}"
+  },
+  "sftp_base_sitios_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_daas_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"default_remote_dir\": \"/daas/prod/energy-facilities/base-sitios/input\", \"default_local_dir\": \"tmp/sftp_base_sitios\", \"specific_filename\": \"BASE_SITIOS\", \"schema\": \"raw\", \"table\": \"fs_mm_base_de_sitios\", \"sp_carga\": \"ods.sp_cargar_fs_hm_base_de_sitios\", \"if_exists\": \"replace\"}"
+  },
+  "sftp_base_suministros_activos_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_energia_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"remote_dir\": \"/daas/prod/energy-facilities/base-suministros-activos/input\", \"local_dir\": \"tmp/sftp_base_suministros_activos\", \"schema\": \"ods\", \"table\": \"sftp_hm_base_suministros_activos\", \"if_exists\": \"replace\", \"specific_filename\": \"base_suministros_activos\", \"sheet_name\": 0, \"page_size\": 1000}"
+  },
+  "sftp_clientes_libres_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_daas_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"default_remote_dir\": \"/daas/prod/energy-facilities/recibos-manuales/input/\", \"default_local_dir\": \"tmp/sftp_clientes_libres\", \"processed_destination\": \"tmp/sftp_clientes_libres/processed/clientes_libres.xlsx\", \"specific_filename\": \"F-TELEFONICA\", \"schema\": \"raw\", \"table\": \"sftp_mm_clientes_libres\", \"sp_carga\": \"ods.sp_cargar_sftp_hm_clientes_libres\", \"if_exists\": \"replace\"}"
+  },
+  "sftp_daas_prod": {
+    "conn_type": "sftp",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": "10.226.194.247",
+    "port": 22,
+    "schema": null,
+    "extra": ""
+  },
+  "sftp_energia_prod": {
+    "conn_type": "sftp",
+    "description": null,
+    "login": "*SOLO LLENAR AQUI*",
+    "password": "*SOLO LLENAR AQUI*",
+    "host": "10.252.206.132",
+    "port": 22,
+    "schema": null,
+    "extra": "{\"default_remote_dir\": \"/REPORTES_CONSUMOS\", \"default_local_dir\": \"tmp/sftp_energia\", \"schema\": \"RAW\", \"table_PD\": \"SFTP_MM_CONSUMO_SUMINISTRO_PD\", \"table_DA\": \"SFTP_MM_CONSUMO_SUMINISTRO_DA\", \"sp_carga_PD\": \"ods.sp_cargar_sftp_hm_consumo_suministro_pd\", \"sp_carga_DA\": \"ods.sp_cargar_sftp_hm_consumo_suministro_da\", \"specific_filename\": \"reporte-consumo-energia-PD\", \"specific_filename2\": \"reporte-consumo-energia-DA\", \"if_exists\": \"replace\"}"
+  },
+  "sftp_pago_energia_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_energia_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"remote_dir\": \"/PAGOS_ENERGY_ANALYTICS\", \"local_dir\": \"tmp/sftp_pago_energia\", \"processed_dir\": \"/PAGOS_ENERGY_ANALYTICS/historico\", \"error_dir\": \"/PAGOS_ENERGY_ANALYTICS/error\", \"default_sheet\": \"LIQ. Recibos de Luz\", \"fila_inicial\": 6, \"subsetna\": \"RECIBO\", \"nombre_salida_local\": \"Consolidado_PagoEnergia.xlsx\", \"schema\": \"raw\", \"table\": \"sftp_mm_pago_energia\", \"if_exists\": \"replace\", \"sp_carga\": \"ods.sp_cargar_sftp_hm_pago_energia\", \"errorconfig\": {\"schema\": \"public\", \"table\": \"error_pago_energia_ultimo_lote\", \"limmit\": 100, \"remote_dir\": \"/daas/prod/energy-facilities/errors\"}}"
+  },
+  "sftp_toa_prod": {
+    "conn_type": "sftp",
+    "description": "Depende de: sftp_daas_prod",
+    "login": "",
+    "password": "",
+    "host": "",
+    "port": null,
+    "schema": null,
+    "extra": "{\"default_remote_dir\": \"/daas/prod/energy-facilities/toa/input\", \"default_local_dir\": \"tmp/sftp_toa\", \"specific_filename\": \"TOA\", \"schema\": \"raw\", \"table\": \"sftp_hd_toa\", \"if_exists\": \"replace\", \"sheet_name\": 0, \"page_size\": 1000, \"sp_carga\": \"ods.sp_cargar_sftp_hd_toa\"}"
+  }
+}
