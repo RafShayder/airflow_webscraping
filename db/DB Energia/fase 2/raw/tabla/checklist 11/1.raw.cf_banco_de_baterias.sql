@@ -1,0 +1,40 @@
+-- ============================================================================
+-- 1) CF - BANCO DE BATERIAS
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS raw.cf_banco_de_baterias (
+    task_id                            VARCHAR(255) NOT NULL,
+    site_id                            VARCHAR(255) NOT NULL,
+    sub_wo_id                          VARCHAR(255) NOT NULL,
+
+    tipo_de_banco_de_baterias          TEXT,
+    servicio_que_respaldan             TEXT,
+    cod_unico_eq_bat                   TEXT,
+    cod_unico_cuadro_fza_rel_bb        TEXT,
+    nom_cuadro_fza_asoc_banco_bat      TEXT,
+    nom_sala_ubic_cuadro_fza           TEXT,
+    numero_de_banco                    TEXT,
+    cantidad_de_celdas                 TEXT,
+    marca                              TEXT,
+    modelo                             TEXT,
+    estado_de_banco_de_baterias        TEXT,
+    tiene_bornes_levantados            TEXT,
+    tiene_alguna_celda_rajada          TEXT,
+    capacidad_ah                       TEXT,
+    fecha_de_instalacion               TEXT,
+    cantidad_de_cables_por_polo        TEXT,
+    calibre_de_cable                   TEXT,
+    temperatura_numc                   TEXT,
+    engrase                            TEXT,
+    ajustes_reapriete_general          TEXT,
+    limp_general_bornes_elem           TEXT,
+    voltaje_de_flotacion               TEXT,
+    corriente_de_recarga               TEXT,
+    estado_bat_elem_anexos_puentes     TEXT,
+    estado_bornes_cada_bat_celda       TEXT,
+    estado_puentes_entre_cada_bat      TEXT,
+    observ_que_bat_celdas_no           TEXT,
+    medicion_de_impedancia             TEXT,
+    autono_prueba_descar_contro        TEXT,
+    observacion                        TEXT,
+    fechacarga                         TIMESTAMP(0) NOT NULL
+);
