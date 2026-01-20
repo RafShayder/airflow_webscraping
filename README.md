@@ -133,14 +133,20 @@ Esto genera `scraper-integratel-offline.tar.gz` con todas las imágenes Docker n
 
 ## Configuración y credenciales
 
-Para la guía completa de configuración ver **[docs/CONFIGURACION.md](docs/CONFIGURACION.md)**.
+### Variables obligatorias
 
-**Resumen:** El sistema carga configuración con prioridad: `Airflow Variables > Airflow Connections > YAML > Variables de entorno`
+Estas variables **deben configurarse** en Airflow antes de ejecutar cualquier DAG:
 
 | Variable | Descripción | Valores |
 |----------|-------------|---------|
 | `ENV_MODE` | Entorno actual | `dev`, `staging`, `prod` |
 | `LOGGING_LEVEL` | Nivel de logging | `INFO`, `DEBUG`, `WARNING`, `ERROR` |
+
+Para configurarlas en Airflow UI: **Admin > Variables > +**
+
+El sistema carga configuración con prioridad: `Airflow Variables > Airflow Connections > YAML > Variables de entorno`
+
+Para más detalles ver **[docs/CONFIGURACION.md](docs/CONFIGURACION.md)**.
 
 ---
 
