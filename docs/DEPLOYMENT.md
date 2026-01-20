@@ -13,6 +13,30 @@ Este paso se realiza en una máquina de desarrollo con acceso a Internet para cr
   - `chrome_140_amd64.deb`
   - `chromedriver-linux64.zip`
 
+### Obtener binarios de Chrome y Chromedriver
+
+1. **Descargar Google Chrome 140:**
+   ```bash
+   curl -O http://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_140.0.7339.185-1_amd64.deb
+   ```
+
+2. **Renombrar el archivo:**
+   ```bash
+   mv google-chrome-stable_140.0.7339.185-1_amd64.deb chrome_140_amd64.deb
+   ```
+
+3. **Descargar Chromedriver 140:**
+   - Ir a https://googlechromelabs.github.io/chrome-for-testing/
+   - Buscar la versión `140.0.7339.185` (o la más cercana compatible)
+   - Descargar `chromedriver-linux64.zip` para la plataforma `linux64`
+
+4. **Verificar archivos:**
+   ```bash
+   ls -la chrome_140_amd64.deb chromedriver-linux64.zip
+   ```
+
+> **Nota:** Los nombres de archivo deben ser exactamente `chrome_140_amd64.deb` y `chromedriver-linux64.zip` para que el script de generación los reconozca.
+
 ---
 
 ## Comando
