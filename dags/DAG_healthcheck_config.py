@@ -7,24 +7,21 @@ DAG de healthcheck para validar:
 Ejecución: manual (sin schedule).
 """
 
+import json
 import logging
 import os
-import json
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
-from airflow.sdk import Variable  # type: ignore
-
-from airflow.sdk.bases.hook import BaseHook
-from airflow.exceptions import AirflowNotFoundException
-
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.providers.http.hooks.http import HttpHook
 import paramiko
 import requests
-
+from airflow import DAG
+from airflow.exceptions import AirflowNotFoundException
+from airflow.providers.http.hooks.http import HttpHook
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
+from airflow.sdk import Variable  # type: ignore
+from airflow.sdk.bases.hook import BaseHook
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +41,7 @@ DEFAULT_ARGS = {
 # Funciones para construir listas dinámicas según entorno
 # ---------------------------------------------------------------------------
 
+
 def get_env_mode() -> str:
     """Obtiene el entorno actual desde variable de entorno o Airflow Variable."""
     try:
@@ -62,13 +60,13 @@ def get_env_mode() -> str:
 def get_required_variables(env: str) -> List[str]:
     """Construye la lista de variables requeridas según el entorno."""
     env_upper = env.upper()
-    
+
     # Variables globales (sin sufijo de entorno)
     base_vars = [
         "ENV_MODE",
         "LOGGING_LEVEL",
     ]
-    
+
     # Variables específicas por entorno
     env_vars = [
         # PostgreSQL
@@ -79,13 +77,15 @@ def get_required_variables(env: str) -> List[str]:
         # SFTP DAAS
         f"SFTP_HOST_DAAS_{env_upper}",
     ]
-    
+
     # Variable de password con nombre especial para PROD
     if env == "prod":
-        env_vars.append("POSTGRES_PASS_PRD")  # Nota: PROD usa "PASS_PRD" no "PASSWORD_PROD"
+        env_vars.append(
+            "POSTGRES_PASS_PRD"
+        )  # Nota: PROD usa "PASS_PRD" no "PASSWORD_PROD"
     else:
         env_vars.append(f"POSTGRES_PASSWORD_{env_upper}")
-    
+
     return base_vars + env_vars
 
 
@@ -119,12 +119,12 @@ def check_variables() -> Dict[str, Any]:
     # Obtener entorno y construir lista dinámica
     env = get_env_mode()
     required_vars = get_required_variables(env)
-    
+
     logger.info("=" * 80)
     logger.info("VALIDANDO VARIABLES PARA ENTORNO: %s", env.upper())
     logger.info("Variables a validar: %s", required_vars)
     logger.info("=" * 80)
-    
+
     results: Dict[str, Dict[str, Any]] = {}
 
     for key in required_vars:
@@ -168,12 +168,12 @@ def check_connections_exist() -> Dict[str, Any]:
     # Obtener entorno y construir lista dinámica
     env = get_env_mode()
     required_conns = get_required_connections(env)
-    
+
     logger.info("=" * 80)
     logger.info("VALIDANDO CONNECTIONS PARA ENTORNO: %s", env.upper())
     logger.info("Connections a validar: %s", required_conns)
     logger.info("=" * 80)
-    
+
     results: Dict[str, Dict[str, Any]] = {}
 
     for conn_id in required_conns:
@@ -181,7 +181,10 @@ def check_connections_exist() -> Dict[str, Any]:
             BaseHook.get_connection(conn_id)
             results[conn_id] = {"status": "OK", "message": "Connection encontrada"}
         except AirflowNotFoundException:
-            results[conn_id] = {"status": "MISSING", "message": "Connection no encontrada"}
+            results[conn_id] = {
+                "status": "MISSING",
+                "message": "Connection no encontrada",
+            }
         except Exception as exc:
             results[conn_id] = {
                 "status": "ERROR",
@@ -229,54 +232,75 @@ def _test_postgres_connection(conn_id: str) -> Dict[str, Any]:
 
 
 def _test_sftp_connection(conn_id: str, env: str) -> Dict[str, Any]:
-    """Prueba conectividad a SFTP usando paramiko directamente (igual que base_stractor.py)."""
+    """Prueba conectividad a SFTP usando load_config() (igual que los stractor.py reales)."""
     transport = None
     sftp = None
     try:
-        logger.info("🔍 Probando conexión SFTP: %s (usando paramiko directamente)", conn_id)
-        
-        # Obtener la connection de Airflow
-        conn = BaseHook.get_connection(conn_id)
-        
-        # Extraer parámetros de conexión
-        host = conn.host
-        port = conn.port or 22
-        username = conn.login
-        password = conn.password
+        # Importar load_config para usar el mismo flujo que el código real
+        from energiafacilities.core.utils import load_config
 
-        # Fallback a sftp_daas_{env} si faltan credenciales en conexiones DAAS específicas
-        fallback_conn_ids = {"sftp_base_sitios", "sftp_base_sitios_bitacora", "sftp_clientes_libres", "sftp_toa"}
-        conn_base = conn_id[:-len(f"_{env}")] if conn_id.endswith(f"_{env}") else conn_id
-        if conn_base in fallback_conn_ids and (not username or not password or not host or not port):
-            daas_conn_id = f"sftp_daas_{env}"
-            daas_conn = BaseHook.get_connection(daas_conn_id)
-            if not username and daas_conn.login:
-                username = daas_conn.login
-            if not password and daas_conn.password:
-                password = daas_conn.password
-            if not host and daas_conn.host:
-                host = daas_conn.host
-            if (not port or port == 0) and daas_conn.port:
-                port = daas_conn.port
-        
+        # Determinar la sección de config según el conn_id
+        conn_base = (
+            conn_id[: -len(f"_{env}")] if conn_id.endswith(f"_{env}") else conn_id
+        )
+
+        # Mapeo de connections a su fuente de credenciales (igual que en los stractor.py)
+        # sftp_daas_c: base_sitios, base_sitios_bitacora, clientes_libres, toa
+        # sftp_energia_c: sftp_energia, sftp_pago_energia, sftp_base_suministros_activos
+        credentials_source = {
+            "sftp_base_sitios": "sftp_daas_c",
+            "sftp_base_sitios_bitacora": "sftp_daas_c",
+            "sftp_clientes_libres": "sftp_daas_c",
+            "sftp_toa": "sftp_daas_c",
+            "sftp_daas": "sftp_daas_c",
+            "sftp_energia": "sftp_energia_c",
+            "sftp_pago_energia": "sftp_energia_c",
+            "sftp_base_suministros_activos": "sftp_energia_c",
+        }
+
+        # Determinar de dónde vienen las credenciales
+        config_section = credentials_source.get(conn_base, f"{conn_base}_c")
+
+        # Mostrar de dónde se obtienen las credenciales
+        logger.info(
+            "🔍 Probando conexión SFTP: %s (config: %s)", conn_id, config_section
+        )
+
+        config = load_config()
+        sftp_config = config.get(config_section, {})
+
+        # Extraer parámetros de conexión
+        host = sftp_config.get("host")
+        port = sftp_config.get("port") or 22
+        username = sftp_config.get("username")
+        password = sftp_config.get("password")
+
         if not all([host, username, password]):
-            raise ValueError(f"Faltan parámetros de conexión: host={host}, username={username}, password={'***' if password else None}")
-        
-        logger.info("   Parámetros: Host=%s, Port=%s, Username=%s", host, port, username)
+            raise ValueError(
+                f"Faltan parámetros de conexión: host={host}, username={username}, password={'***' if password else None}"
+            )
+
+        logger.info(
+            "   Parámetros: Host=%s, Port=%s, Username=%s", host, port, username
+        )
         logger.info("   Iniciando conexión con paramiko.Transport...")
-        
+
         # Conectar usando paramiko exactamente como en base_stractor.py (sin configuraciones extra)
         transport = paramiko.Transport((host, port))
         logger.info("   Transport creado, conectando...")
         transport.connect(username=username, password=password)
         logger.info("   Transport conectado, creando SFTPClient...")
         sftp = paramiko.SFTPClient.from_transport(transport)
-        
+
         # Probar listando el directorio raíz
         logger.info("   Probando listdir('.')...")
         files = sftp.listdir(".")
-        
-        logger.info("✅ %s: SFTP conectado correctamente (archivos en raíz: %d)", conn_id, len(files))
+
+        logger.info(
+            "✅ %s: SFTP conectado correctamente (archivos en raíz: %d)",
+            conn_id,
+            len(files),
+        )
         return {
             "status": "OK",
             "message": f"Conexión SFTP establecida y listado básico OK ({len(files)} items en raíz)",
@@ -298,7 +322,9 @@ def _test_sftp_connection(conn_id: str, env: str) -> Dict[str, Any]:
     except Exception as exc:
         error_msg = str(exc)
         error_type = type(exc).__name__
-        logger.error("❌ %s: Error conectando a SFTP [%s] - %s", conn_id, error_type, error_msg)
+        logger.error(
+            "❌ %s: Error conectando a SFTP [%s] - %s", conn_id, error_type, error_msg
+        )
         return {
             "status": "ERROR",
             "message": f"Error [{error_type}]: {error_msg}",
@@ -323,21 +349,21 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
     """Prueba conectividad a HTTP usando requests directamente (como en webindra/stractor.py)."""
     try:
         logger.info("🔍 Probando conexión HTTP: %s", conn_id)
-        
+
         # Obtener la connection de Airflow
         conn = BaseHook.get_connection(conn_id)
-        
+
         # Extraer parámetros de conexión
         base_url = conn.host
         if not base_url:
             raise ValueError("Connection no tiene 'host' configurado")
-        
+
         # Asegurar que tenga protocolo
         if not base_url.startswith(("http://", "https://")):
             base_url = f"https://{base_url}"
-        
+
         logger.info("   URL base: %s", base_url)
-        
+
         # Obtener headers desde extra (puede ser dict o string JSON)
         headers = {}
         extras = conn.extra_dejson or {}
@@ -349,14 +375,16 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
                 try:
                     headers = json.loads(headers_raw)
                 except json.JSONDecodeError:
-                    logger.warning("   No se pudo parsear headers como JSON, usando headers por defecto")
+                    logger.warning(
+                        "   No se pudo parsear headers como JSON, usando headers por defecto"
+                    )
                     headers = {"User-Agent": "Mozilla/5.0"}
         else:
             # Headers por defecto si no están configurados
             headers = {"User-Agent": "Mozilla/5.0", "Accept": "*/*"}
-        
+
         logger.info("   Headers: %s", list(headers.keys()))
-        
+
         # Configurar proxy si está disponible
         proxies = None
         if "proxy" in extras:
@@ -365,7 +393,7 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
                 proxy_url = proxy if "://" in proxy else f"http://{proxy}"
                 proxies = {"http": proxy_url, "https": proxy_url}
                 logger.info("   Proxy: %s", proxy_url)
-        
+
         # Hacer petición HEAD para probar conectividad (más rápido que GET)
         logger.info("   Haciendo petición HEAD a %s...", base_url)
         response = requests.head(
@@ -373,14 +401,16 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
             headers=headers,
             proxies=proxies,
             timeout=10,
-            verify=False  # Deshabilitar verificación SSL para pruebas
+            verify=False,  # Deshabilitar verificación SSL para pruebas
         )
-        
+
         status_code = response.status_code
         logger.info("   Status code recibido: %d", status_code)
-        
+
         if 200 <= status_code < 400:
-            logger.info("✅ %s: HTTP conectado correctamente (status: %d)", conn_id, status_code)
+            logger.info(
+                "✅ %s: HTTP conectado correctamente (status: %d)", conn_id, status_code
+            )
             return {
                 "status": "OK",
                 "message": f"HTTP {status_code} recibido correctamente",
@@ -401,7 +431,9 @@ def _test_http_connection(conn_id: str) -> Dict[str, Any]:
     except Exception as exc:
         error_msg = str(exc)
         error_type = type(exc).__name__
-        logger.error("❌ %s: Error conectando a HTTP [%s] - %s", conn_id, error_type, error_msg)
+        logger.error(
+            "❌ %s: Error conectando a HTTP [%s] - %s", conn_id, error_type, error_msg
+        )
         return {
             "status": "ERROR",
             "message": f"Error [{error_type}]: {error_msg}",
@@ -450,7 +482,12 @@ def _test_neteco_http_connection(conn_id: str) -> Dict[str, Any]:
     except Exception as exc:
         error_msg = str(exc)
         error_type = type(exc).__name__
-        logger.error("❌ %s: Error conectando a NetEco HTTP [%s] - %s", conn_id, error_type, error_msg)
+        logger.error(
+            "❌ %s: Error conectando a NetEco HTTP [%s] - %s",
+            conn_id,
+            error_type,
+            error_msg,
+        )
         return {
             "status": "ERROR",
             "message": f"Error [{error_type}]: {error_msg}",
@@ -466,8 +503,12 @@ def _test_generic_connection(conn_id: str) -> Dict[str, Any]:
         login = conn.login
         password = conn.password
         extra = conn.extra_dejson
-        logger.info("✅ %s: Connection Generic accesible (login: %s, extra keys: %s)", 
-                   conn_id, login, list(extra.keys()) if extra else [])
+        logger.info(
+            "✅ %s: Connection Generic accesible (login: %s, extra keys: %s)",
+            conn_id,
+            login,
+            list(extra.keys()) if extra else [],
+        )
         return {
             "status": "OK",
             "message": f"Connection Generic accesible (login/password/extra leídos correctamente)",
@@ -484,16 +525,16 @@ def _test_generic_connection(conn_id: str) -> Dict[str, Any]:
 def check_connectivity() -> Dict[str, Any]:
     """
     Prueba conectividad básica a TODAS las connections requeridas.
-    
+
     Identifica automáticamente el tipo de conexión y prueba cada una de forma independiente.
     Si una falla, las demás continúan probándose.
     """
     # Obtener entorno y construir lista dinámica
     env = get_env_mode()
     required_conns = get_required_connections(env)
-    
+
     results: Dict[str, Dict[str, Any]] = {}
-    
+
     logger.info("=" * 80)
     logger.info("INICIANDO PRUEBAS DE CONECTIVIDAD PARA ENTORNO: %s", env.upper())
     logger.info("Total de conexiones a probar: %d", len(required_conns))
@@ -502,14 +543,14 @@ def check_connectivity() -> Dict[str, Any]:
     for conn_id in required_conns:
         logger.info("-" * 80)
         logger.info("Probando conexión: %s", conn_id)
-        
+
         try:
             # Primero verificamos que la connection exista
             conn = BaseHook.get_connection(conn_id)
             conn_type = conn.conn_type.lower() if conn.conn_type else "unknown"
-            
+
             logger.info("Tipo de conexión detectado: %s", conn_type)
-            
+
             # Probamos según el tipo de conexión
             if conn_type == "postgres":
                 results[conn_id] = _test_postgres_connection(conn_id)
@@ -523,12 +564,16 @@ def check_connectivity() -> Dict[str, Any]:
                 else:
                     results[conn_id] = _test_generic_connection(conn_id)
             else:
-                logger.warning("⚠️ %s: Tipo de conexión '%s' no soportado para prueba de conectividad", conn_id, conn_type)
+                logger.warning(
+                    "⚠️ %s: Tipo de conexión '%s' no soportado para prueba de conectividad",
+                    conn_id,
+                    conn_type,
+                )
                 results[conn_id] = {
                     "status": "SKIPPED",
                     "message": f"Tipo de conexión '{conn_type}' no tiene prueba de conectividad implementada",
                 }
-                
+
         except AirflowNotFoundException:
             logger.warning("⚠️ %s: Connection no encontrada, omitiendo prueba", conn_id)
             results[conn_id] = {
@@ -537,7 +582,9 @@ def check_connectivity() -> Dict[str, Any]:
             }
         except Exception as exc:
             error_msg = str(exc)
-            logger.error("❌ %s: Error inesperado obteniendo connection - %s", conn_id, error_msg)
+            logger.error(
+                "❌ %s: Error inesperado obteniendo connection - %s", conn_id, error_msg
+            )
             results[conn_id] = {
                 "status": "ERROR",
                 "message": f"Error obteniendo connection: {error_msg}",
@@ -547,12 +594,12 @@ def check_connectivity() -> Dict[str, Any]:
     logger.info("=" * 80)
     logger.info("RESUMEN DE PRUEBAS DE CONECTIVIDAD")
     logger.info("=" * 80)
-    
+
     ok_conns = [k for k, v in results.items() if v["status"] == "OK"]
     warn_conns = [k for k, v in results.items() if v["status"] == "WARN"]
     error_conns = [k for k, v in results.items() if v["status"] == "ERROR"]
     skipped_conns = [k for k, v in results.items() if v["status"] == "SKIPPED"]
-    
+
     logger.info("✅ CONEXIONES OK (%d): %s", len(ok_conns), ok_conns)
     if warn_conns:
         logger.warning("⚠️ CONEXIONES CON WARNING (%d): %s", len(warn_conns), warn_conns)
@@ -562,20 +609,22 @@ def check_connectivity() -> Dict[str, Any]:
             logger.error("   - %s: %s", conn_id, results[conn_id]["message"])
     if skipped_conns:
         logger.info("⏭️ CONEXIONES OMITIDAS (%d): %s", len(skipped_conns), skipped_conns)
-    
+
     summary = {
         "OK": len(ok_conns),
         "WARN": len(warn_conns),
         "ERROR": len(error_conns),
         "SKIPPED": len(skipped_conns),
     }
-    
-    logger.info("=" * 80)
-    logger.info("TOTAL: %d OK, %d WARN, %d ERROR, %d SKIPPED", 
-                summary["OK"], summary["WARN"], summary["ERROR"], summary["SKIPPED"])
-    logger.info("=" * 80)
 
-    return {"summary": summary, "detail": results}
+    logger.info("=" * 80)
+    logger.info(
+        "TOTAL: %d OK, %d WARN, %d ERROR, %d SKIPPED",
+        summary["OK"],
+        summary["WARN"],
+        summary["ERROR"],
+        summary["SKIPPED"],
+    )
 
 
 with DAG(
