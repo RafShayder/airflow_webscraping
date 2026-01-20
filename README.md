@@ -11,19 +11,21 @@
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/Selenium-Chrome-43B02A?logo=selenium&logoColor=white" alt="Selenium">
+  <img src="https://img.shields.io/badge/Chrome-140-4285F4?logo=googlechrome&logoColor=white" alt="Chrome">
+  <img src="https://img.shields.io/badge/Selenium-4.x-43B02A?logo=selenium&logoColor=white" alt="Selenium">
+  <img src="https://img.shields.io/badge/Platform-Linux%20amd64-FCC624?logo=linux&logoColor=black" alt="Platform">
   <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
 </p>
 
 ---
 
-## Arquitectura
+## 🏗️ Arquitectura
 
 ![Arquitectura del sistema](docs/arquitectura.png)
 
 ---
 
-## Índice
+## 📑 Índice
 
 1. [Instalación de Docker CE (Requisito previo)](#instalación-de-docker-ce-requisito-previo)
 2. [Generar paquete offline (Dev)](#generar-paquete-offline-dev)
@@ -36,13 +38,17 @@
 
 ---
 
-## Instalación de Docker CE (Requisito previo)
+<br>
+
+## 🐳 Instalación de Docker CE (Requisito previo)
 
 Si el servidor no tiene Docker instalado, consulta la guía completa en **[docs/DOCKER_INSTALL.md](docs/DOCKER_INSTALL.md)**.
 
 ---
 
-## Generar paquete offline (Dev)
+<br>
+
+## 📦 Generar paquete offline (Dev)
 
 Este paso se realiza en una máquina de desarrollo con acceso a Internet. Para la guía completa ver **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
@@ -56,7 +62,9 @@ Esto genera `scraper-integratel-offline.tar.gz` con todas las imágenes Docker n
 
 ---
 
-## Despliegue offline en el servidor (Linux `amd64`)
+<br>
+
+## 🚀 Despliegue offline en el servidor (Linux `amd64`)
 
 1. **Copiar imagen tar.gz via sftp a la raiz del directorio**
    ```
@@ -131,7 +139,9 @@ Esto genera `scraper-integratel-offline.tar.gz` con todas las imágenes Docker n
 
 ---
 
-## Configuración y credenciales
+<br>
+
+## ⚙️ Configuración y credenciales
 
 ### Variables obligatorias
 
@@ -150,7 +160,9 @@ Para más detalles ver **[docs/CONFIGURACION.md](docs/CONFIGURACION.md)**.
 
 ---
 
-## Notas de operación
+<br>
+
+## 📝 Notas de operación
 
 - Ejecuta `AIRFLOW_UID=$(id -u)` antes de `docker compose up` si levantas el stack en otra máquina Linux.
 - Para usar Docker sin `sudo`, añade tu usuario al grupo `docker` y vuelve a iniciar sesión.
@@ -159,13 +171,17 @@ Para más detalles ver **[docs/CONFIGURACION.md](docs/CONFIGURACION.md)**.
 
 ---
 
-## DAGs y Schedules
+<br>
+
+## 📋 DAGs y Schedules
 
 Para la lista completa de DAGs, schedules y stored procedures ver **[docs/DAGS.md](docs/DAGS.md)**.
 
 ---
 
-## Herramientas de desarrollo
+<br>
+
+## 🛠️ Herramientas de desarrollo
 
 ### sync_sftp.py
 
@@ -179,7 +195,9 @@ python sync_sftp.py            # Sincronizar
 
 ---
 
-## Documentación adicional
+<br>
+
+## 📚 Documentación adicional
 
 | Documento | Descripción |
 |-----------|-------------|
