@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 import sys
 from datetime import datetime, timedelta
-import logging
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
@@ -11,25 +11,30 @@ sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
 from energiafacilities.core.utils import setup_logging
-from sources.sftp_energia.stractor import extraersftp_energia_PD, extraersftp_energia_DA
-from sources.sftp_energia.loader import load_sftp_energia_PD, load_sftp_energia_DA
-from sources.sftp_energia.run_sp import correr_sftp_energia_PD, correr_sftp_energia_DA
-from sources.sftp_energia.geterrortable import get_save_errors_PD, get_save_errors_DA
+from sources.sftp_energia.geterrortable import get_save_errors_DA, get_save_errors_PD
+from sources.sftp_energia.loader import load_sftp_energia_DA, load_sftp_energia_PD
+from sources.sftp_energia.run_sp import correr_sftp_energia_DA, correr_sftp_energia_PD
+from sources.sftp_energia.stractor import extraersftp_energia_DA, extraersftp_energia_PD
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
 
 def procesar_load_sftp_energia_PD(**kwargs):
     linkdata = kwargs["ti"].xcom_pull(task_ids="extract_sftp_energia_PD")
     return load_sftp_energia_PD(filepath=linkdata)
 
+
 def procesar_load_sftp_energia_DA(**kwargs):
     linkdata = kwargs["ti"].xcom_pull(task_ids="extract_sftp_energia_DA")
     return load_sftp_energia_DA(filepath=linkdata)
 
+
 config = {
     "owner": "SigmaAnalytics",
-    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
+    "start_date": datetime(
+        2025, 12, 1
+    ),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -39,7 +44,7 @@ config = {
 with DAG(
     "dag_recibos_sftp_energia",
     default_args=config,
-    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+    schedule="0 4 1 * *",  # Cada mes (día 1) a las 04 am
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:

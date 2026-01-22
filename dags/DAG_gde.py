@@ -16,10 +16,10 @@ from airflow.sdk import Variable  # type: ignore
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
-from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.helpers import get_xcom_result
+from energiafacilities.core.utils import setup_logging
 from energiafacilities.sources.autin_gde.loader import load_gde
+from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
 
 setup_logging()
 
@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 default_args = {
     "owner": "SigmaAnalytics",
     "depends_on_past": False,
-    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
+    "start_date": datetime(
+        2025, 12, 1
+    ),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
 }
-
-
 
 
 def run_gde_scraper() -> str:
@@ -61,7 +61,7 @@ def procesar_load_gde(**kwargs):
     Procesa la carga de datos de GDE hacia PostgreSQL.
     Obtiene el filepath del task anterior mediante XCom.
     """
-    linkdata = get_xcom_result(kwargs, 'scrape_gde_report')
+    linkdata = get_xcom_result(kwargs, "scrape_gde_report")
     logger.debug("Archivo recibido desde extract: %s", linkdata)
 
     # Obtener el mismo entorno que se usó en el extract
@@ -74,7 +74,7 @@ with DAG(
     "dag_autin_gde",
     default_args=default_args,
     description="Scraper y carga de datos GDE - Ejecución cada 3 horas",
-    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+    schedule="0 3 * * *",  # Cada día a las 03 am
     catchup=False,
     tags=["scraper", "gde", "integratel", "teleows"],
 ) as dag:

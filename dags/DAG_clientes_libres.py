@@ -9,26 +9,31 @@ from airflow.providers.standard.operators.python import PythonOperator
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.helpers import get_xcom_result
-from sources.clientes_libres.stractor import extraersftp_clienteslibres
-from sources.clientes_libres.transformer import transformer_clienteslibres
+from energiafacilities.core.utils import setup_logging
 from sources.clientes_libres.loader import load_clienteslibres
 from sources.clientes_libres.run_sp import correr_sp_clienteslibres
+from sources.clientes_libres.stractor import extraersftp_clienteslibres
+from sources.clientes_libres.transformer import transformer_clienteslibres
 
 setup_logging()
 
+
 def procesar_transform_clientes_libres(**kwargs):
-    path_extraido = get_xcom_result(kwargs, 'extract_clientes_libres')
+    path_extraido = get_xcom_result(kwargs, "extract_clientes_libres")
     return transformer_clienteslibres(filepath=path_extraido)
 
+
 def procesar_load_clientes_libres(**kwargs):
-    path_transformado = get_xcom_result(kwargs, 'transform_clientes_libres')
+    path_transformado = get_xcom_result(kwargs, "transform_clientes_libres")
     return load_clienteslibres(filepath=path_transformado)
+
 
 default_args = {
     "owner": "SigmaAnalytics",
-    "start_date": datetime(2025, 12, 1),  # Fecha reciente para permitir ejecución inmediata
+    "start_date": datetime(
+        2025, 12, 1
+    ),  # Fecha reciente para permitir ejecución inmediata
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -38,7 +43,7 @@ default_args = {
 with DAG(
     "dag_etl_clientes_libres",
     default_args=default_args,
-    schedule="0 */3 * * *",  # Cada 3 horas (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+    schedule="0 4 1 * *",  # Cada 01 de cada mes a las 4 am
     catchup=False,
     tags=["energiafacilities"],
 ) as dag:

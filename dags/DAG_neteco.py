@@ -11,21 +11,22 @@ import sys
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
 from airflow.models.param import Param
+from airflow.providers.standard.operators.python import PythonOperator  # type: ignore
 
 # Asegurar imports de proyecto
 sys.path.insert(0, "/opt/airflow/proyectos/energiafacilities")
 sys.path.insert(0, "/opt/airflow/proyectos")
 
-from energiafacilities.core.utils import setup_logging
 from energiafacilities.core.helpers import get_xcom_result
-from sources.neteco.scraper import scraper_neteco
-from sources.neteco.transformer import transformer_neteco
+from energiafacilities.core.utils import setup_logging
 from sources.neteco.loader import load_neteco
 from sources.neteco.run_sp import correr_sp_neteco
+from sources.neteco.scraper import scraper_neteco
+from sources.neteco.transformer import transformer_neteco
 
 setup_logging()
+
 
 def run_neteco_scraper(**kwargs) -> str:
     """Ejecuta el scraper con parámetros opcionales del DAG."""
@@ -38,11 +39,13 @@ def run_neteco_scraper(**kwargs) -> str:
 
     # Solo pasar valores si fueron especificados
     if date_mode or start_time or end_time:
-        return str(scraper_neteco(
-            date_mode_override=date_mode,
-            start_time_override=start_time,
-            end_time_override=end_time,
-        ))
+        return str(
+            scraper_neteco(
+                date_mode_override=date_mode,
+                start_time_override=start_time,
+                end_time_override=end_time,
+            )
+        )
     return str(scraper_neteco())
 
 
@@ -92,7 +95,7 @@ with DAG(
     "dag_neteco",
     default_args=default_args,
     description="ETL NetEco",
-    schedule="0 */3 * * *",
+    schedule="0 5 * * *",  # Cada día a las 5 am
     catchup=False,
     tags=["scraper", "neteco"],
     params=dag_params,

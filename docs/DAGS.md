@@ -8,17 +8,17 @@ Este documento lista todos los DAGs disponibles y su configuración.
 
 | DAG | Descripción | Schedule | Frecuencia |
 |-----|-------------|----------|------------|
-| `DAG_neteco` | ETL NetEco (scraper + transform + load + SP) | `0 */3 * * *` | Cada 3 horas |
+| `DAG_neteco` | ETL NetEco (scraper + transform + load + SP) | `0 5 * * *` | Cada día 5 am |
 | `DAG_neteco_alertas` | Reportes XLSX de alertas NetEco (faltantes y anomalías) | `None` | Manual |
-| `DAG_gde` | Scraper y carga de datos GDE | `0 */3 * * *` | Cada 3 horas |
-| `DAG_dynamic_checklist` | ETL completo para Dynamic Checklist | `0 2,5,8,11,14,17,20,23 * * *` | Cada 3h (desfasado +2h) |
-| `DAG_sftp_energia` | Recibos de energía SFTP (PD/DA) | `0 */3 * * *` | Cada 3 horas |
-| `DAG_sftp_pago_energia` | Pagos de energía SFTP | `0 */3 * * *` | Cada 3 horas |
-| `DAG_sftp_toa` | Reportes TOA SFTP | `0 */3 * * *` | Cada 3 horas |
-| `DAG_clientes_libres` | Clientes libres SFTP | `0 */3 * * *` | Cada 3 horas |
-| `DAG_base_sitios` | Base de sitios (base + bitácora) | `0 */3 * * *` | Cada 3 horas |
-| `DAG_sftp_base_suministros_activos` | Base suministros activos SFTP | `0 */3 * * *` | Cada 3 horas |
-| `DAG_webindra` | Recibos Indra web | `0 */3 * * *` | Cada 3 horas |
+| `DAG_gde` | Scraper y carga de datos GDE | `0 3 * * *` | Cada día 3 am |
+| `DAG_dynamic_checklist` | ETL completo para Dynamic Checklist | `0 2 1 * *` | Cada 01 de mes 2 am |
+| `DAG_sftp_energia` | Recibos de energía SFTP (PD/DA) | `0 4 1 * *` | Cada 01 de mes 4 am |
+| `DAG_sftp_pago_energia` | Pagos de energía SFTP | `0 0 * * 1` | Cada lunes medianoche |
+| `DAG_sftp_toa` | Reportes TOA SFTP | `0 2 * * *` | Cada día 2 am |
+| `DAG_clientes_libres` | Clientes libres SFTP | `0 4 1 * *` | Cada 01 de mes 4 am |
+| `DAG_base_sitios` | Base de sitios (base + bitácora) | `0 1 1 * *` | Cada 01 de mes 1 am |
+| `DAG_sftp_base_suministros_activos` | Base suministros activos SFTP | `0 4 1 * *` | Cada 01 de mes 4 am |
+| `DAG_webindra` | Recibos Indra web | `0 4 1 * *` | Cada 01 de mes 4 am |
 | `DAG_cargaglobal` | Carga manual parametrizada | `None` | Manual |
 | `DAG_healthcheck_config` | Healthcheck de variables/connections | `None` | Manual |
 
@@ -26,8 +26,9 @@ Este documento lista todos los DAGs disponibles y su configuración.
 
 ## Horarios de ejecución automática
 
-- **Cada 3 horas (estándar):** 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
-- **Cada 3 horas (desfasado):** 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00
+- **Diarios:** 2 am (TOA), 3 am (GDE), 5 am (NetEco)
+- **Semanales:** Lunes medianoche (Pago Energía)
+- **Mensuales (día 1):** 1 am (Base Sitios), 2 am (Checklist), 4 am (Clientes Libres, Suministros Activos, WebIndra, Recibos Energía)
 
 ---
 
