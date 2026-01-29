@@ -19,6 +19,7 @@ sys.path.insert(0, "/opt/airflow/proyectos")
 from energiafacilities.core.helpers import get_xcom_result
 from energiafacilities.core.utils import setup_logging
 from energiafacilities.sources.autin_gde.loader import load_gde
+from energiafacilities.sources.autin_gde.run_sp import correr_sp_gde
 from energiafacilities.sources.autin_gde.stractor import GDEConfig, extraer_gde
 
 setup_logging()
@@ -104,4 +105,15 @@ with DAG(
         """,
     )
 
-    extract >> load
+    sp = PythonOperator(
+        task_id="sp_transform_gde",
+        python_callable=correr_sp_gde,
+        doc_md="""
+        ### SP Transform GDE
+
+        Ejecuta el stored procedure web_mm_autin_infogeneral
+        para transformar los datos de raw a ods.
+        """,
+    )
+
+    extract >> load >> sp

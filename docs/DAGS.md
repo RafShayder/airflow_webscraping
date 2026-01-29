@@ -39,8 +39,8 @@ Los stored procedures están en `db/fase 3/ods/funcion/`. Definición de tablas 
 | DAG | SP(s) | Origen (RAW) | Destino (ODS) |
 |-----|-------|--------------|---------------|
 | DAG_neteco | `ods.sp_cargar_web_md_neteco` | `raw.web_md_neteco` | `ods.web_hd_neteco`, `ods.web_hd_neteco_diaria` |
-| DAG_gde | `ods.sp_cargar_gde_tasks` | `raw.web_mm_autin_infogeneral` | `ods.web_hm_autin_infogeneral` |
-| DAG_dynamic_checklist | `ods.sp_cargar_dynamic_checklist_tasks` | `raw.dynamic_checklist_tasks` | Tablas ODS checklist |
+| DAG_gde | `ods.sp_cargar_web_hm_autin_infogeneral` | `raw.web_mm_autin_infogeneral` | `ods.web_hm_autin_infogeneral` |
+| DAG_dynamic_checklist | `ods.sp_validacion_hm_checklist` | 47 tablas raw.* checklist | Validación de duplicados |
 | DAG_sftp_energia | `ods.sp_cargar_sftp_hm_consumo_suministro_da/pd` | `raw.sftp_mm_consumo_suministro_da/pd` | `ods.sftp_hm_consumo_suministro` |
 | DAG_sftp_pago_energia | `ods.sp_cargar_sftp_hm_pago_energia` | `raw.sftp_mm_pago_energia` | `ods.sftp_hm_pago_energia` |
 | DAG_sftp_toa | `ods.sp_cargar_sftp_hd_toa` | `raw.sftp_hd_toa` | `ods.sftp_hd_toa` |

@@ -28,6 +28,7 @@ from energiafacilities.sources.autin_checklist.loader import (
     load_dynamic_checklist,
     load_single_table,
 )
+from energiafacilities.sources.autin_checklist.run_sp import correr_sp_checklist
 from energiafacilities.sources.autin_checklist.stractor import (
     DynamicChecklistConfig,
     extraer_dynamic_checklist,
@@ -211,5 +212,17 @@ with DAG(
         )
         load_tasks.append(load_task)
 
-    # Dependencias: scrape -> set_fecha -> todas las tareas de carga (en paralelo)
-    scrape_checklist >> set_fecha >> load_tasks
+    # Task para ejecutar el SP de validación
+    sp_validacion = PythonOperator(
+        task_id="sp_validacion_checklist",
+        python_callable=correr_sp_checklist,
+        doc_md="""
+        ### SP Validación Checklist
+
+        Ejecuta el stored procedure ods.sp_validacion_hm_checklist
+        para validar y limpiar datos duplicados del día.
+        """,
+    )
+
+    # Dependencias: scrape -> set_fecha -> todas las tareas de carga (en paralelo) -> sp_validacion
+    scrape_checklist >> set_fecha >> load_tasks >> sp_validacion
